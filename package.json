@@ -8,6 +8,7 @@
     "start": "node tools/serve.js 8080",
     "test:physics": "node tools/physics-test.js",
     "test:walls": "node tools/wall-test.js",
-    "lap": "node tools/lap-sim.js"
+    "lap": "node tools/lap-sim.js",
+    "bump": "node tools/bump-build.mjs"
   }
 }

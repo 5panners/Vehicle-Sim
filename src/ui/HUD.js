@@ -1,3 +1,4 @@
+import { BUILD } from '../build.js';
 const $ = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; };
 const DEG = 180 / Math.PI;
 
@@ -14,7 +15,7 @@ export class HUD {
         <div class="small" id="hDev"></div>
         <div class="lap" id="hLap"></div>
       </div>`));
-    root.append($(`<div class="hud-top-right"><div id="hFps" class="small"></div><div class="small" id="hCam"></div>
+    root.append($(`<div class="hud-top-right"><div class="small build">Build ${BUILD.number} · ${BUILD.date}</div><div id="hFps" class="small"></div><div class="small" id="hCam"></div>
         <div class="small hintline">Esc/Start: controls · Tab: tuning · T: telemetry · F: spawn · H: help</div></div>`));
     root.append($(`<div class="hud-dash">
         <div class="rpm"><div class="rpm-fill" id="hRpm"></div><div class="rpm-red" id="hRed"></div></div>
