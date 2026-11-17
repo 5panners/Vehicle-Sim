@@ -81,6 +81,7 @@ Switch with **L**, or the **Map** dropdown in the Tab panel (the page reloads wi
 | `test` | The proving ground: start pad, skidpad, surface strips, jump park, circuit and walled section (below). |
 | `brands` | **Brands Hatch GP** (3.908 km, clockwise). See below. |
 | `spa` | **Spa-Francorchamps** (7.004 km, clockwise): Eau Rouge and Raidillon, the Kemmel straight, Pouhon and Blanchimont in the Ardennes forest. See below. |
+| `kart` | **Apex Ring** (723 m, clockwise): a compact karting circuit with a 150 m start straight, a hairpin, an S-bend and a technical infield. See below. |
 
 ### Spa-Francorchamps
 
@@ -99,6 +100,12 @@ The full 7.004 km Grand Prix circuit in the Ardennes: 102 m of elevation change 
 
 Honest limits: positions are good to roughly ±10 m (the route is a rider's GPS track and the map is about 3 m per pixel); the Les Combes–Rivage stretch is bridged, not traced; the start line is placed at the flag on the map, which may be a little off the official line; kerb, run-off and barrier layout follow the circuit's character rather than a survey; and this is a big world (2.4 km square, about 145 MB for the physics grid), so it takes a couple of seconds longer to load.
 
+
+### Apex Ring (kart)
+
+![Apex Ring design sheet](docs/circuits/kart-circuit-design.png)
+
+A 723 m karting circuit, 8 m wide (10 m on the pit straight), with eight numbered corners, tyre walls on both sides, kerbs on the inside of each corner, a pit lane with kart garages, a race-control tower, a covered stand, paddock tents and a tree belt. It undulates by about 3 m. It was designed first as an image (`tools/design-kart-circuit.py` draws the sheet from a list of centreline points) and the same script exports the centreline to `src/world/maps/kart-track.js`; the map is `src/world/maps/kart.js` and the surroundings `src/render/scenery/kart.js`. The AI is calibrated for it like the other circuits.
 
 ### Brands Hatch GP
 

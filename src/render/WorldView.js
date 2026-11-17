@@ -5,6 +5,7 @@ import { gridSlots } from '../game/RaceStart.js';
 import { fbm } from '../world/noise.js';
 import { smoothstep } from '../physics/math.js';
 import { buildBrandsScenery } from './scenery/brandsHatch.js';
+import { buildKartScenery } from './scenery/kart.js';
 import { buildSpaScenery } from './scenery/spa.js';
 
 export function noiseTexture(size = 256, contrast = 0.25, base = 0.85) {
@@ -49,6 +50,7 @@ export class WorldView {
     if (scenery === 'test') this._scenery();
     else if (scenery === 'brands') buildBrandsScenery(this);
     else if (scenery === 'spa') buildSpaScenery(this);
+    else if (scenery === 'kart') buildKartScenery(this);
   }
 
   // Barriers: street concrete (red/white blocks), concrete pit wall, Armco (two steel rails on

@@ -252,7 +252,8 @@ class App {
     if (!paused) {
       if (inp.pressed.camera) { this.rig.next(); this.hud.showToast(`Camera: ${this.rig.modeName}`, 900); }
       if (inp.pressed.telemetry) this.hud.toggleTelemetry();
-      if (inp.pressed.reset) { this.placeCar(v.body.position.x, v.body.position.z, this.currentYaw()); this.hud.drift.combo = 0; this.hud.drift.active = false; }
+      if (inp.pressed.reset) { const yaw = this.currentYaw(), back = 3;   // upright again, a few metres back so you aren't left in the wall
+        this.placeCar(v.body.position.x - Math.sin(yaw) * back, v.body.position.z - Math.cos(yaw) * back, yaw); this.hud.drift.combo = 0; this.hud.drift.active = false; }
       if (inp.pressed.shiftUp || inp.pressed.shiftDown) {
         if (v.assists.autoGearbox) { v.assists.autoGearbox = false; this.hud.showToast('Manual gearbox (G toggles)'); }
         inp.pressed.shiftUp ? v.shiftUp() : v.shiftDown();
