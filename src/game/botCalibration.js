@@ -2,7 +2,7 @@
 export const BOT_CALIBRATION = {
   "brands": {
     "Track Prototype": 0.95,
-    "Rally AWD": 0.943,
+    "Rally AWD": 0.95,
     "GT Coupe": 0.95,
     "Hot Hatch": 0.754,
     "'67 Lotus GP": 0.651,
@@ -28,7 +28,7 @@ export const BOT_CALIBRATION = {
   },
   "spa": {
     "Track Prototype": 0.95,
-    "Rally AWD": 0.711,
+    "Rally AWD": 0.86,
     "GT Coupe": 0.704,
     "Hot Hatch": 0.671,
     "'67 Lotus GP": 0.499,
