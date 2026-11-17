@@ -19,6 +19,9 @@ export const BOT_SKILLS = [
  * controller. It also looks for the player's car ahead, moves over to pass and
  * backs off when there's no room, and resets itself onto the line when stuck.
  */
+// racing lines depend only on the circuit and the car's width: build once, share between bots
+const LINE_CACHE = new WeakMap();
+
 export class BotDriver {
   constructor(world, vehicle, skill = BOT_SKILLS[2], { calibrated = true, mapId = null, learn = true, grip = null } = {}) {
     this.world = world; this.car = vehicle; this.learning = learn;
@@ -35,7 +38,16 @@ export class BotDriver {
 
   // ---------------------------------------------------------------- racing line
   _buildLine() {
-    const T = this.T, M = this.M, half = this.car.config.body.dimensions.width / 2;
+    const half = this.car.config.body.dimensions.width / 2;
+    const perWorld = LINE_CACHE.get(this.world) ?? new Map(); LINE_CACHE.set(this.world, perWorld);
+    const hit = perWorld.get(half);
+    if (hit) { Object.assign(this, hit); return; }
+    this._computeLine(half);
+    perWorld.set(half, { d: this.d, lim: this.lim, line: this.line, curv: this.curv, tan: this.tan, step: this.step });
+  }
+
+  _computeLine(half) {
+    const T = this.T, M = this.M;
     let step = 0; for (let i = 0; i < M; i++) { const a = T[i], b = T[(i + 1) % M]; step += Math.hypot(b.x - a.x, b.z - a.z); }
     step /= M;
     // lateral offset d along the right-normal (rx, rz), kept inside the kerbs with a margin
@@ -148,8 +160,8 @@ export class BotDriver {
   }
 
   // ---------------------------------------------------------------- driving
-  /** call once per physics step before car.step(dt). other = the player's vehicle (or null). */
-  drive(dt, other) {
+  /** call once per physics step before car.step(dt). others = the other cars (a vehicle, an array, or null). */
+  drive(dt, others) {
     const car = this.car, cfg = car.config, T = this.T, M = this.M, p = car.body.position;
     this.idx = this._track(p, this.idx);
     const idx = this.idx, v = car.speed;
@@ -162,12 +174,20 @@ export class BotDriver {
 
     // traffic: the player's car close ahead on our line -> move over to pass, or back off if there's no room
     let cap = Infinity; this.latTarget = 0;
+    // of the other cars, deal with the nearest one that's ahead of us or alongside
+    let other = null, oi = 0, gap = Infinity;
+    this._oIdx ??= new Map();
+    for (const o of Array.isArray(others) ? others : others ? [others] : []) {
+      const op = o.body.position; let k = this._oIdx.get(o);
+      if (k === undefined || (op.x - T[k].x) ** 2 + (op.z - T[k].z) ** 2 > 900) k = this.nearestIndex(op.x, op.z);
+      k = this._track(op, k); this._oIdx.set(o, k);
+      let ahead = (k - idx + M) % M; if (ahead > M / 2) ahead -= M;
+      const g = ahead * this.step, l = (cfg.body.dimensions.length + o.config.body.dimensions.length) / 2;
+      if (g > -(l + 2) && g < gap) { gap = g; other = o; oi = k; }
+    }
     if (other) {
       const op = other.body.position;
-      if (this._otherIdx === undefined || (op.x - T[this._otherIdx].x) ** 2 + (op.z - T[this._otherIdx].z) ** 2 > 900) this._otherIdx = this.nearestIndex(op.x, op.z);
-      const oi = this._otherIdx = this._track(op, this._otherIdx);
-      let ahead = (oi - idx + M) % M; if (ahead > M / 2) ahead -= M;
-      const gap = ahead * this.step, len = (cfg.body.dimensions.length + other.config.body.dimensions.length) / 2;
+      const len = (cfg.body.dimensions.length + other.config.body.dimensions.length) / 2;
       const closing = Math.max(0, v - other.speed), look = Math.max(30, 15 + closing * 3);
       if (gap > -(len + 2) && gap < look) {                 // ahead of us, or alongside while we pass
         const myLat = this.d[oi] + this.lat, theirLat = this.lateral(op, oi), w = cfg.body.dimensions.width;

@@ -40,14 +40,14 @@ pass-through and stability.
 | Camera / look back | C / B | Y / RB |
 | Reset car | R | View/Back |
 | Telemetry | T | D-pad up |
-| Controls & calibration | Esc | Start |
+| Menu: Create Race · Controls · Vehicle | Esc | Start (LB/RB switch tabs) |
 | Tuning panel | Tab | — |
 | Spawn points | F (cycle), 1–8 | — |
 | Next/prev car | ] / [ | — |
 | Auto/manual gearbox | G | (pressing a shift button switches to manual) |
 | Units (mph default) / mute / slow-mo / help | U / M / P / H | — |
 | Track map on/off | N | — |
-| Practice opponent on/off / skill | O / K | — |
+| Quick practice vs one opponent / skill | O / K | — |
 | Next map (reloads) | L | — |
 
 **Track map:** a north-up map at the bottom centre (70% opacity) showing the circuit, the walls in red, the start line and the infield test areas, with your car as a heading arrow. Off the map, the arrow sits hollow on the edge. On narrow windows the map moves to the top right.
@@ -132,13 +132,22 @@ Cross the start/finish line to start a lap. The HUD shows the lap time, three se
 
 A lap only counts if you actually drove it forwards. Straying more than 45 m from the circuit invalidates it.
 
-### Practice opponent
+### Races and the practice opponent
 
-Press **O** to add an AI car to race against (O again removes it). It drives the same car you're in, in blue. **K** cycles its skill: Rookie, Club, Pro, Alien. The choice is remembered. Switching car with [ / ] puts the opponent in the new car too.
+**Esc** opens the menu (it pauses the game). It has three tabs:
+- **Create Race:** pick the track, 1–7 opponents, their skill (Rookie, Club, Pro, Alien), the number of laps (or open practice) and your grid slot, then **Start race**. Choosing another track reloads it and starts the race there. Your last setup is remembered.
+- **Controls:** controller binding and calibration, steering sensitivity and rumble.
+- **Vehicle:** every car with its weight, rough power, drivetrain and description. Click one to drive it.
 
-**Race start:** the opponent lines up on pole and you in P2, in the painted grid slots behind the start line (staggered left/right, 8 m apart, pole on the inside of the first corner). Both cars are held on the handbrake, so you can rev. The five red lights on the gantry, mirrored in the HUD, come on one per second. After a random 0.2–3 s hold they all go out, and that's the start. The opponent reacts in 0.18–0.38 s depending on skill.
+In a race the HUD shows your position, the lap and the gap to the car ahead (or behind, if you're leading). Opponents are coloured dots on the track map. When you take the flag a results table shows the finishing order, gaps and best laps, with **Race again**, **Menu** and **Keep driving** buttons.
 
-With an opponent out, the grid spawn (**1**) restarts the race with a new light sequence. Any other spawn (2–8, F) puts you there and sends the opponent back to pole to drive off straight away.
+**O** is a shortcut for a practice session against one opponent from P2 (O again ends it). **K** cycles the opponents' skill.
+
+All opponents drive the same car you're in, each in its own colour. Switching car rebuilds the race in the new car.
+
+**Race start:** everyone lines up in the painted grid slots behind the start line (staggered left/right, 8 m apart, pole on the inside of the first corner). All cars are held on the handbrake, so you can rev. The five red lights on the gantry, mirrored in the HUD, come on one per second. After a random 0.2–3 s hold they all go out, and that's the start. Opponents react in 0.18–0.38 s depending on skill.
+
+In a race, the grid spawn (**1**) restarts it with a new light sequence. Any other spawn (2–8, F) puts you there and sends the opponents back to the grid to drive off straight away.
 
 Under your lap timer the HUD shows whether it's ahead or behind and by roughly how many seconds, plus its best and last lap. It's the blue dot on the track map. Cars collide, so you can rub and bump.
 

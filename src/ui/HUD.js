@@ -17,7 +17,7 @@ export class HUD {
         <div class="small bot" id="hBot"></div>
       </div>`));
     root.append($(`<div class="hud-top-right"><div class="small build">Build ${BUILD.number} · ${BUILD.date}</div><div id="hFps" class="small"></div><div class="small" id="hCam"></div>
-        <div class="small hintline">Esc/Start: controls · Tab: tuning · T: telemetry · F: spawn · O: opponent · H: help</div></div>`));
+        <div class="small hintline">Esc/Start: menu · Tab: tuning · T: telemetry · F: spawn · O: opponent · H: help</div></div>`));
     root.append($(`<div class="hud-dash">
         <div class="rpm"><div class="rpm-fill" id="hRpm"></div><div class="rpm-red" id="hRed"></div></div>
         <div class="dash-row"><div class="gear" id="hGear">N</div>
@@ -58,6 +58,7 @@ export class HUD {
     this.mapEl = $('<div class="minimap"><canvas></canvas></div>'); root.append(this.mapEl);
     // race start lights (mirrors the gantry so they're visible from any camera)
     this.lightsEl = $('<div class="startlights">' + '<span><i></i><i></i></span>'.repeat(5) + '</div>'); root.append(this.lightsEl);
+    this.resultsEl = $('<div class="results panel"></div>'); root.append(this.resultsEl);
     this.driftEl = $('<div class="drift"><div class="d-angle"></div><div class="d-combo"></div><div class="d-total"></div></div>'); root.append(this.driftEl);
     this.drift = { combo: 0, total: 0, idle: 0, active: false, flash: 0, best: 0 };
     this.el = {};
@@ -173,6 +174,14 @@ export class HUD {
   }
   toggleTelemetry() { this.tele.classList.toggle('open'); }
   toggleHelp() { this.help.classList.toggle('open'); }
+  /** race results with buttons: actions = [[label, fn], ...] */
+  showResults(html, actions = []) {
+    const r = this.resultsEl; r.innerHTML = html;
+    const row = document.createElement('div'); row.className = 'row';
+    for (const [label, fn] of actions) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = label; b.onclick = fn; row.append(b); }
+    r.append(row); r.classList.add('show'); row.querySelector('button')?.focus();
+  }
+  hideResults() { this.resultsEl.classList.remove('show'); }
   /** n = lights lit (0-5); show = panel visible */
   setStartLights(n, show) {
     this.lightsEl.classList.toggle('show', show);

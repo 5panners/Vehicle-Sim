@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import { World } from './world/World.js';
 import { MAPS, DEFAULT_MAP } from './world/maps/index.js';
 import { LapTimer } from './game/LapTimer.js';
-import { BotDriver, BOT_SKILLS, collideCars } from './game/BotDriver.js';
-import { gridSlots, StartLights } from './game/RaceStart.js';
+import { BOT_SKILLS } from './game/BotDriver.js';
+import { StartLights } from './game/RaceStart.js';
+import { Race } from './game/Race.js';
+import { Menu } from './ui/Menu.js';
 import { Vehicle } from './physics/Vehicle.js';
 import { Vec3 } from './physics/math.js';
 import { PRESETS } from './vehicles/presets.js';
@@ -75,7 +77,9 @@ class App {
     this.hud = new HUD(document.getElementById('hud'));
     this.hud.buildMap(this.world, this.world.map.minimapZones || {});
     this.hud.mapName = this.world.map.name;
-    this.setup = new ControllerSetup(this.input, document.getElementById('setup'));
+    this.menu = new Menu(this, document.getElementById('menu'));
+    this.setup = new ControllerSetup(this.input, this.menu.controlsRoot);
+    this.menu.setup = this.setup; this.setup.onClose = () => this.menu.close();
     this.setup.onSettingsChanged = () => this.applySteeringMode();
     this.tuning = new TuningPanel(document.getElementById('tuning'), this);
     this.audio = new VehicleAudio();
@@ -85,6 +89,8 @@ class App {
     this.spawnIndex = 0;
     this.spawn(this.spawnNames[0]);
     this._keys();
+    // a race set up on another track (the track change reloads the page) starts once you're in
+    try { this.pendingRace = JSON.parse(localStorage.getItem('vehicleSim.pendingRace') || 'null'); localStorage.removeItem('vehicleSim.pendingRace'); } catch { this.pendingRace = null; }
 
     document.getElementById('loading').classList.add('ready');
     document.getElementById('loadStatus').textContent = 'Click, press a key or a controller button to start';
@@ -93,7 +99,8 @@ class App {
       if (this.started) return;
       this.started = true; this.audio.start();
       document.getElementById('loading').remove();
-      if (!this.input.padConnected) this.hud.showToast('Tip: connect a controller and press any button — Esc/Start for calibration', 4000);
+      if (this.pendingRace) { this.createRace(this.pendingRace); this.pendingRace = null; }
+      else if (!this.input.padConnected) this.hud.showToast('Tip: Esc / Start opens the menu: create a race, controls and vehicles', 4000);
     };
     addEventListener('pointerdown', start); addEventListener('keydown', start);
     this._start = start;
@@ -126,50 +133,44 @@ class App {
     this.placeCar(pos.x, pos.z, yaw);
     this.hud.showToast(PRESETS[i].name);
     if (this.tuning.isOpen) this.tuning.render(); // keep the panel in sync when switching cars
-    if (this.bot) this.addBot();                   // the opponent always drives the same car as you
+    if (this.race) this.createRace(this.race.settings);   // opponents always drive the same car as you
   }
 
-  // ------------------------------------------------------------------ practice opponent
-  get botSkill() { let i = 2; try { i = +(localStorage.getItem('vehicleSim.botSkill') ?? 2); } catch { /* ignore */ } return BOT_SKILLS[i] ? i : 2; }
-  set botSkill(i) { try { localStorage.setItem('vehicleSim.botSkill', String(i)); } catch { /* ignore */ } }
+  // ------------------------------------------------------------------ races
+  get raceSettings() {
+    let saved = {}; try { saved = JSON.parse(localStorage.getItem('vehicleSim.race') || '{}'); } catch { /* ignore */ }
+    return { opponents: 3, skill: 2, laps: 5, slot: 4, ...saved };
+  }
+  set raceSettings(s) { try { localStorage.setItem('vehicleSim.race', JSON.stringify(s)); } catch { /* ignore */ } }
 
-  /** an AI car in the same model as yours, placed just ahead on the other side of the track */
-  addBot() {
-    if (!this.world.track) { this.hud.showToast('No circuit on this map for an opponent'); return; }
-    this.removeBot();
-    const cfg = structuredClone(PRESETS[this.presetIndex]);
-    const vehicle = new Vehicle(cfg, this.world), skill = BOT_SKILLS[this.botSkill];
-    const driver = new BotDriver(this.world, vehicle, skill, { mapId: this.mapId });
-    const view = new CarView(this.scene); view.tint = 0x1e88e5; view.build(vehicle);
-    this.bot = { vehicle, driver, view, lap: new LapTimer(this.world), skill };
-    this.startRace();
-    this.hud.showToast(`Opponent: ${skill.name} on pole, you're P2 (K changes skill)`, 2600);
+  /** a race against AI opponents in your car; a different track reloads the page and starts it there */
+  createRace(settings) {
+    const { map, ...rest } = settings;
+    if (map && map !== this.mapId) {
+      try { localStorage.setItem('vehicleSim.pendingRace', JSON.stringify(rest)); } catch { /* ignore */ }
+      this.raceSettings = rest; this.switchMap(map); return;
+    }
+    if (!this.world.track) { this.hud.showToast('No circuit on this map for a race'); return; }
+    this.endRace();
+    if (rest.laps !== 0 || rest.opponents !== 1) this.raceSettings = rest;   // the O quick practice doesn't overwrite your race setup
+    this.race = new Race(this, rest);
+    this.race.start();
+    const n = rest.opponents;
+    this.hud.showToast(`${rest.laps ? `${rest.laps}-lap race` : 'Practice'} · ${n} opponent${n > 1 ? 's' : ''} (${BOT_SKILLS[rest.skill].name}) · you start P${Math.min(rest.slot, n + 1)}`, 2600);
   }
 
-  /** opponent on pole, you in the slot behind, then the start-light sequence */
-  startRace() {
-    const b = this.bot; if (!b) return;
-    const [pole, p2] = gridSlots(this.world, 2);
-    b.driver.placeAtLateral(pole.index, pole.lat); b.lap.reset(); b.goAt = Infinity;
-    this.hud?.resetDrift();
-    this.placeCar(p2.x, p2.z, p2.yaw);
-    this.raceClock = 0; this.lights.begin();
+  endRace() {
+    if (!this.race) return;
+    this.race.dispose(); this.race = null; this.hud.mapOthers = [];
+    this.lights.phase = 'idle'; this.lights.lit = 0; this.worldView.setStartLights(0); this.hud.setStartLights(0, false);
+    this.hud.hideResults();
   }
 
-  /** opponent back on pole to drive off straight away (when you spawn somewhere else) */
-  botToGrid() {
-    const b = this.bot; if (!b) return;
-    const [pole] = gridSlots(this.world, 1);
-    b.driver.placeAtLateral(pole.index, pole.lat); b.lap.reset(); b.goAt = 0;
+  /** O: quick practice against one opponent on the grid, or end the current race */
+  toggleQuickRace() {
+    if (this.race) { this.endRace(); this.hud.showToast('Race ended'); return; }
+    this.createRace({ opponents: 1, skill: this.raceSettings.skill, laps: 0, slot: 2 });
   }
-
-  removeBot() {
-    if (!this.bot) return;
-    this.bot.view.group.removeFromParent();
-    this.bot = null; this.hud.mapOthers = [];
-    this.lights.phase = 'idle'; this.worldView.setStartLights(0); this.hud.setStartLights(0, false);
-  }
-
 
   currentYaw() {
     const f = this.vehicle.body.localDir(new Vec3(0, 0, 1), new Vec3());
@@ -188,9 +189,9 @@ class App {
   }
 
   spawn(name) {
-    if (this.bot) {
-      if (/grid/i.test(name)) { this.startRace(); this.hud.showToast('Race restart: lights sequence', 1500); return; }
-      this.botToGrid();
+    if (this.race) {
+      if (/grid/i.test(name)) { this.hud.hideResults(); this.race.start(); this.hud.showToast('Race restart: lights sequence', 1500); return; }
+      this.race.botsToGrid();
     }
     this.lights.phase = 'idle'; this.lights.lit = 0;   // spawning anywhere else cancels a start sequence
     this.hud?.resetDrift();
@@ -210,7 +211,7 @@ class App {
   _keys() {
     addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-      if (this.setup.isOpen) return;
+      if (this.menu.isOpen) return;
       if (e.code === 'Tab') { e.preventDefault(); this.tuning.toggle(); }
       else if (e.code === 'KeyF') { this.spawnIndex = (this.spawnIndex + 1) % this.spawnNames.length; this.spawn(this.spawnNames[this.spawnIndex]); }
       else if (/^Digit[1-9]$/.test(e.code)) { const i = +e.code.slice(5) - 1; if (this.spawnNames[i]) { this.spawnIndex = i; this.spawn(this.spawnNames[i]); } }
@@ -219,11 +220,12 @@ class App {
       else if (e.code === 'KeyP') { this.slowmo = !this.slowmo; this.hud.showToast(this.slowmo ? 'Slow motion ×0.25' : 'Real time'); }
       else if (e.code === 'KeyH') this.hud.toggleHelp();
       else if (e.code === 'KeyL') { const ids = Object.keys(MAPS); this.switchMap(ids[(ids.indexOf(this.mapId) + 1) % ids.length]); }
-      else if (e.code === 'KeyO') { if (this.bot) { this.removeBot(); this.hud.showToast('Opponent off'); } else this.addBot(); }
+      else if (e.code === 'KeyO') this.toggleQuickRace();
       else if (e.code === 'KeyK') {
-        this.botSkill = (this.botSkill + 1) % BOT_SKILLS.length; const s = BOT_SKILLS[this.botSkill];
-        if (this.bot) { this.bot.driver.setSkill(s); this.bot.skill = s; }
-        this.hud.showToast(`Opponent skill: ${s.name}`);
+        const rs = this.raceSettings, i = (rs.skill + 1) % BOT_SKILLS.length;
+        this.raceSettings = { ...rs, skill: i };
+        this.race?.setSkill(i);
+        this.hud.showToast(`Opponent skill: ${BOT_SKILLS[i].name}`);
       }
       else if (e.code === 'KeyN') this.hud.showToast(this.hud.toggleMap() ? 'Track map on' : 'Track map off', 900);
       else if (e.code === 'KeyG') { this.vehicle.assists.autoGearbox = !this.vehicle.assists.autoGearbox; this.hud.showToast(this.vehicle.assists.autoGearbox ? 'Automatic gearbox' : 'Manual gearbox'); }
@@ -241,9 +243,9 @@ class App {
     if (!this.started && Object.values(inp.pressed).some(Boolean)) this._start();
 
     // menu buttons
-    if (inp.pressed.menu) { if (this.setup.isOpen) this.setup.close(); else this.setup.open(); }
-    this.setup.update(dt);
-    const paused = this.setup.isOpen || !this.started;
+    if (inp.pressed.menu) this.menu.toggle();
+    this.menu.update(dt);
+    const paused = this.menu.isOpen || !this.started;
     if (!paused) {
       if (inp.pressed.camera) { this.rig.next(); this.hud.showToast(`Camera: ${this.rig.modeName}`, 900); }
       if (inp.pressed.telemetry) this.hud.toggleTelemetry();
@@ -259,31 +261,28 @@ class App {
 
       this.acc += dt * (this.slowmo ? 0.25 : 1);
       let n = 0;
-      const bot = this.bot;
+      const race = this.race;
       let bump = 0;
-      const pin = (car) => { car.body.velocity.x = 0; car.body.velocity.z = 0; car.body.angularVelocity.y = 0; };
       while (this.acc >= DT && n < MAX_STEPS_PER_FRAME) {
         v.step(DT);
-        this.raceClock = (this.raceClock || 0) + DT;
-        if (bot) {
-          const waiting = this.raceClock < bot.goAt;
-          if (waiting) bot.vehicle.setInput({ steer: 0, throttle: 0.45, brake: 0, handbrake: 1, clutch: 0 });   // revving on the grid
-          else bot.driver.drive(DT, v);
-          bot.vehicle.step(DT); bot.vehicle.wallContact = null; bump = Math.max(bump, collideCars(v, bot.vehicle));
-          if (waiting) pin(bot.vehicle);
-        }
-        if (held) pin(v);
+        if (race) bump = Math.max(bump, race.step(DT));
+        if (held) { v.body.velocity.x = 0; v.body.velocity.z = 0; v.body.angularVelocity.y = 0; }
         this.acc -= DT; n++;
       }
       const lev = this.lights.update(dt * (this.slowmo ? 0.25 : 1));
-      if (lev === 'out' && bot) bot.goAt = this.raceClock + bot.skill.react + Math.random() * 0.08;
       if (lev === 'out') this.hud.showToast('Lights out — go!', 1200);
       this.worldView.setStartLights(this.lights.lit);
       this.hud.setStartLights(this.lights.lit, this.lights.phase === 'lights' || (this.lights.phase === 'go' && this.lights.t < 1));
       if (bump > 1.5) { this.audio.thump(Math.min(1, bump / 12)); this.hud.drift.combo = 0; }
-      if (bot) {
-        if (bot.vehicle.body.position.y < -60) bot.driver.placeAt(bot.driver.idx);
-        if (bot.lap.update(dt * (this.slowmo ? 0.25 : 1), bot.vehicle.body.position.x, bot.vehicle.body.position.z) === 'lap' && bot.lap.last.best) this.hud.showToast(`Opponent best lap ${LapTimer.fmt(bot.lap.last.time)}`, 2000);
+      if (race) {
+        for (const b of race.bots) if (b.vehicle.body.position.y < -60) b.driver.placeAt(b.driver.idx);
+        for (const e of race.update(dt * (this.slowmo ? 0.25 : 1), lev)) {
+          if (e.type === 'finish' && !e.car.isPlayer && e.place === 1) this.hud.showToast(`${e.car.name} wins!`, 2000);
+          if (e.type === 'over') this.hud.showResults(race.resultsHtml(), [
+            ['Race again', () => { this.hud.hideResults(); race.start(); }],
+            ['Menu', () => { this.hud.hideResults(); this.menu.open('race'); }],
+            ['Keep driving', () => this.hud.hideResults()]]);
+        }
       }
       if (n === MAX_STEPS_PER_FRAME) this.acc = 0;
       if (v.body.position.y < -60) this.spawn(this.spawnNames[this.spawnIndex]);
@@ -294,8 +293,11 @@ class App {
 
     // ---- views
     this.carView.update(v, inp.state.brake);
-    if (this.bot) { this.bot.view.update(this.bot.vehicle, this.bot.vehicle.input.brake); this._botHud(); }
-    else this.hud.el.hBot.textContent = '';
+    if (this.race) {
+      for (const b of this.race.bots) b.view.update(b.vehicle, b.vehicle.input.brake);
+      this.hud.el.hBot.innerHTML = this.race.hudHtml();
+      this.hud.mapOthers = this.race.mapDots();
+    } else this.hud.el.hBot.textContent = '';
     const wc = v.wallContact; // read before effects consume it
     if (!paused) this.effects.update(dt * (this.slowmo ? 0.25 : 1), v);
     if (wc) this.audio.scrape = Math.max(this.audio.scrape || 0, wc.scrape);
@@ -320,17 +322,5 @@ class App {
     this.renderer.render(this.scene, this.camera);
   }
 }
-
-/** opponent line under the lap timer: who's ahead, by how much, and the bot's laps */
-App.prototype._botHud = function () {
-  const b = this.bot, d = b.driver, M = d.M, p = this.vehicle.body.position;
-  this._pIdx = this._pIdx === undefined || (p.x - d.T[this._pIdx].x) ** 2 + (p.z - d.T[this._pIdx].z) ** 2 > 900 ? d.nearestIndex(p.x, p.z) : d._track(p, this._pIdx);
-  let ahead = (d.idx - this._pIdx + M) % M; if (ahead > M / 2) ahead -= M;
-  const metres = ahead * d.step, secs = Math.abs(metres) / Math.max(8, (b.vehicle.speed + this.vehicle.speed) / 2);
-  const where = Math.abs(metres) < 6 ? '<span>side by side</span>' : metres > 0 ? `<span class="ahead">${secs.toFixed(1)} s ahead</span>` : `<span class="behind">${secs.toFixed(1)} s behind</span>`;
-  const lt = b.lap, f = LapTimer.fmt;
-  this.hud.el.hBot.innerHTML = `<b>Opponent · ${b.skill.name}</b> ${where}<br>best ${lt.best === null ? '--:--.---' : f(lt.best)} · last ${lt.last ? f(lt.last.time) : '--:--.---'}`;
-  this.hud.mapOthers = [{ x: b.vehicle.body.position.x, z: b.vehicle.body.position.z, color: '#1e88e5' }];
-};
 
 window.app = new App();
