@@ -143,4 +143,7 @@ em.cold { color: var(--accent); } em.hot { color: var(--bad); } em.ok { color: v
 .lap { margin-top: 6px; font-size: 12px; line-height: 1.5; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px #000; }
 .lap b { font-size: 16px; }
 .lap b.inv { color: var(--bad); text-decoration: line-through; }
+.bot { margin-top: 6px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px #000; }
+.bot b { color: #64b5f6; }
+.bot .ahead { color: var(--bad); } .bot .behind { color: var(--good); }
 .lap span.pb { color: #b388ff; }

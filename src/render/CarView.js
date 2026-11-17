@@ -24,7 +24,7 @@ export class CarView {
     const cfg = vehicle.config, b = cfg.body, { width: W, height: H, length: L } = b.dimensions;
     this.group.clear();
     this.vehicle = vehicle;
-    const paint = new THREE.MeshStandardMaterial({ color: cfg.color, metalness: 0.4, roughness: 0.35 });
+    const paint = new THREE.MeshStandardMaterial({ color: this.tint ?? cfg.color, metalness: 0.4, roughness: 0.35 });
     const dark = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.6 });
     const glass = new THREE.MeshStandardMaterial({ color: 0x1a2633, metalness: 0.6, roughness: 0.08 });
     const y0 = vehicle.hullBox.y0;
@@ -193,6 +193,11 @@ export class CarView {
     root.traverse((o) => {
       if (!o.isMesh) return;
       o.castShadow = !o.material.transparent; o.receiveShadow = true;
+      // opponent cars: recolour the model's paint (cloned so the player's car keeps its colour)
+      if (this.tint !== undefined && /paint/i.test(o.material.name)) {
+        if (!this._tintMat || this._tintMat.name !== o.material.name) { this._tintMat = o.material.clone(); this._tintMat.color.setHex(this.tint); }
+        o.material = this._tintMat;
+      }
       if (brakeName && o.material.name === brakeName) {
         if (this.brakeMat?.name !== brakeName) this.brakeMat = o.material.clone();
         o.material = this.brakeMat;

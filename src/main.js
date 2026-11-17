@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { World } from './world/World.js';
 import { MAPS, DEFAULT_MAP } from './world/maps/index.js';
 import { LapTimer } from './game/LapTimer.js';
+import { BotDriver, BOT_SKILLS, collideCars } from './game/BotDriver.js';
 import { Vehicle } from './physics/Vehicle.js';
 import { Vec3 } from './physics/math.js';
 import { PRESETS } from './vehicles/presets.js';
@@ -123,7 +124,37 @@ class App {
     this.placeCar(pos.x, pos.z, yaw);
     this.hud.showToast(PRESETS[i].name);
     if (this.tuning.isOpen) this.tuning.render(); // keep the panel in sync when switching cars
+    if (this.bot) this.addBot();                   // the opponent always drives the same car as you
   }
+
+  // ------------------------------------------------------------------ practice opponent
+  get botSkill() { let i = 2; try { i = +(localStorage.getItem('vehicleSim.botSkill') ?? 2); } catch { /* ignore */ } return BOT_SKILLS[i] ? i : 2; }
+  set botSkill(i) { try { localStorage.setItem('vehicleSim.botSkill', String(i)); } catch { /* ignore */ } }
+
+  /** an AI car in the same model as yours, placed just ahead on the other side of the track */
+  addBot() {
+    if (!this.world.track) { this.hud.showToast('No circuit on this map for an opponent'); return; }
+    this.removeBot();
+    const cfg = structuredClone(PRESETS[this.presetIndex]);
+    const vehicle = new Vehicle(cfg, this.world), skill = BOT_SKILLS[this.botSkill];
+    const driver = new BotDriver(this.world, vehicle, skill, { mapId: this.mapId });
+    const p = this.vehicle.body.position, i = driver.nearestIndex(p.x, p.z), T = this.world.track;
+    const onTrack = Math.abs(driver.lateral(p, i)) < T[i].w / 2 + 3;
+    if (onTrack) {
+      const j = (i + Math.round(10 / driver.step)) % T.length, pl = driver.lateral(p, i);
+      driver.placeAt(j, (pl > 0 ? pl - 4 : pl + 4) - driver.d[j]);
+    } else driver.placeAt(T.length - Math.round(30 / driver.step));   // just before the start line
+    const view = new CarView(this.scene); view.tint = 0x1e88e5; view.build(vehicle);
+    this.bot = { vehicle, driver, view, lap: new LapTimer(this.world), skill };
+    this.hud.showToast(`Opponent: ${skill.name} (K changes skill)`, 2200);
+  }
+
+  removeBot() {
+    if (!this.bot) return;
+    this.bot.view.group.removeFromParent();
+    this.bot = null; this.hud.mapOthers = [];
+  }
+
 
   currentYaw() {
     const f = this.vehicle.body.localDir(new Vec3(0, 0, 1), new Vec3());
@@ -168,6 +199,12 @@ class App {
       else if (e.code === 'KeyP') { this.slowmo = !this.slowmo; this.hud.showToast(this.slowmo ? 'Slow motion ×0.25' : 'Real time'); }
       else if (e.code === 'KeyH') this.hud.toggleHelp();
       else if (e.code === 'KeyL') { const ids = Object.keys(MAPS); this.switchMap(ids[(ids.indexOf(this.mapId) + 1) % ids.length]); }
+      else if (e.code === 'KeyO') { if (this.bot) { this.removeBot(); this.hud.showToast('Opponent off'); } else this.addBot(); }
+      else if (e.code === 'KeyK') {
+        this.botSkill = (this.botSkill + 1) % BOT_SKILLS.length; const s = BOT_SKILLS[this.botSkill];
+        if (this.bot) { this.bot.driver.setSkill(s); this.bot.skill = s; }
+        this.hud.showToast(`Opponent skill: ${s.name}`);
+      }
       else if (e.code === 'KeyN') this.hud.showToast(this.hud.toggleMap() ? 'Track map on' : 'Track map off', 900);
       else if (e.code === 'KeyG') { this.vehicle.assists.autoGearbox = !this.vehicle.assists.autoGearbox; this.hud.showToast(this.vehicle.assists.autoGearbox ? 'Automatic gearbox' : 'Manual gearbox'); }
       else if (e.code === 'BracketRight') this.loadPreset((this.presetIndex + 1) % PRESETS.length);
@@ -200,7 +237,18 @@ class App {
 
       this.acc += dt * (this.slowmo ? 0.25 : 1);
       let n = 0;
-      while (this.acc >= DT && n < MAX_STEPS_PER_FRAME) { v.step(DT); this.acc -= DT; n++; }
+      const bot = this.bot;
+      let bump = 0;
+      while (this.acc >= DT && n < MAX_STEPS_PER_FRAME) {
+        v.step(DT);
+        if (bot) { bot.driver.drive(DT, v); bot.vehicle.step(DT); bot.vehicle.wallContact = null; bump = Math.max(bump, collideCars(v, bot.vehicle)); }
+        this.acc -= DT; n++;
+      }
+      if (bump > 1.5) { this.audio.thump(Math.min(1, bump / 12)); this.hud.drift.combo = 0; }
+      if (bot) {
+        if (bot.vehicle.body.position.y < -60) bot.driver.placeAt(bot.driver.idx);
+        if (bot.lap.update(dt * (this.slowmo ? 0.25 : 1), bot.vehicle.body.position.x, bot.vehicle.body.position.z) === 'lap' && bot.lap.last.best) this.hud.showToast(`Opponent best lap ${LapTimer.fmt(bot.lap.last.time)}`, 2000);
+      }
       if (n === MAX_STEPS_PER_FRAME) this.acc = 0;
       if (v.body.position.y < -60) this.spawn(this.spawnNames[this.spawnIndex]);
       const lt = this.lapTimer, ev = lt.update(dt * (this.slowmo ? 0.25 : 1), v.body.position.x, v.body.position.z);
@@ -210,6 +258,8 @@ class App {
 
     // ---- views
     this.carView.update(v, inp.state.brake);
+    if (this.bot) { this.bot.view.update(this.bot.vehicle, this.bot.vehicle.input.brake); this._botHud(); }
+    else this.hud.el.hBot.textContent = '';
     const wc = v.wallContact; // read before effects consume it
     if (!paused) this.effects.update(dt * (this.slowmo ? 0.25 : 1), v);
     if (wc) this.audio.scrape = Math.max(this.audio.scrape || 0, wc.scrape);
@@ -234,5 +284,17 @@ class App {
     this.renderer.render(this.scene, this.camera);
   }
 }
+
+/** opponent line under the lap timer: who's ahead, by how much, and the bot's laps */
+App.prototype._botHud = function () {
+  const b = this.bot, d = b.driver, M = d.M, p = this.vehicle.body.position;
+  this._pIdx = this._pIdx === undefined || (p.x - d.T[this._pIdx].x) ** 2 + (p.z - d.T[this._pIdx].z) ** 2 > 900 ? d.nearestIndex(p.x, p.z) : d._track(p, this._pIdx);
+  let ahead = (d.idx - this._pIdx + M) % M; if (ahead > M / 2) ahead -= M;
+  const metres = ahead * d.step, secs = Math.abs(metres) / Math.max(8, (b.vehicle.speed + this.vehicle.speed) / 2);
+  const where = Math.abs(metres) < 6 ? '<span>side by side</span>' : metres > 0 ? `<span class="ahead">${secs.toFixed(1)} s ahead</span>` : `<span class="behind">${secs.toFixed(1)} s behind</span>`;
+  const lt = b.lap, f = LapTimer.fmt;
+  this.hud.el.hBot.innerHTML = `<b>Opponent · ${b.skill.name}</b> ${where}<br>best ${lt.best === null ? '--:--.---' : f(lt.best)} · last ${lt.last ? f(lt.last.time) : '--:--.---'}`;
+  this.hud.mapOthers = [{ x: b.vehicle.body.position.x, z: b.vehicle.body.position.z, color: '#1e88e5' }];
+};
 
 window.app = new App();

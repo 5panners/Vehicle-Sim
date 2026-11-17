@@ -47,6 +47,7 @@ pass-through and stability.
 | Auto/manual gearbox | G | (pressing a shift button switches to manual) |
 | Units (mph default) / mute / slow-mo / help | U / M / P / H | — |
 | Track map on/off | N | — |
+| Practice opponent on/off / skill | O / K | — |
 | Next map (reloads) | L | — |
 
 **Track map:** a north-up map at the bottom centre (70% opacity) showing the circuit, the walls in red, the start line and the infield test areas, with your car as a heading arrow. Off the map, the arrow sits hollow on the edge. On narrow windows the map moves to the top right.
@@ -130,6 +131,26 @@ Switch with **L**, or the **Map** dropdown in the Tab panel (the page reloads wi
 Cross the start/finish line to start a lap. The HUD shows the lap time, three sector splits (purple = personal best), and your best and last lap.
 
 A lap only counts if you actually drove it forwards. Straying more than 45 m from the circuit invalidates it.
+
+### Practice opponent
+
+Press **O** to add an AI car to race against (O again removes it). It drives the same car you're in, in blue, and starts just ahead of you on the other side of the track (or before the start line if you're off the circuit). **K** cycles its skill: Rookie, Club, Pro, Alien. The choice is remembered. Switching car with [ / ] puts the opponent in the new car too.
+
+Under your lap timer the HUD shows whether it's ahead or behind and by roughly how many seconds, plus its best and last lap. It's the blue dot on the track map. Cars collide, so you can rub and bump.
+
+How it drives (`src/game/BotDriver.js`):
+- **Racing line:** a minimum-curvature line inside the kerbs, computed when it's added.
+- **Speed plan:** corner speeds from that line's curvature at the skill's share of the car's grip, with braking and acceleration zones.
+- **Driving:** path-tracking steering (curvature feed-forward plus heading and cross-track error), countersteer in slides, gentle throttle lifts, and a throttle-on slide catch in front-drivers.
+- **Traffic:** it moves over to pass you on the side with more room, and follows if there's no room.
+- **Learning:** a big slide or running wide makes it slower into that corner next time, and trims its trust in the car's grip; clean running slowly restores it.
+- **Recovery:** if it rolls, gets stuck or ends up far off the line, it resets itself onto the line.
+
+Each car starts from an offline calibration of how much grip the bot can really use on each circuit (`src/game/botCalibration.js`, built by `tools/bot-calibrate.mjs` and refined by `tools/bot-grip-search.mjs`). After changing a car's handling, re-check with:
+
+```bash
+node tools/bot-test.mjs brands "GT3" 2
+```
 
 ### Adding a circuit from a layout diagram
 

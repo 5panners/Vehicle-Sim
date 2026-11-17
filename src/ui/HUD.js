@@ -14,9 +14,10 @@ export class HUD {
         <div class="small" id="hSurf"></div>
         <div class="small" id="hDev"></div>
         <div class="lap" id="hLap"></div>
+        <div class="small bot" id="hBot"></div>
       </div>`));
     root.append($(`<div class="hud-top-right"><div class="small build">Build ${BUILD.number} · ${BUILD.date}</div><div id="hFps" class="small"></div><div class="small" id="hCam"></div>
-        <div class="small hintline">Esc/Start: controls · Tab: tuning · T: telemetry · F: spawn · H: help</div></div>`));
+        <div class="small hintline">Esc/Start: controls · Tab: tuning · T: telemetry · F: spawn · O: opponent · H: help</div></div>`));
     root.append($(`<div class="hud-dash">
         <div class="rpm"><div class="rpm-fill" id="hRpm"></div><div class="rpm-red" id="hRed"></div></div>
         <div class="dash-row"><div class="gear" id="hGear">N</div>
@@ -45,6 +46,7 @@ export class HUD {
         <tr><td>Camera / Look back</td><td>C / B · Y / RB</td></tr>
         <tr><td>Reset car</td><td>R · Back/View</td></tr>
         <tr><td>Spawn points</td><td>F (cycle) · 1-8</td></tr>
+        <tr><td>Practice opponent / skill</td><td>O / K</td></tr>
         <tr><td>Controls & calibration</td><td>Esc · Start</td></tr>
         <tr><td>Tuning panel</td><td>Tab</td></tr>
         <tr><td>Telemetry</td><td>T · D-pad up</td></tr>
@@ -57,7 +59,7 @@ export class HUD {
     this.driftEl = $('<div class="drift"><div class="d-angle"></div><div class="d-combo"></div><div class="d-total"></div></div>'); root.append(this.driftEl);
     this.drift = { combo: 0, total: 0, idle: 0, active: false, flash: 0, best: 0 };
     this.el = {};
-    for (const id of ['hLap', 'hCar', 'hSurf', 'hDev', 'hFps', 'hCam', 'hRpm', 'hRed', 'hGear', 'hSpd', 'hUnit', 'hRpmTxt', 'iSteer', 'iThr', 'iBrk', 'iHb', 'iClu', 'aABS', 'aTCS', 'aESC', 'aAUTO', 'tmid', 'tw0', 'tw1', 'tw2', 'tw3', 'ggc'])
+    for (const id of ['hLap', 'hBot', 'hCar', 'hSurf', 'hDev', 'hFps', 'hCam', 'hRpm', 'hRed', 'hGear', 'hSpd', 'hUnit', 'hRpmTxt', 'iSteer', 'iThr', 'iBrk', 'iHb', 'iClu', 'aABS', 'aTCS', 'aESC', 'aAUTO', 'tmid', 'tw0', 'tw1', 'tw2', 'tw3', 'ggc'])
       this.el[id] = root.querySelector('#' + id);
     this.ggTrail = [];
     this.fps = 60;
@@ -137,6 +139,12 @@ export class HUD {
     g.clearRect(0, 0, cv.width, cv.height);
     g.drawImage(this._mapStatic, 0, 0);
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // other cars (practice opponent): coloured dots under the player's arrow
+    for (const o of this.mapOthers || []) {
+      const [ox, oy] = this._mapProject(o.x, o.z, W, H);
+      g.beginPath(); g.arc(Math.min(W - 5, Math.max(5, ox)), Math.min(H - 5, Math.max(5, oy)), 4.5, 0, Math.PI * 2);
+      g.fillStyle = o.color; g.fill(); g.lineWidth = 1.2; g.strokeStyle = '#000'; g.stroke();
+    }
     // car arrow, pointing along the car's heading
     const p = v.body.position, f = v.body.localDir({ x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: 0 });
     let [x, y] = this._mapProject(p.x, p.z, W, H);
