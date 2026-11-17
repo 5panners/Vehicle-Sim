@@ -56,6 +56,8 @@ export class HUD {
     root.append(this.help);
     this.toast = $('<div class="toast"></div>'); root.append(this.toast);
     this.mapEl = $('<div class="minimap"><canvas></canvas></div>'); root.append(this.mapEl);
+    // race start lights (mirrors the gantry so they're visible from any camera)
+    this.lightsEl = $('<div class="startlights">' + '<span><i></i><i></i></span>'.repeat(5) + '</div>'); root.append(this.lightsEl);
     this.driftEl = $('<div class="drift"><div class="d-angle"></div><div class="d-combo"></div><div class="d-total"></div></div>'); root.append(this.driftEl);
     this.drift = { combo: 0, total: 0, idle: 0, active: false, flash: 0, best: 0 };
     this.el = {};
@@ -171,6 +173,11 @@ export class HUD {
   }
   toggleTelemetry() { this.tele.classList.toggle('open'); }
   toggleHelp() { this.help.classList.toggle('open'); }
+  /** n = lights lit (0-5); show = panel visible */
+  setStartLights(n, show) {
+    this.lightsEl.classList.toggle('show', show);
+    [...this.lightsEl.children].forEach((c, i) => c.classList.toggle('on', i < n));
+  }
 
   update(dt, vehicle, input, extra) {
     const e = this.el, v = vehicle, eng = v.config.engine;

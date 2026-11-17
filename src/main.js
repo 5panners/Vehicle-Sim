@@ -3,6 +3,7 @@ import { World } from './world/World.js';
 import { MAPS, DEFAULT_MAP } from './world/maps/index.js';
 import { LapTimer } from './game/LapTimer.js';
 import { BotDriver, BOT_SKILLS, collideCars } from './game/BotDriver.js';
+import { gridSlots, StartLights } from './game/RaceStart.js';
 import { Vehicle } from './physics/Vehicle.js';
 import { Vec3 } from './physics/math.js';
 import { PRESETS } from './vehicles/presets.js';
@@ -58,7 +59,8 @@ class App {
     if (sky) { scene.fog.color.set(sky.fog); this.sun.intensity = sky.sun; this.hemi.intensity = sky.hemi; }
     this.lapTimer = new LapTimer(this.world);
     this.maps = MAPS;
-    new WorldView(this.world, scene);
+    this.worldView = new WorldView(this.world, scene);
+    this.lights = new StartLights();
     this.presetIndex = 0;
     this.vehicle = new Vehicle(structuredClone(PRESETS[0]), this.world);
     this.carView = new CarView(scene);
@@ -138,21 +140,34 @@ class App {
     const cfg = structuredClone(PRESETS[this.presetIndex]);
     const vehicle = new Vehicle(cfg, this.world), skill = BOT_SKILLS[this.botSkill];
     const driver = new BotDriver(this.world, vehicle, skill, { mapId: this.mapId });
-    const p = this.vehicle.body.position, i = driver.nearestIndex(p.x, p.z), T = this.world.track;
-    const onTrack = Math.abs(driver.lateral(p, i)) < T[i].w / 2 + 3;
-    if (onTrack) {
-      const j = (i + Math.round(10 / driver.step)) % T.length, pl = driver.lateral(p, i);
-      driver.placeAt(j, (pl > 0 ? pl - 4 : pl + 4) - driver.d[j]);
-    } else driver.placeAt(T.length - Math.round(30 / driver.step));   // just before the start line
     const view = new CarView(this.scene); view.tint = 0x1e88e5; view.build(vehicle);
     this.bot = { vehicle, driver, view, lap: new LapTimer(this.world), skill };
-    this.hud.showToast(`Opponent: ${skill.name} (K changes skill)`, 2200);
+    this.startRace();
+    this.hud.showToast(`Opponent: ${skill.name} on pole, you're P2 (K changes skill)`, 2600);
+  }
+
+  /** opponent on pole, you in the slot behind, then the start-light sequence */
+  startRace() {
+    const b = this.bot; if (!b) return;
+    const [pole, p2] = gridSlots(this.world, 2);
+    b.driver.placeAtLateral(pole.index, pole.lat); b.lap.reset(); b.goAt = Infinity;
+    this.hud?.resetDrift();
+    this.placeCar(p2.x, p2.z, p2.yaw);
+    this.raceClock = 0; this.lights.begin();
+  }
+
+  /** opponent back on pole to drive off straight away (when you spawn somewhere else) */
+  botToGrid() {
+    const b = this.bot; if (!b) return;
+    const [pole] = gridSlots(this.world, 1);
+    b.driver.placeAtLateral(pole.index, pole.lat); b.lap.reset(); b.goAt = 0;
   }
 
   removeBot() {
     if (!this.bot) return;
     this.bot.view.group.removeFromParent();
     this.bot = null; this.hud.mapOthers = [];
+    this.lights.phase = 'idle'; this.worldView.setStartLights(0); this.hud.setStartLights(0, false);
   }
 
 
@@ -173,6 +188,11 @@ class App {
   }
 
   spawn(name) {
+    if (this.bot) {
+      if (/grid/i.test(name)) { this.startRace(); this.hud.showToast('Race restart: lights sequence', 1500); return; }
+      this.botToGrid();
+    }
+    this.lights.phase = 'idle'; this.lights.lit = 0;   // spawning anywhere else cancels a start sequence
     this.hud?.resetDrift();
     const sp = this.world.spawnPoints()[name];
     this.placeCar(sp.x, sp.z, sp.yaw);
@@ -233,17 +253,33 @@ class App {
         inp.pressed.shiftUp ? v.shiftUp() : v.shiftDown();
       }
       const s = inp.state;
-      v.setInput({ steer: s.steer, throttle: s.throttle, brake: s.brake, handbrake: s.handbrake, clutch: s.clutch });
+      const held = this.lights.held;   // on the grid: handbrake on (opens the clutch, so you can rev), car pinned
+      v.setInput(held ? { steer: s.steer, throttle: s.throttle, brake: 0, handbrake: 1, clutch: 0 }
+        : { steer: s.steer, throttle: s.throttle, brake: s.brake, handbrake: s.handbrake, clutch: s.clutch });
 
       this.acc += dt * (this.slowmo ? 0.25 : 1);
       let n = 0;
       const bot = this.bot;
       let bump = 0;
+      const pin = (car) => { car.body.velocity.x = 0; car.body.velocity.z = 0; car.body.angularVelocity.y = 0; };
       while (this.acc >= DT && n < MAX_STEPS_PER_FRAME) {
         v.step(DT);
-        if (bot) { bot.driver.drive(DT, v); bot.vehicle.step(DT); bot.vehicle.wallContact = null; bump = Math.max(bump, collideCars(v, bot.vehicle)); }
+        this.raceClock = (this.raceClock || 0) + DT;
+        if (bot) {
+          const waiting = this.raceClock < bot.goAt;
+          if (waiting) bot.vehicle.setInput({ steer: 0, throttle: 0.45, brake: 0, handbrake: 1, clutch: 0 });   // revving on the grid
+          else bot.driver.drive(DT, v);
+          bot.vehicle.step(DT); bot.vehicle.wallContact = null; bump = Math.max(bump, collideCars(v, bot.vehicle));
+          if (waiting) pin(bot.vehicle);
+        }
+        if (held) pin(v);
         this.acc -= DT; n++;
       }
+      const lev = this.lights.update(dt * (this.slowmo ? 0.25 : 1));
+      if (lev === 'out' && bot) bot.goAt = this.raceClock + bot.skill.react + Math.random() * 0.08;
+      if (lev === 'out') this.hud.showToast('Lights out — go!', 1200);
+      this.worldView.setStartLights(this.lights.lit);
+      this.hud.setStartLights(this.lights.lit, this.lights.phase === 'lights' || (this.lights.phase === 'go' && this.lights.t < 1));
       if (bump > 1.5) { this.audio.thump(Math.min(1, bump / 12)); this.hud.drift.combo = 0; }
       if (bot) {
         if (bot.vehicle.body.position.y < -60) bot.driver.placeAt(bot.driver.idx);

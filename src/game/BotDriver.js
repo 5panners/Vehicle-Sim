@@ -6,10 +6,10 @@ const _f = new Vec3(), _up = new Vec3();
 
 /** Practice opponent skill levels: fraction of the car's tyre grip the bot plans its speeds with. */
 export const BOT_SKILLS = [
-  { name: 'Rookie', grip: 0.70, brake: 0.70 },
-  { name: 'Club', grip: 0.80, brake: 0.78 },
-  { name: 'Pro', grip: 0.88, brake: 0.85 },
-  { name: 'Alien', grip: 0.95, brake: 0.92 },
+  { name: 'Rookie', grip: 0.70, brake: 0.70, react: 0.38 },   // react = start reaction time (s)
+  { name: 'Club', grip: 0.80, brake: 0.78, react: 0.30 },
+  { name: 'Pro', grip: 0.88, brake: 0.85, react: 0.24 },
+  { name: 'Alien', grip: 0.95, brake: 0.92, react: 0.18 },
 ];
 
 /**
@@ -133,10 +133,13 @@ export class BotDriver {
   }
   lateral(p, i) { const t = this.T[i]; return (p.x - t.x) * t.rx + (p.z - t.z) * t.rz; }
 
+  /** put the car at sample i at an exact lateral offset from the centreline (grid slots) */
+  placeAtLateral(i, lat) { const ii = (i + this.M) % this.M; this.placeAt(ii, lat - this.d[ii], true); }
+
   /** put the car on the racing line at sample i (optionally shifted sideways), pointing along the track */
-  placeAt(i, side = 0) {
+  placeAt(i, side = 0, exact = false) {
     const T = this.T, M = this.M, t = T[(i + M) % M], ii = (i + M) % M;
-    const off = Math.max(-this.lim[ii], Math.min(this.lim[ii], this.d[ii] + side));
+    const off = exact ? this.d[ii] + side : Math.max(-this.lim[ii], Math.min(this.lim[ii], this.d[ii] + side));
     const x = t.x + t.rx * off, z = t.z + t.rz * off, cfg = this.car.config;
     let h = -Infinity;
     for (const dx of [-2, 0, 2]) for (const dz of [-2.5, 0, 2.5]) h = Math.max(h, this.world.heightAt(x + dx, z + dz));

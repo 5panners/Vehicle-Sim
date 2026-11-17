@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SURFACES, SURF } from '../world/Surfaces.js';
 import { STRIPS, START_PAD, SKIDPAD, JUMP_PARK } from '../world/maps/test.js';
+import { gridSlots } from '../game/RaceStart.js';
 import { fbm } from '../world/noise.js';
 import { buildBrandsScenery } from './scenery/brandsHatch.js';
 
@@ -231,10 +232,56 @@ export class WorldView {
         sign.position.set(0, 7, face * 0.31); if (face < 0) sign.rotation.y = Math.PI; gantry.add(sign);
       }
     }
+    // start lights: five columns of two red lamps in a black housing under the beam, facing the grid
+    {
+      const housing = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.15, 0.35), new THREE.MeshLambertMaterial({ color: 0x0b0b0b }));
+      housing.position.set(0, 5.75, -0.2); gantry.add(housing);
+      const lampGeo = new THREE.CircleGeometry(0.2, 20);
+      this.startLamps = [];
+      for (let c = 0; c < 5; c++) {
+        const mat = new THREE.MeshBasicMaterial({ color: 0x2a0606 });
+        this.startLamps.push(mat);
+        for (const y of [5.98, 5.52]) {
+          const lamp = new THREE.Mesh(lampGeo, mat);
+          lamp.position.set((c - 2) * 0.62, y, -0.38); lamp.rotation.y = Math.PI;   // face back down the grid
+          gantry.add(lamp);
+        }
+      }
+    }
     gantry.position.set(t0.x, this.world.heightAtGrid(t0.x, t0.z), t0.z);
     gantry.rotation.y = Math.atan2(t0.tx, t0.tz);
     gantry.traverse((o) => { o.castShadow = true; });
     this.scene.add(gantry);
+    this._grid();
+  }
+
+  /** number of start lights lit (0-5) */
+  setStartLights(n) {
+    this.startLamps?.forEach((m, i) => m.color.setHex(i < n ? 0xff1a1a : 0x2a0606));
+  }
+
+  /** painted grid slots behind the line: a bar where the nose stops, short side ticks, the position number */
+  _grid() {
+    const white = new THREE.MeshBasicMaterial({ color: 0xf2f2f2, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    const flat = (w, l, mat, x, z, yaw, along = 0, across = 0, turn = 0) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, l), mat);
+      const fx = Math.sin(yaw), fz = Math.cos(yaw), rx = -fz, rz = fx;            // forward / right in the ground plane
+      const px = x + fx * along + rx * across, pz = z + fz * along + rz * across;
+      m.rotation.order = 'YXZ'; m.rotation.set(-Math.PI / 2, yaw + turn, 0);
+      m.position.set(px, this.world.heightAtGrid(px, pz) + 0.05, pz);
+      this.scene.add(m); return m;
+    };
+    for (const g of gridSlots(this.world, 12)) {
+      const { x, z, yaw } = g.bar;
+      flat(2.6, 0.22, white, x, z, yaw);                                          // bar across the slot
+      for (const k of [-1, 1]) flat(0.18, 1.1, white, x, z, yaw, -0.55, k * 1.21); // ticks running back from the bar ends
+      // position number, painted on the inside of the slot
+      const c = document.createElement('canvas'); c.width = c.height = 64; const ctx = c.getContext('2d');
+      ctx.fillStyle = '#f2f2f2'; ctx.font = 'bold 54px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(g.pos), 32, 34);
+      const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+      const num = new THREE.MeshBasicMaterial({ map: tex, transparent: true, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+      flat(0.9, 0.9, num, x, z, yaw, -1.0, -g.side * 1.9, Math.PI);   // half-turned so it reads upright to drivers facing forward
+    }
   }
 
   _zones() {

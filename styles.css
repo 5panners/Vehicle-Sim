@@ -143,6 +143,12 @@ em.cold { color: var(--accent); } em.hot { color: var(--bad); } em.ok { color: v
 .lap { margin-top: 6px; font-size: 12px; line-height: 1.5; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px #000; }
 .lap b { font-size: 16px; }
 .lap b.inv { color: var(--bad); text-decoration: line-through; }
+.startlights { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); display: none; gap: 10px; padding: 10px 12px; background: #0b0b0bdd; border-radius: 10px; box-shadow: 0 4px 18px #0008; }
+.startlights.show { display: flex; }
+.startlights span { display: flex; flex-direction: column; gap: 8px; padding: 6px; background: #000; border-radius: 6px; }
+.startlights i { width: 30px; height: 30px; border-radius: 50%; background: #2a0606; box-shadow: inset 0 0 6px #000; }
+.startlights span.on i { background: radial-gradient(circle at 40% 35%, #ff8a80, #ff1a1a 45%, #b00000); box-shadow: 0 0 14px 3px #ff1a1aaa; }
+@media (max-width: 700px) { .startlights i { width: 20px; height: 20px; } }
 .bot { margin-top: 6px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px #000; }
 .bot b { color: #64b5f6; }
 .bot .ahead { color: var(--bad); } .bot .behind { color: var(--good); }

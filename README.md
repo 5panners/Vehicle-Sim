@@ -134,7 +134,11 @@ A lap only counts if you actually drove it forwards. Straying more than 45 m fro
 
 ### Practice opponent
 
-Press **O** to add an AI car to race against (O again removes it). It drives the same car you're in, in blue, and starts just ahead of you on the other side of the track (or before the start line if you're off the circuit). **K** cycles its skill: Rookie, Club, Pro, Alien. The choice is remembered. Switching car with [ / ] puts the opponent in the new car too.
+Press **O** to add an AI car to race against (O again removes it). It drives the same car you're in, in blue. **K** cycles its skill: Rookie, Club, Pro, Alien. The choice is remembered. Switching car with [ / ] puts the opponent in the new car too.
+
+**Race start:** the opponent lines up on pole and you in P2, in the painted grid slots behind the start line (staggered left/right, 8 m apart, pole on the inside of the first corner). Both cars are held on the handbrake, so you can rev. The five red lights on the gantry, mirrored in the HUD, come on one per second. After a random 0.2–3 s hold they all go out, and that's the start. The opponent reacts in 0.18–0.38 s depending on skill.
+
+With an opponent out, the grid spawn (**1**) restarts the race with a new light sequence. Any other spawn (2–8, F) puts you there and sends the opponent back to pole to drive off straight away.
 
 Under your lap timer the HUD shows whether it's ahead or behind and by roughly how many seconds, plus its best and last lap. It's the blue dot on the track map. Cars collide, so you can rub and bump.
 
