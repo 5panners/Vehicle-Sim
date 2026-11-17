@@ -80,6 +80,23 @@ Switch with **L**, or the **Map** dropdown in the Tab panel (the page reloads wi
 |---|---|
 | `test` | The proving ground: start pad, skidpad, surface strips, jump park, circuit and walled section (below). |
 | `brands` | **Brands Hatch GP** (3.908 km, clockwise). See below. |
+| `monaco` | **Circuit de Monaco** (3.337 km, clockwise): the harbour, Casino Square, the hairpin and the tunnel. See below. |
+
+### Monaco GP
+
+The street circuit through Monte-Carlo and La Condamine: 3,337 m, 41 m of climb from the harbour to Casino Square, 19 corners, barriers a metre from the kerb all the way round.
+
+**Corners (lap distance from the start line):** Sainte Dévote 200 m · Beau Rivage 485 · Massenet 785 · Casino Square 906 · Mirabeau Haute 1156 · Fairmont Hairpin 1251 (≈10 m radius, the slowest corner) · Mirabeau Bas 1315 · Portier 1386 · the tunnel 1590–1860 · Nouvelle Chicane 2050 · Tabac 2366 · Louis Chiron 2450 · Piscine 2577 and 2717 · La Rascasse 2912 · Anthony Noghes 2992. Spawn points (1–9) cover the grid, pit lane, Sainte Dévote, Casino Square, the hairpin, the tunnel, the chicane, Tabac and Rascasse.
+
+**How it was built** (all measured from the reference images you gave, not drawn by hand):
+- **Layout:** `tools/extract-track.py tools/reference/monaco.json` traced the track from the official 2026 layout map (`tools/reference/monaco/f1-2026-map.png`), with a minimum corner radius of 12.5 m so the hairpin isn't sharper than the real one. The map is rotated 46° from north; that was found by fitting the trace onto a GPS route over OpenStreetMap (they agree to about 9 m on average, through the hairpin, the Casino climb and the harbour front).
+- **Coast, harbour, parks and building footprints:** `tools/extract-map-masks.py` classifies the layout map's colours into a world grid (`monaco-mask.js`), so the harbour basin, quays, gardens and the Casino-area blocks sit where the map has them.
+- **Elevation:** digitised from a 10–50 m elevation profile and aligned so the climb starts at Sainte Dévote and peaks at Casino Square (`monaco-elevation.js`).
+- **Scenery** (`src/render/scenery/monaco.js`): the sea with 300 moored yachts, the hillside town of pastel apartment blocks, Belle Époque landmark buildings with copper domes on the map's footprints (the largest, nearest Casino Square, gets the twin towers), the tunnel under a hotel block (the daylight fades as you enter), palms in the gardens, the pit lane with 43 garages along the start straight, scaffold grandstands, street lamps and generic Riviera advertising boards (no real sponsors), and distant mountains.
+
+Honest limits: the diagram is about 2 m per pixel, so positions are good to roughly ±5–10 m and individual buildings are generic rather than copies of the real ones; the tunnel's exact length and the grandstand layout are approximate.
+
+The AI is calibrated for Monaco like the other circuits (`src/game/botCalibration.js`). On this circuit its racing line keeps 1.5 m off the barriers (`botMargin` in the map), and bots now correct a steady cross-track offset and slow down when they run out of steering lock, which helps on every circuit.
 
 ### Brands Hatch GP
 
@@ -185,6 +202,8 @@ node tools/bot-test.mjs brands "GT3" 2
 python3 tools/extract-track.py tools/reference/brands-hatch.json
 ```
 
+`color` can also be `grey` (a mid-grey line, as on the F1 layout maps). Optional `minRadius` (metres) relaxes any corner the diagram makes tighter than the real one, and `debugImage` writes the traced path over the diagram so you can check it.
+
 The config gives:
 - the diagram image (the track drawn as a single red, blue or black line);
 - a pixel on the track and the racing direction;
@@ -194,7 +213,7 @@ The config gives:
 - named corner pixels;
 - optionally `fair`: `[[fromIdx, toIdx], ...]` stretches of the output to replace with the smoothest joining curve, for places where arrows, flags or labels distort the diagram's line.
 
-The output is an ES module of evenly spaced centreline points. Then copy `src/world/maps/brandsHatch.js` as a template and register the new map in `src/world/maps/index.js`.
+The output is an ES module of evenly spaced centreline points and the pixel-to-world transform (`TRANSFORM`). To also get the water, parks and building footprints from the same diagram, run `python3 tools/extract-map-masks.py tools/reference/monaco-masks.json`. Then copy `src/world/maps/brandsHatch.js` (or `monaco.js`) as a template and register the new map in `src/world/maps/index.js`.
 
 To check that a map is drivable, run the headless AI driver:
 

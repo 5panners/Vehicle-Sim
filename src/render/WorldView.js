@@ -4,6 +4,7 @@ import { STRIPS, START_PAD, SKIDPAD, JUMP_PARK } from '../world/maps/test.js';
 import { gridSlots } from '../game/RaceStart.js';
 import { fbm } from '../world/noise.js';
 import { buildBrandsScenery } from './scenery/brandsHatch.js';
+import { buildMonacoScenery } from './scenery/monaco.js';
 
 export function noiseTexture(size = 256, contrast = 0.25, base = 0.85) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -46,6 +47,7 @@ export class WorldView {
     this._walls();
     if (scenery === 'test') this._scenery();
     else if (scenery === 'brands') buildBrandsScenery(this);
+    else if (scenery === 'monaco') buildMonacoScenery(this);
   }
 
   // Barriers: street concrete (red/white blocks), concrete pit wall, Armco (two steel rails on

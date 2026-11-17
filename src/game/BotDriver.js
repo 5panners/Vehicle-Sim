@@ -57,7 +57,7 @@ export class BotDriver {
     const ratio = calibrated && mapId ? BOT_CALIBRATION[mapId]?.[vehicle.config.name] : null;
     this.car.directSteer = true;                         // the bot outputs a wheel angle directly
     this.T = world.track; this.M = this.T.length;
-    this.idx = 0; this.iErr = 0; this.stuck = 0; this.lat = 0; this.latTarget = 0;
+    this.idx = 0; this.iErr = 0; this.stuck = 0; this.lat = 0; this.latTarget = 0; this.xtI = 0; this.usGov = 1;
     this._buildLine();
     const pk = Math.min(vehicle.config.tires.front.peakFrictionY, vehicle.config.tires.rear.peakFrictionY);
     this.carGrip = (grip ?? ratio ?? 0.95) * pk;
@@ -79,7 +79,8 @@ export class BotDriver {
     let step = 0; for (let i = 0; i < M; i++) { const a = T[i], b = T[(i + 1) % M]; step += Math.hypot(b.x - a.x, b.z - a.z); }
     step /= M;
     // lateral offset d along the right-normal (rx, rz), kept inside the kerbs with a margin
-    const lim = T.map((t) => Math.max(0, t.w / 2 - half - 0.9));
+    const margin = this.world.map?.botMargin ?? 0.9;          // street circuits (tight walls) ask for more room
+    const lim = T.map((t) => Math.max(0, t.w / 2 - half - margin));
     const d = new Float64Array(M);
     const px = (i) => T[i].x + T[i].rx * d[i], pz = (i) => T[i].z + T[i].rz * d[i];
     // minimum-curvature line: gradient steps on the summed squared curvature. With L the window
@@ -296,10 +297,12 @@ export class BotDriver {
     const ff = Math.atan(cfg.geometry.wheelbase * this.curv[ai]);
     // catch slides: countersteer with the body slip angle once the rear steps out
     const beta = car.telemetry.slipAngle || 0, slide = Math.max(0, Math.abs(beta) - 0.05);
-    const steerAng = ff + 0.9 * heading - Math.atan((1.4 * cross) / (v + 3)) + Math.sign(beta) * slide * 0.9;
+    // integral of the cross-track error removes a steady offset (a steady 1 m error is a wall hit on a street circuit)
+    this.xtI = v > 5 && !this.mistake ? Math.max(-2.5, Math.min(2.5, this.xtI + cross * dt - this.xtI * 0.4 * dt)) : this.xtI * (1 - 2 * dt);
+    const steerAng = ff + 0.9 * heading - Math.atan((1.4 * cross + 1.6 * this.xtI) / (v + 3)) + Math.sign(beta) * slide * 0.9;
 
     // speed: look ~0.6 s ahead on the plan, PI throttle, brake when over it
-    const pace = this.paceNoise * this.paceBias * mkSpeed;
+    const pace = this.paceNoise * this.paceBias * mkSpeed * this.usGov;
     const want = Math.min(cap, Math.min(this.plan[idx], this.plan[(idx + Math.round((v * 0.6) / this.step)) % M]) * pace * (devNow > 1.5 && !this.mistake ? Math.max(0.6, 1 - (devNow - 1.5) * 0.08) : 1)), e = want - v;
     this.iErr = Math.max(-0.5, Math.min(0.5, this.iErr + e * dt * 0.3));
     const slipDeg = Math.abs(car.telemetry.slipAngle) * 57.3;
@@ -314,7 +317,10 @@ export class BotDriver {
     if (mkThrottle && mk.t < 0.8 + 1.0 * mk.sev) { thr = 1; brk = 0; }   // sliding exit: too much power too soon
     if (cfg.drivetrain.layout === 'FWD' && slipDeg > 6) { thr = Math.max(thr, 0.5); brk = 0; }
     this.thr = (this.thr ?? 0) + Math.max(-2.5 * dt, Math.min(6 * dt, thr - (this.thr ?? 0)));
-    car.setInput({ steer: Math.max(-1, Math.min(1, steerAng / (cfg.steering.maxAngle * Math.PI / 180))), throttle: brk > 0 ? Math.min(this.thr, 0.1) : this.thr, brake: brk, handbrake: 0, clutch: 0 });
+    // understeer governor: out of steering lock means the corner is taken too fast, so back off until it comes round
+    const steerCmd = steerAng / (cfg.steering.maxAngle * Math.PI / 180);
+    this.usGov = Math.max(0.68, Math.min(1, this.usGov + (Math.abs(steerCmd) > 0.95 && v > 6 ? -0.5 : 0.25) * dt));
+    car.setInput({ steer: Math.max(-1, Math.min(1, steerCmd)), throttle: brk > 0 ? Math.min(this.thr, 0.1) : this.thr, brake: brk, handbrake: 0, clutch: 0 });
   }
 }
 

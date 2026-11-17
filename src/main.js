@@ -58,7 +58,8 @@ class App {
     // ---- simulation
     this.world = new World(MAPS[this.mapId]);
     const sky = this.world.map.sky;
-    if (sky) { scene.fog.color.set(sky.fog); this.sun.intensity = sky.sun; this.hemi.intensity = sky.hemi; }
+    if (sky) { scene.fog.color.set(sky.fog); this.sun.intensity = sky.sun; this.hemi.intensity = sky.hemi; if (sky.fogNear) scene.fog.near = sky.fogNear; if (sky.fogFar) scene.fog.far = sky.fogFar; }
+    this.baseLight = { hemi: this.hemi.intensity, sun: this.sun.intensity, exposure: renderer.toneMappingExposure }; this.tunnelLight = 1;
     this.lapTimer = new LapTimer(this.world);
     this.maps = MAPS;
     this.worldView = new WorldView(this.world, scene);
@@ -303,6 +304,15 @@ class App {
     if (wc) this.audio.scrape = Math.max(this.audio.scrape || 0, wc.scrape);
     this.rig.update(dt, v, inp.buttons.lookBack);
     const p = v.body.position;
+    // tunnels: the daylight drops away as the car goes in (eased, so the eyes 'adapt')
+    if (this.world.map.inTunnel) {
+      const info = this.world.trackInfo(p.x, p.z), T = this.world.track[Math.max(0, info.index)];
+      const inside = info.index >= 0 && info.dist < T.w / 2 + 3 && this.world.map.inTunnel(this.world.map.dist(this.world, T));
+      this.tunnelLight += ((inside ? 0.22 : 1) - this.tunnelLight) * (1 - Math.exp(-(inside ? 5 : 3) * dt));
+      const f = this.tunnelLight, b = this.baseLight;
+      this.hemi.intensity = b.hemi * (0.35 + 0.65 * f); this.sun.intensity = b.sun * f;
+      this.renderer.toneMappingExposure = b.exposure * (1 + (1 - f) * 0.55);
+    }
     this.sun.position.set(p.x + 60, p.y + 120, p.z + 40); this.sun.target.position.set(p.x, p.y, p.z);
     this.hud.update(dt, v, inp, { physicsHz: PHYSICS_HZ, camera: this.rig.modeName, slowmo: this.slowmo, lap: this.lapTimer });
     if (!paused) {

@@ -61,6 +61,7 @@ MATCH = {
     'red': lambda r, g, b: r > 170 and g < 80 and b < 80,
     'blue': lambda r, g, b: b > 170 and r < 80 and g < 120,
     'black': lambda r, g, b: r < 60 and g < 60 and b < 60,
+    'grey': lambda r, g, b: abs(r - g) < 14 and abs(g - b) < 14 and 92 <= r <= 134,   # mid-grey line (e.g. the F1 circuit maps)
 }
 
 
@@ -91,6 +92,11 @@ def main(cfg):
                 cand = [q for q in near(p, R) if math.hypot(q[0] - p[0], q[1] - p[1]) > R - 4
                         and ((q[0] - p[0]) * d[0] + (q[1] - p[1]) * d[1]) / math.hypot(q[0] - p[0], q[1] - p[1]) > math.cos(math.radians(25))]
                 if cand: break
+        if not cand:       # a sharp corner under a label: accept wide turns, just not a U-turn
+            for R in (8, 10, 13):
+                cand = [q for q in near(p, R) if math.hypot(q[0] - p[0], q[1] - p[1]) > R - 3.5
+                        and ((q[0] - p[0]) * d[0] + (q[1] - p[1]) * d[1]) / math.hypot(q[0] - p[0], q[1] - p[1]) > math.cos(math.radians(100))]
+                if cand: break
         if not cand: sys.exit(f'lost the line at step {step}, pixel {p}')
         nx = sum(a for a, _ in cand) / len(cand); ny = sum(b for _, b in cand) / len(cand)
         q = centre((nx, ny), 3.5); L = math.hypot(q[0] - p[0], q[1] - p[1]) or 1
@@ -110,6 +116,17 @@ def main(cfg):
     # --- start index at the start/finish line
     sl = cfg['startLine']; s0 = min(range(len(lap)), key=lambda i: (lap[i][0] - sl[0]) ** 2 + (lap[i][1] - sl[1]) ** 2)
     lap = lap[s0:] + lap[:s0]
+
+    # --- optional debug overlay: the traced pixel path over the diagram, start line in blue
+    if cfg.get('debugImage'):
+        import os; sys.path.insert(0, os.path.dirname(__file__)); from lib_png import write_png, crop_zoom
+        k = cfg.get('debugZoom', 2); img = [list(r) for r in crop_zoom(rows, 0, 0, W, H, k)]
+        for i, (x, y) in enumerate(lap):
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    yy, xx = int(y * k) + dy, int(x * k) + dx
+                    if 0 <= yy < H * k and 0 <= xx < W * k: img[yy][xx] = (255, 0, 0) if i % 25 else (0, 0, 255)
+        write_png(cfg['debugImage'], img)
 
     # --- scale + rotate to the world frame
     Lpx = sum(math.hypot(lap[(i + 1) % len(lap)][0] - lap[i][0], lap[(i + 1) % len(lap)][1] - lap[i][1]) for i in range(len(lap)))
@@ -182,6 +199,22 @@ def main(cfg):
             for r in range(nF - 1, -1, -1): sol[r] = (rhs[r] - sum(A[r][cc] * sol[cc] for cc in range(r + 1, nF))) / A[r][r]
             for j in free:
                 i = ids[j]; out[i] = (sol[fi[j]], out[i][1]) if c == 0 else (out[i][0], sol[fi[j]])
+    # --- optional minimum corner radius: the diagram's wobble can make a hairpin tighter than the real one.
+    # Where the local radius (3 points +/-15 m) is under minRadius, relax the points toward their neighbours.
+    mr = cfg.get('minRadius')
+    if mr:
+        kk = 2
+        def radius(i):
+            a, b, c = out[(i - kk) % n], out[i], out[(i + kk) % n]
+            ab = math.hypot(b[0] - a[0], b[1] - a[1]); bc = math.hypot(c[0] - b[0], c[1] - b[1]); ca = math.hypot(a[0] - c[0], a[1] - c[1])
+            cr = abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
+            return ab * bc * ca / (2 * cr) if cr > 1e-9 else 1e9
+        for it in range(600):
+            tight = [i for i in range(n) if radius(i) < mr]
+            if not tight: break
+            mark = set((i + d) % n for i in tight for d in range(-3, 4))
+            out = [((out[i - 1][0] + out[(i + 1) % n][0]) / 2 * 0.5 + out[i][0] * 0.5, (out[i - 1][1] + out[(i + 1) % n][1]) / 2 * 0.5 + out[i][1] * 0.5) if i in mark else out[i] for i in range(n)]
+        print('min radius now %.1f m after %d relaxations' % (min(radius(i) for i in range(n)), it))
     # rescale so the lap is exactly the official length again
     Lnow = sum(math.hypot(out[(i + 1) % n][0] - out[i][0], out[(i + 1) % n][1] - out[i][1]) for i in range(n))
     k = cfg['lengthMetres'] / Lnow
@@ -197,6 +230,8 @@ def main(cfg):
         f.write(f"// Scale {s:.4f} m/px, rotated {cfg.get('bearingDeg', 0)} deg to true north. {len(out)} points at ~{sp} m.\n")
         f.write(f"export const LENGTH = {cfg['lengthMetres']};\n")
         f.write('export const ANCHORS = ' + json.dumps(anchors) + ';\n')
+        # pixel -> world: e = u*s, n = -v*s, rotate by th, x = -e', z = n', then centre (cx, cz) and scale k
+        f.write('export const TRANSFORM = ' + json.dumps({'s': round(s, 6), 'thDeg': cfg.get('bearingDeg', 0), 'cx': round(cx, 4), 'cz': round(cz, 4), 'k': round(k, 6), 'imgW': W, 'imgH': H}) + ';\n')
         f.write('export const CENTERLINE = [\n' + ',\n'.join(f'  [{x:.1f}, {z:.1f}]' for x, z in out) + ',\n];\n')
     print(f'{len(out)} points, scale {s:.3f} m/px, anchors {anchors}')
 
