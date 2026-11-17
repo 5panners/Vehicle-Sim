@@ -323,10 +323,11 @@ class App {
       const t = v.telemetry;
       let rough = 0;
       for (const w of v.wheels) if (w.contact && w.surface) rough = Math.max(rough, w.surface.bump * 30 * Math.min(1, v.speed / 20));
-      const slip = Math.max(0, Math.min(1, (t.maxSlip || 0) - 0.85));
-      const limiter = v.drivetrain.engine.limiterTimer > 0 ? 0.25 : 0;
+      const moving = Math.min(1, Math.max(0, (v.speed - 1.5) / 4)); // no slip/ABS rumble while stationary
+      const slip = Math.max(0, Math.min(1, (t.maxSlip || 0) - 0.85)) * moving;
+      const limiter = v.drivetrain.engine.limiterTimer > 0 ? 0.25 * moving : 0;
       const scrape = wc ? Math.min(0.6, wc.scrape * 0.04) : 0;
-      inp.rumble(Math.min(1, t.impact + limiter), Math.min(1, slip * 0.8 + rough + scrape + (v.absActive ? 0.35 : 0)));
+      inp.rumble(Math.min(1, t.impact + limiter), Math.min(1, slip * 0.8 + rough + scrape + (v.absActive ? 0.35 * moving : 0)));
     }
     v.wallContact = null; // consumed by effects, audio, rumble and HUD this frame
     this.renderer.render(this.scene, this.camera);
