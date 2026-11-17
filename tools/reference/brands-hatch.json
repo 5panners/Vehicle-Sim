@@ -1,0 +1,88 @@
+{
+  "image": "tools/reference/brands-hatch-layout.png",
+  "color": "red",
+  "start": [
+    132,
+    300
+  ],
+  "direction": [
+    0,
+    -1
+  ],
+  "startLine": [
+    131,
+    212
+  ],
+  "lengthMetres": 3908,
+  "bearingDeg": 56,
+  "spacingMetres": 8,
+  "anchors": {
+    "Paddock Hill Bend": [
+      158,
+      100
+    ],
+    "Druids": [
+      300,
+      165
+    ],
+    "Graham Hill Bend": [
+      192,
+      158
+    ],
+    "Surtees": [
+      187,
+      315
+    ],
+    "Pilgrim's Drop": [
+      380,
+      186
+    ],
+    "Hawthorn Bend": [
+      482,
+      95
+    ],
+    "Derek Minter Straight": [
+      560,
+      170
+    ],
+    "Westfield Bend": [
+      590,
+      250
+    ],
+    "Dingle Dell": [
+      510,
+      333
+    ],
+    "Sheene's": [
+      430,
+      356
+    ],
+    "Stirling's": [
+      362,
+      272
+    ],
+    "Clearways": [
+      292,
+      330
+    ],
+    "Clark Curve": [
+      215,
+      393
+    ],
+    "Indy split": [
+      186,
+      312
+    ],
+    "Indy rejoin": [
+      213,
+      382
+    ]
+  },
+  "out": "src/world/maps/brands-hatch-track.js",
+  "fair": [
+    [
+      440,
+      14
+    ]
+  ]
+}

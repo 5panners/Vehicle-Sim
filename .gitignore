@@ -1,0 +1,11 @@
+# OS / editor
+.DS_Store
+.claude/
+node_modules/
+
+# Blender autosave backups
+*.blend1
+
+# Third-party reference images (not ours to redistribute); derived data stays in the repo
+tools/reference/mini/
+tools/reference/*.png

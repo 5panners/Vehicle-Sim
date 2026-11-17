@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Model Viewer</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #c9ccd1; overflow: hidden; font: 13px system-ui, sans-serif; }
+    #info { position: absolute; left: 12px; top: 10px; color: #222; background: #ffffffcc; padding: 6px 10px; border-radius: 6px; }
+  </style>
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    } }
+  </script>
+</head>
+<body>
+<div id="info">drag to orbit · wheel to zoom · ?model=assets/models/mini.glb&amp;yaw=-40&amp;pitch=12&amp;dist=5</div>
+<script type="module">
+// Studio viewer for the generated car models. URL params: model, yaw, pitch (degrees), dist, wire=1
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const q = new URLSearchParams(location.search);
+if (q.get('ui') === '0') document.getElementById('info').style.display = 'none';
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xc9ccd1);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(-4, 8, 5); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4 });
+scene.add(sun, new THREE.HemisphereLight(0xffffff, 0x666666, 0.6));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: 0xb8bbc0, roughness: 0.9 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 100);
+const controls = new OrbitControls(camera, renderer.domElement);
+const T = (q.get('target') ?? '0,0.6,0').split(',').map(Number);   // orbit centre, e.g. target=0.5,0.9,0.7
+controls.target.set(...T);
+const deg = (k, d) => (+(q.get(k) ?? d)) * Math.PI / 180;
+const dist = +(q.get('dist') ?? 6), yaw = deg('yaw', -35), pitch = deg('pitch', 12);
+camera.position.set(T[0] + Math.sin(yaw) * Math.cos(pitch) * dist, T[1] + Math.sin(pitch) * dist, T[2] + Math.cos(yaw) * Math.cos(pitch) * dist);
+controls.update();
+
+const url = '../' + (q.get('model') ?? 'assets/models/mini.glb');
+new GLTFLoader().load(url, (g) => {
+  let tris = 0;
+  g.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = !o.material.transparent; o.receiveShadow = true;
+    tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
+    if (q.get('wire')) o.material.wireframe = true;
+  });
+  scene.add(g.scene);
+  document.getElementById('info').textContent = `${url.slice(3)} · ${tris} triangles`;
+  window.modelReady = true;
+});
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+</script>
+</body>
+</html>

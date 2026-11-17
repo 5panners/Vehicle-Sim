@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vehicle Sim Sandbox</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    } }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="hud"></div>
+  <div id="tuning" class="overlay right"></div>
+  <div id="setup" class="overlay"></div>
+  <div id="loading">
+    <h1>Vehicle Sim Sandbox</h1>
+    <p id="loadStatus">Loading…</p>
+    <p class="hint">Keyboard: W/S throttle & brake · A/D steer · Space handbrake · C camera · Esc controls · Tab tuning · H help</p>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
