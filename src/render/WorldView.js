@@ -221,7 +221,7 @@ export class WorldView {
 
   _track() {
     const T = this.world.track, hw = (t) => t.w / 2;
-    this._ribbon({ offA: (t) => -hw(t), offB: hw, mat: this.asphaltMaterial(), uvScale: 14, step: 2, cols: 4 });
+    this._ribbon({ offA: (t) => -hw(t), offB: hw, yOff: 0.008, mat: this.asphaltMaterial(), uvScale: 14, step: 2, cols: 4 });   // flush with the physics surface so small karts do not sink into it
     // kerbs: red/white blocks, everywhere or just through corners (map.kerbs)
     const kmat = new THREE.MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     const kc = (s) => ((Math.floor(s / 4) % 2) ? [0.85, 0.1, 0.1] : [0.95, 0.95, 0.95]);

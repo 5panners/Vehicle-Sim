@@ -329,6 +329,40 @@ export const PRESETS = [
     aero: { dragCoefficient: 0.8, frontalArea: 0.55, liftCoefFront: 0, liftCoefRear: 0, angularDrag: 0.3 },
   }),
   makeVehicle({
+    name: 'KZ Shifter Kart', description: '125cc two-stroke gearbox (KZ/KZ2) kart: 175 kg with driver, ~55 hp at 12,500 rpm, 6-speed sequential box (G for manual, shift keys/paddles), front and rear brakes, standing starts. 0-60 mph in about 3.9 s, ~105 mph flat out. Same chassis as the direct-drive Kart.',
+    color: 0xffd600, accent: 0x111111, style: 'kart',
+    view: { hood: [0.62, -0.12] },
+    body: {
+      mass: 175, cgHeight: 0.25, weightDistFront: 0.36, groundClearance: 0.03,
+      dimensions: { width: 1.4, height: 0.95, length: 1.85 },
+      inertiaScale: { x: 0.6, y: 0.6, z: 0.7 }, bodyFriction: 0.4,
+    },
+    geometry: { wheelbase: 1.04, trackFront: 1.15, trackRear: 1.4 },
+    suspension: {
+      front: { springRate: 60000, bumpDamping: 900, reboundDamping: 1200, fastBumpThreshold: 0.1, fastBumpFactor: 0.5, restLength: 0.03, travel: 0.02, bumpStopRate: 250000, antiRollBar: 9000, camber: -0.5, camberGain: 0, toe: 0, caster: 14, steerJacking: 0.04, rollCenterHeight: 0.05 },
+      rear: { springRate: 55000, bumpDamping: 900, reboundDamping: 1200, fastBumpThreshold: 0.1, fastBumpFactor: 0.5, restLength: 0.03, travel: 0.02, bumpStopRate: 250000, antiRollBar: 6000, camber: 0, camberGain: 0, toe: 0, rollCenterHeight: 0.07 },
+      antiDive: 0, antiSquat: 0,
+    },
+    wheels: { front: { radius: 0.14, width: 0.12, inertia: 0.03 }, rear: { radius: 0.143, width: 0.18, inertia: 0.05 } },
+    tires: {
+      front: { peakFrictionX: 1.7, peakFrictionY: 1.8, peakSlipRatio: 0.09, peakSlipAngle: 4.5, shapeY: { C: 1.45, E: -0.2 }, loadSensitivity: 0.12, nominalLoad: 400, relaxationLengthX: 0.1, relaxationLengthY: 0.15, optimalTemp: 60, tempWindow: 25, heatRate: 6, coolRate: 0.03 },
+      rear: { peakFrictionX: 1.7, peakFrictionY: 1.75, peakSlipRatio: 0.09, peakSlipAngle: 4.5, shapeY: { C: 1.45, E: -0.2 }, loadSensitivity: 0.12, nominalLoad: 450, relaxationLengthX: 0.1, relaxationLengthY: 0.15, optimalTemp: 60, tempWindow: 25, heatRate: 6, coolRate: 0.03 },
+    },
+    engine: {
+      // 125cc water-cooled reed-valve two-stroke: narrow, peaky power band (~55 hp at 12,500 rpm, tuned a little hot to match real-world launches)
+      torqueCurve: [[4000, 6], [6000, 11], [8000, 17], [9500, 25], [11000, 32], [12500, 34], [13500, 31], [14500, 26], [15500, 17]],
+      idleRPM: 4000, redlineRPM: 14800, limiterRPM: 15500, limiterCutTime: 0.03,
+      inertia: 0.012, engineBrakingTorque: 4, throttleResponse: 22, cylinders: 2,
+    },
+    // six close ratios on a ~4.3 final drive; wet clutch that bites at ~9500 rpm (launch at high revs) so it can launch off the line
+    transmission: { gearRatios: [3.04, 2.25, 1.8, 1.53, 1.26, 1.0], reverseRatio: -3.0, finalDrive: 4.3, shiftTime: 0.04, clutchMaxTorque: 90, clutchEngageRPM: 9500, clutchFullRPM: 12500, efficiency: 0.93, autoShiftUpRPM: 14500, autoShiftDownRPM: 9500 },
+    drivetrain: { layout: 'RWD', rearDiff: { type: 'locked' } },
+    brakes: { maxTorque: 420, bias: 0.35, handbrakeTorque: 160 },   // front and rear discs, ~35% front
+    steering: { maxAngle: 28, ackermann: 1.0, steerSpeed: 6.0, speedSensitivity: 0.85, countersteerAssist: 0.15 },
+    aero: { dragCoefficient: 0.7, frontalArea: 0.55, liftCoefFront: 0, liftCoefRear: 0, angularDrag: 0.3 },
+    assists: { abs: false, tcs: false, stability: false },
+  }),
+  makeVehicle({
     name: 'Off-road Truck', description: 'Heavy 4x4 pickup. Huge travel, high CG, locked rear diff. For jumps and dirt.',
     color: 0x445566, style: 'truck',
     body: { mass: 2200, cgHeight: 0.85, weightDistFront: 0.55, groundClearance: 0.3, dimensions: { width: 2.05, height: 1.75, length: 5.3 }, bodyFriction: 0.5 },

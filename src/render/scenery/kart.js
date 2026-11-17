@@ -37,11 +37,11 @@ export function buildKartScenery(view) {
   const band = (t) => map.pitBand(world, t) ?? [t.w / 2 + 2.2, t.w / 2 + 6.2];
   const i0 = idx(PIT.from), i1 = idx(PIT.to);
   const to = i1 + (i1 < i0 ? M : 0);
-  view._ribbon({ offA: (t) => band(t)[1] - 0.2, offB: (t) => band(t)[1], yOff: 0.07, mat: lineMat, from: i0, to, step: 1 });
-  view._ribbon({ offA: (t) => band(t)[0], offB: (t) => band(t)[0] + 0.2, yOff: 0.07, mat: lineMat, from: i0, to, step: 1 });
+  view._ribbon({ offA: (t) => band(t)[1] - 0.2, offB: (t) => band(t)[1], yOff: 0.025, mat: lineMat, from: i0, to, step: 1 });
+  view._ribbon({ offA: (t) => band(t)[0], offB: (t) => band(t)[0] + 0.2, yOff: 0.025, mat: lineMat, from: i0, to, step: 1 });
   // edge lines along the circuit
-  view._ribbon({ offA: (t) => t.w / 2 - 0.18, offB: (t) => t.w / 2 - 0.02, yOff: 0.05, mat: lineMat, step: 1, filter: (t) => !t.noKerbR });
-  view._ribbon({ offA: (t) => -(t.w / 2 - 0.02), offB: (t) => -(t.w / 2 - 0.18), yOff: 0.05, mat: lineMat, step: 1 });
+  view._ribbon({ offA: (t) => t.w / 2 - 0.18, offB: (t) => t.w / 2 - 0.02, yOff: 0.02, mat: lineMat, step: 1, filter: (t) => !t.noKerbR });
+  view._ribbon({ offA: (t) => -(t.w / 2 - 0.02), offB: (t) => -(t.w / 2 - 0.18), yOff: 0.02, mat: lineMat, step: 1 });
 
   // ---- kart garages and race control
   const g0 = PIT.from + 8, g1 = PIT.to - 8, glat0 = hw(0) + 12.5, glat1 = glat0 + 6;

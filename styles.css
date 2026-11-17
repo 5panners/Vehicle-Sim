@@ -165,7 +165,7 @@ em.cold { color: var(--accent); } em.hot { color: var(--bad); } em.ok { color: v
 .drift .d-total { font-size: 12px; color: var(--dim); }
 
 /* track map: bottom centre, 70% opacity, sized to clear the input bars and the dash */
-.minimap { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: 230px; opacity: 0.7; pointer-events: none; }
+.minimap { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); width: 230px; opacity: 0.35; pointer-events: none; }
 .minimap.off { display: none; }
 .minimap canvas { display: block; width: 100%; }
 @media (max-width: 1100px) { .minimap { width: 180px; } }

@@ -330,6 +330,7 @@ Reference numbers from `npm run test:physics` (flat asphalt):
 | GT3 | 3.4 s (295 km/h top speed) | 2.2 g peak | 1.5 g at 120, 1.7 g at 200 km/h |
 | Formula 1 | 3.4 s (0–200: 8.0 s) | 4.75 g peak from 324 km/h top speed | 3.3 g at 220 km/h |
 | Kart | 112 km/h top speed | 0.7 g (rear-only brakes) | 1.35 g at 80 km/h |
+| KZ Shifter Kart | 3.9 s to 60 mph (6-speed, ~165 km/h top speed) | front and rear brakes, no ABS | 1.35 g; same chassis and model as the Kart |
 
 **Drift car tuning:**
 - **Steering:** 60° angle kit, with only light speed-sensitive lock so you can countersteer at speed. Stronger countersteer assist for pads.

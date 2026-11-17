@@ -11,7 +11,8 @@ export const BOT_CALIBRATION = {
     "GT3": 0.95,
     "Drift Car": 0.805,
     "Kart": 0.95,
-    "Off-road Truck": 0.769
+    "Off-road Truck": 0.769,
+    "KZ Shifter Kart": 0.94
   },
   "test": {
     "Track Prototype": 0.95,
@@ -24,7 +25,8 @@ export const BOT_CALIBRATION = {
     "Drift Car": 0.95,
     "GT3": 0.95,
     "Kart": 0.95,
-    "Off-road Truck": 0.911
+    "Off-road Truck": 0.911,
+    "KZ Shifter Kart": 0.95
   },
   "spa": {
     "Track Prototype": 0.95,
@@ -37,7 +39,8 @@ export const BOT_CALIBRATION = {
     "Drift Car": 0.661,
     "GT3": 0.95,
     "Kart": 0.95,
-    "Off-road Truck": 0.641
+    "Off-road Truck": 0.641,
+    "KZ Shifter Kart": 0.815
   },
   "kart": {
     "GT Coupe": 0.95,
@@ -50,6 +53,7 @@ export const BOT_CALIBRATION = {
     "GT3": 0.95,
     "Formula 1": 0.95,
     "Kart": 0.922,
-    "Off-road Truck": 0.94
+    "Off-road Truck": 0.94,
+    "KZ Shifter Kart": 0.863
   }
 };
