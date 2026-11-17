@@ -123,6 +123,7 @@ class App {
     this.vehicle.setConfig(cfg);
     this.vehicle.assists = assists;
     this.applySteeringMode();
+    this.race?.syncSpec();   // opponents keep the same spec as you
   }
 
   loadPreset(i) {

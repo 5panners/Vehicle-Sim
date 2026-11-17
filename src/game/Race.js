@@ -24,6 +24,7 @@ export class Race {
     this.bots = [];
     for (let k = 0; k < Math.min(opponents, MAX_OPPONENTS); k++) {
       const vehicle = new Vehicle(structuredClone(cfg), this.world);
+      vehicle.assists = { ...vehicle.assists, abs: app.vehicle.assists.abs, tcs: app.vehicle.assists.tcs, stability: app.vehicle.assists.stability };
       const driver = new BotDriver(this.world, vehicle, BOT_SKILLS[skill], { mapId: app.mapId });
       const view = new CarView(app.scene); view.tint = BOT_COLORS[k]; view.build(vehicle);
       this.bots.push({ name: BOT_NAMES[k], color: hex(BOT_COLORS[k]), vehicle, driver, view, lap: new LapTimer(this.world), goAt: Infinity });
@@ -35,6 +36,20 @@ export class Race {
   get skill() { return BOT_SKILLS[this.settings.skill]; }
   get cars() { return [this.player, ...this.bots]; }
   vehicleOf(c) { return c.isPlayer ? this.app.vehicle : c.vehicle; }
+
+  /** opponents always have the player's exact spec: tuning-panel changes, torque scale and assist toggles are copied across */
+  syncSpec() {
+    const pv = this.app.vehicle, a = pv.assists;
+    for (const b of this.bots) {
+      const v = b.vehicle, d = b.driver, keep = { ...v.assists };
+      const grip = d.carGrip / d.peak;                          // keep what the bot has learned, as a share of the tyre peak
+      v.setConfig(structuredClone(pv.config));
+      v.assists = { ...keep, abs: a.abs, tcs: a.tcs, stability: a.stability };
+      v.directSteer = true;
+      d.peak = Math.min(v.config.tires.front.peakFrictionY, v.config.tires.rear.peakFrictionY);
+      d.carGrip = grip * d.peak; d._corners();
+    }
+  }
 
   setSkill(i) { this.settings.skill = i; for (const b of this.bots) b.driver.setSkill(BOT_SKILLS[i]); }
 

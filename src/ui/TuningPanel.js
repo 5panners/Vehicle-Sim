@@ -96,7 +96,7 @@ export class TuningPanel {
     const as = document.createElement('div'); as.className = 'toggles';
     for (const [k, lbl] of [['abs', 'ABS'], ['tcs', 'Traction ctrl'], ['stability', 'Stability ctrl'], ['autoGearbox', 'Auto gearbox'], ['autoClutch', 'Auto clutch']]) {
       const l = document.createElement('label'); const c = document.createElement('input'); c.type = 'checkbox'; c.checked = !!v.assists[k];
-      c.onchange = () => { v.assists[k] = c.checked; };
+      c.onchange = () => { v.assists[k] = c.checked; app.race?.syncSpec(); };
       l.append(c, ' ' + lbl); as.append(l);
     }
     p.append(as);
