@@ -2,6 +2,7 @@
 import test from './test.js';
 import brands from './brandsHatch.js';
 import monaco from './monaco.js';
+import spa from './spa.js';
 
-export const MAPS = { [test.id]: test, [brands.id]: brands, [monaco.id]: monaco };
+export const MAPS = { [test.id]: test, [brands.id]: brands, [monaco.id]: monaco, [spa.id]: spa };
 export const DEFAULT_MAP = 'test';

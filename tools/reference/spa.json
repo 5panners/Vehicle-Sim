@@ -1,0 +1,15 @@
+{
+  "image": "tools/reference/spa/layout-black.png",
+  "color": "black",
+  "start": [150, 144],
+  "direction": [-1, 0],
+  "startLine": [200, 144],
+  "lengthMetres": 7004,
+  "bearingDeg": 0,
+  "spacingMetres": 6,
+  "smoothIterations": 50,
+  "cornerTurnDeg": 30,
+  "debugImage": "/private/tmp/claude-501/-Users-paul-Documents-Game-Design-Vehicle-Sim/905537a2-228a-431d-aafa-5f76bf96040e/scratchpad/spa/trace.png",
+  "debugZoom": 2,
+  "out": "/private/tmp/claude-501/-Users-paul-Documents-Game-Design-Vehicle-Sim/905537a2-228a-431d-aafa-5f76bf96040e/scratchpad/spa/spa-track.js"
+}

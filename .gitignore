@@ -12,3 +12,6 @@ tools/reference/*.png
 
 # Monaco reference screenshots (third-party images; used only for measuring)
 tools/reference/monaco/
+
+# Spa reference screenshots (third-party images; used only for measuring)
+tools/reference/spa/

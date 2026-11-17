@@ -1,0 +1,8 @@
+{
+  "image": "tools/reference/spa/strava-map.png",
+  "trackModule": "src/world/maps/spa-track.js",
+  "ignore": [[845, 0, 911, 95], [0, 0, 60, 110], [850, 540, 911, 615]],
+  "size": 2400,
+  "res": 4,
+  "out": "src/world/maps/spa-forest.js"
+}

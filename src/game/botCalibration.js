@@ -41,5 +41,19 @@ export const BOT_CALIBRATION = {
     "Formula 1": 0.95,
     "Drift Car": 0.744,
     "Off-road Truck": 0.767
+  },
+  "spa": {
+    "Track Prototype": 0.95,
+    "Rally AWD": 0.711,
+    "GT Coupe": 0.704,
+    "Hot Hatch": 0.671,
+    "'67 Lotus GP": 0.499,
+    "Muscle Car": 0.661,
+    "'64 Works Mini": 0.66,
+    "Formula 1": 0.95,
+    "Drift Car": 0.661,
+    "GT3": 0.95,
+    "Kart": 0.95,
+    "Off-road Truck": 0.641
   }
 };

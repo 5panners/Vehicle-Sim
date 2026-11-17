@@ -1,0 +1,9 @@
+{
+  "route": "tools/reference/spa-route-px.json",
+  "lapMetres": 7004,
+  "spacingMetres": 6,
+  "smoothIterations": 40,
+  "cornerTurnDeg": 30,
+  "out": "src/world/maps/spa-track.js",
+  "minRadius": 13.5
+}

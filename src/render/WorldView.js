@@ -5,6 +5,7 @@ import { gridSlots } from '../game/RaceStart.js';
 import { fbm } from '../world/noise.js';
 import { buildBrandsScenery } from './scenery/brandsHatch.js';
 import { buildMonacoScenery } from './scenery/monaco.js';
+import { buildSpaScenery } from './scenery/spa.js';
 
 export function noiseTexture(size = 256, contrast = 0.25, base = 0.85) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -48,6 +49,7 @@ export class WorldView {
     if (scenery === 'test') this._scenery();
     else if (scenery === 'brands') buildBrandsScenery(this);
     else if (scenery === 'monaco') buildMonacoScenery(this);
+    else if (scenery === 'spa') buildSpaScenery(this);
   }
 
   // Barriers: street concrete (red/white blocks), concrete pit wall, Armco (two steel rails on
@@ -109,7 +111,8 @@ export class WorldView {
   }
 
   _terrain() {
-    const w = this.world, step = 2.5, size = w.size, n = Math.round(size / step) + 1, half = size / 2;
+    const w = this.world, size = w.size, step = size > 2000 ? 4 : 2.5,   // big circuits use a coarser mesh
+       n = Math.round(size / step) + 1, half = size / 2;
     const pos = new Float32Array(n * n * 3), col = new Float32Array(n * n * 3), uv = new Float32Array(n * n * 2);
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
       const x = i * step - half, z = j * step - half, k = j * n + i;

@@ -81,6 +81,24 @@ Switch with **L**, or the **Map** dropdown in the Tab panel (the page reloads wi
 | `test` | The proving ground: start pad, skidpad, surface strips, jump park, circuit and walled section (below). |
 | `brands` | **Brands Hatch GP** (3.908 km, clockwise). See below. |
 | `monaco` | **Circuit de Monaco** (3.337 km, clockwise): the harbour, Casino Square, the hairpin and the tunnel. See below. |
+| `spa` | **Spa-Francorchamps** (7.004 km, clockwise): Eau Rouge and Raidillon, the Kemmel straight, Pouhon and Blanchimont in the Ardennes forest. See below. |
+
+### Spa-Francorchamps
+
+The full 7.004 km Grand Prix circuit in the Ardennes: 102 m of elevation change (364 m at Stavelot to 466 m at Les Combes), gradients up to 18% at Raidillon and 15,000 trees.
+
+**Corners (lap distance from the start line):** La Source 420 m · Eau Rouge 1044 · Raidillon 1190 · the Kemmel straight (1.1 km) · Les Combes 2431 · Malmedy 2653 · Rivage 3139 · Pouhon 4100 (the double left) · Fagnes 4700 · Campus 5059 · Stavelot 5276 · Paul Frère 5450 · Blanchimont 6090 · the Bus Stop chicane 6866. The start line is on the pit straight, about 420 m before La Source.
+
+**How it was built.** The layout diagram you gave me is not drawn to scale (it squeezes the Kemmel straight to a fraction of its length), so it can't be used for the geometry. The geometry is the **real GPS route** from the Strava map screenshot instead:
+- `tools/trace-gps-route.py` picks the route out of the map by colour (a dark casing around a coloured core), walks it, and takes the pixel scale from the map's own 1 km markers (about 3.2 m per pixel). The map is north-up, so no rotation was needed.
+- The route is cropped off the bottom of that screenshot where it passes Les Combes, Malmedy and the Rivage hairpin, so about 430 m (6% of the lap) is a bridged curve. `tools/build-spa-track.py` joins the two ends with a smooth curve leaving and rejoining along the route's own headings, sized so the closed lap is exactly 7,004 m. It is a right-hand U with a 13–14 m hairpin, as Rivage is, but its exact shape is an approximation.
+- Elevation is digitised from the elevation profile (`spa-elevation.js`), stretched from the Strava segment's 6.9 km to the lap; Eau Rouge is the dip to 390 m at 1 km.
+- The woodland and open pasture come from the map's colours (`tools/extract-basemap-forest.py`).
+- The layout diagram was used to check the corner order (La Source, Eau Rouge, Raidillon, Les Combes, Malmedy, Rivage, Pouhon, Fagnes, Stavelot, Paul Frère, Blanchimont, the Bus Stop).
+
+**Scenery** (`src/render/scenery/spa.js`): the painted run-off at Eau Rouge and Raidillon (red and yellow lanes on the outside of the compression, teal opposite, as in the photos), the pit lane with its two-storey garages, glazed pit building and control tower, a covered main grandstand opposite the pits and another above Raidillon, scaffold stands at La Source and Les Combes, the Bus Stop stand, boards, marshal posts, brake boards, floodlights, farmhouses on the pastures and the forest (spruce and pine with beech, with a cheap stand-in model for distant trees).
+
+Honest limits: positions are good to roughly ±10 m (the route is a rider's GPS track and the map is about 3 m per pixel); the Les Combes–Rivage stretch is bridged, not traced; the start line is placed at the flag on the map, which may be a little off the official line; kerb, run-off and barrier layout follow the circuit's character rather than a survey; and this is a big world (2.4 km square, about 145 MB for the physics grid), so it takes a couple of seconds longer to load.
 
 ### Monaco GP
 
