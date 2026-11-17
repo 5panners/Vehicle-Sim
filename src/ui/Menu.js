@@ -1,5 +1,5 @@
 import { PRESETS } from '../vehicles/presets.js';
-import { BOT_SKILLS } from '../game/BotDriver.js';
+import { BOT_SKILLS, BOT_PARAMS, BOT_SKILL_DEFAULTS, MISTAKE_TYPES, saveBotSkills, resetBotSkill, resetAllBotSkills } from '../game/BotDriver.js';
 import { MAX_OPPONENTS } from '../game/Race.js';
 
 const h = (tag, attrs = {}, ...kids) => {
@@ -13,7 +13,7 @@ const h = (tag, attrs = {}, ...kids) => {
   return el;
 };
 
-const TABS = [['race', 'Create Race'], ['controls', 'Controls'], ['vehicle', 'Vehicle']];
+const TABS = [['race', 'Create Race'], ['ai', 'Bot AI'], ['controls', 'Controls'], ['vehicle', 'Vehicle']];
 
 /** rough peak power from the torque curve (no boost), in hp */
 const peakHp = (cfg) => Math.round(Math.max(...cfg.engine.torqueCurve.map(([rpm, nm]) => (nm * rpm) / 9549)) * 1.341 * (1 + (cfg.engine.turbo?.maxBoost || 0)));
@@ -49,6 +49,7 @@ export class Menu {
     this.body.innerHTML = '';
     if (tab === 'race') this.body.append(this._race());
     else if (tab === 'vehicle') this.body.append(this._vehicle());
+    else if (tab === 'ai') this.body.append(this._ai());
     else { this.body.append(this.controlsRoot); this.setup.open(); }
     this.body.querySelector('button, select, input')?.focus();
   }
@@ -71,7 +72,8 @@ export class Menu {
     const el = document.activeElement;
     if (edge(14) || edge(15)) {
       const dir = pad.buttons[15]?.pressed ? 1 : -1;
-      if (el?.tagName === 'SELECT') { el.selectedIndex = Math.max(0, Math.min(el.options.length - 1, el.selectedIndex + dir)); el.dispatchEvent(new Event('change')); }
+      if (el?.type === 'range') { el.value = +el.value + dir * +el.step * 2; el.dispatchEvent(new Event('input')); }
+      else if (el?.tagName === 'SELECT') { el.selectedIndex = Math.max(0, Math.min(el.options.length - 1, el.selectedIndex + dir)); el.dispatchEvent(new Event('change')); }
       else move(dir);
     }
     if (edge(0) && el && focusables.includes(el)) el.click();
@@ -102,12 +104,42 @@ export class Menu {
       h('div', { class: 'row' }, h('label', {}, 'Laps'), select(s.laps, [[0, 'Practice (no limit)'], [1, '1'], [3, '3'], [5, '5'], [10, '10'], [20, '20']], (v) => (s.laps = +v))),
       slotRow,
       h('div', { class: 'row' }, h('label', {}, 'Vehicle'), h('span', {}, app.vehicle.config.name), h('button', { class: 'btn ghost', onclick: () => this.show('vehicle') }, 'Change…')),
-      h('div', { class: 'row actions' },
+      h('div', { class: 'row btnrow' },
         h('label', {}, ''),
         h('button', { class: 'btn primary', onclick: () => { this.close(); app.createRace(s); } }, 'Start race'),
         app.race ? h('button', { class: 'btn', onclick: () => { app.endRace(); this.show('race'); } }, 'End current race') : null),
       h('p', { class: 'hint' }, 'Quick keys: O = practice against one opponent · K = opponent skill · 1 = restart from the grid'));
     return box;
+  }
+
+  // ---------------------------------------------------------------- Bot AI
+  _ai() {
+    const app = this.app, lvl = this.aiLevel ?? app.raceSettings.skill;
+    this.aiLevel = lvl;
+    const sk = BOT_SKILLS[lvl], def = BOT_SKILL_DEFAULTS[lvl];
+    const levels = h('div', { class: 'levels' }, ...BOT_SKILLS.map((k, i) => h('button', { class: 'tab' + (i === lvl ? ' active' : ''), onclick: () => { this.aiLevel = i; this.show('ai'); } }, k.name)));
+    const sliders = BOT_PARAMS.map((p) => {
+      const out = h('span', { class: 'val' }, p.fmt(sk[p.key]));
+      const r = h('input', { type: 'range', min: p.min, max: p.max, step: p.step, value: sk[p.key], title: p.help });
+      r.addEventListener('input', () => {
+        sk[p.key] = +r.value; out.textContent = p.fmt(sk[p.key]); saveBotSkills();
+        if (p.key === 'grip' || p.key === 'brake') app.race?.refreshSkills();   // pace and braking points change at once
+      });
+      const mark = Math.abs(sk[p.key] - def[p.key]) > 1e-9 ? ' *' : '';
+      return h('div', { class: 'row' }, h('label', {}, p.label + mark), r, out);
+    });
+    const log = app.race ? app.race.mistakeSummary() : [];
+    const mistakes = log.length ? h('div', { class: 'mistakes' }, h('h3', {}, 'Mistakes in the current race'),
+      ...log.map((b) => h('div', { class: 'row' }, h('label', {}, h('i', { class: 'dot', style: `background:${b.color}` }), b.name),
+        h('span', {}, b.log.length ? MISTAKE_TYPES.map((t) => [t, b.log.filter((m) => m === t).length]).filter(([, n]) => n).map(([t, n]) => `${n}× ${t}`).join(' · ') : 'none yet')))) : null;
+    return h('div', { class: 'ai-form' },
+      h('p', { class: 'hint' }, 'Each skill level has its own settings. Changes are saved and take effect straight away, even mid-race. A mistake is rolled for at every corner: late braking, a missed apex, a sliding exit or over-braking.'),
+      levels, ...sliders,
+      h('div', { class: 'row btnrow' }, h('label', {}, ''),
+        h('button', { class: 'btn', onclick: () => { resetBotSkill(lvl); app.race?.refreshSkills(); this.show('ai'); } }, `Reset ${sk.name}`),
+        h('button', { class: 'btn ghost', onclick: () => { resetAllBotSkills(); app.race?.refreshSkills(); this.show('ai'); } }, 'Reset all levels')),
+      h('p', { class: 'hint' }, '* = changed from the default. Hover a slider for what it does.'),
+      mistakes);
   }
 
   // ---------------------------------------------------------------- Vehicle

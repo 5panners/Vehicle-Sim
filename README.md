@@ -136,10 +136,24 @@ A lap only counts if you actually drove it forwards. Straying more than 45 m fro
 
 **Esc** opens the menu (it pauses the game). It has three tabs:
 - **Create Race:** pick the track, 1–7 opponents, their skill (Rookie, Club, Pro, Alien), the number of laps (or open practice) and your grid slot, then **Start race**. Choosing another track reloads it and starts the race there. Your last setup is remembered.
+- **Bot AI:** tune the opponents, with separate settings for each skill level (see below).
 - **Controls:** controller binding and calibration, steering sensitivity and rumble.
 - **Vehicle:** every car with its weight, rough power, drivetrain and description. Click one to drive it.
 
 In a race the HUD shows your position, the lap and the gap to the car ahead (or behind, if you're leading). Opponents are coloured dots on the track map. When you take the flag a results table shows the finishing order, gaps and best laps, with **Race again**, **Menu** and **Keep driving** buttons.
+
+**Bot AI tab:** pick a level (Rookie, Club, Pro, Alien) and adjust its sliders. Changes are saved in the browser and apply straight away, even mid-race. A `*` marks a value changed from the default, and Reset puts back the defaults.
+
+| Setting | What it does |
+|---|---|
+| Pace | share of the car's grip it corners at |
+| Braking | how hard, and so how late, it brakes |
+| Inconsistency | random pace variation from corner to corner (a new roll at every corner) |
+| Mistake chance | chance of a mistake at each corner |
+| Mistake size | how big mistakes are, from a small wobble to running off the track |
+| Start reaction | delay after the lights go out |
+
+The mistakes are *late braking* (carrying too much speed in), *missed apex* (running wide, possibly over the kerb), *sliding exit* (full power too early) and *over-braking* (scrubbing off too much speed). The tab lists the ones each opponent has made in the current race. The defaults make Rookies slip up at about 1 corner in 10 and Aliens almost never (`tools/bot-mistakes-test.mjs` checks the rates).
 
 **O** is a shortcut for a practice session against one opponent from P2 (O again ends it). **K** cycles the opponents' skill.
 

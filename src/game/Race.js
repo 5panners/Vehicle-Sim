@@ -38,6 +38,12 @@ export class Race {
 
   setSkill(i) { this.settings.skill = i; for (const b of this.bots) b.driver.setSkill(BOT_SKILLS[i]); }
 
+  /** after the Bot AI tab changes a level's numbers: replan corner speeds and braking */
+  refreshSkills() { for (const b of this.bots) b.driver._corners(); }
+
+  /** mistakes the opponents have made so far, by name */
+  mistakeSummary() { return this.bots.map((b) => ({ name: b.name, color: b.color, log: b.driver.mistakeLog })); }
+
   /** everyone to the grid (player in the chosen slot, opponents filling the rest) and run the lights */
   start() {
     const n = this.bots.length + 1, slots = gridSlots(this.world, n);

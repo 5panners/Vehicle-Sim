@@ -4,13 +4,40 @@ import { BOT_CALIBRATION } from './botCalibration.js';
 const G = 9.81;
 const _f = new Vec3(), _up = new Vec3();
 
-/** Practice opponent skill levels: fraction of the car's tyre grip the bot plans its speeds with. */
+/**
+ * Opponent skill levels. Editable in the menu's Bot AI tab (saved in the browser):
+ *  grip        share of the car's grip it corners at (pace)
+ *  brake       share of the grip it brakes with (how late it brakes)
+ *  consistency random pace variation from corner to corner (fraction, e.g. 0.02 = ±2 %)
+ *  mistakes    chance of a mistake at each corner (late braking, missed apex, sliding exit, over-braking)
+ *  severity    how big those mistakes are (0..1)
+ *  react       start reaction time when the lights go out (s)
+ */
 export const BOT_SKILLS = [
-  { name: 'Rookie', grip: 0.70, brake: 0.70, react: 0.38 },   // react = start reaction time (s)
-  { name: 'Club', grip: 0.80, brake: 0.78, react: 0.30 },
-  { name: 'Pro', grip: 0.88, brake: 0.85, react: 0.24 },
-  { name: 'Alien', grip: 0.95, brake: 0.92, react: 0.18 },
+  { name: 'Rookie', grip: 0.70, brake: 0.70, consistency: 0.04, mistakes: 0.10, severity: 0.8, react: 0.38 },
+  { name: 'Club', grip: 0.80, brake: 0.78, consistency: 0.025, mistakes: 0.05, severity: 0.6, react: 0.30 },
+  { name: 'Pro', grip: 0.88, brake: 0.85, consistency: 0.015, mistakes: 0.02, severity: 0.45, react: 0.24 },
+  { name: 'Alien', grip: 0.95, brake: 0.92, consistency: 0.006, mistakes: 0.005, severity: 0.3, react: 0.18 },
 ];
+export const BOT_SKILL_DEFAULTS = structuredClone(BOT_SKILLS);
+
+/** the tunable parameters, for the Bot AI tab */
+export const BOT_PARAMS = [
+  { key: 'grip', label: 'Pace', min: 0.5, max: 1.0, step: 0.01, fmt: (v) => `${Math.round(v * 100)}% of grip`, help: 'How much of the car\'s grip it uses through corners.' },
+  { key: 'brake', label: 'Braking', min: 0.5, max: 1.0, step: 0.01, fmt: (v) => `${Math.round(v * 100)}%`, help: 'How hard (and so how late) it brakes.' },
+  { key: 'consistency', label: 'Inconsistency', min: 0, max: 0.08, step: 0.002, fmt: (v) => `±${(v * 100).toFixed(1)}%`, help: 'Random pace variation from corner to corner.' },
+  { key: 'mistakes', label: 'Mistake chance', min: 0, max: 0.3, step: 0.005, fmt: (v) => `${(v * 100).toFixed(1)}% per corner`, help: 'Late braking, missed apexes, sliding exits, over-braking.' },
+  { key: 'severity', label: 'Mistake size', min: 0, max: 1, step: 0.05, fmt: (v) => `${Math.round(v * 100)}%`, help: 'Small wobble at 0%, off the track at 100%.' },
+  { key: 'react', label: 'Start reaction', min: 0.1, max: 0.8, step: 0.01, fmt: (v) => `${v.toFixed(2)} s`, help: 'Delay after the lights go out.' },
+];
+/** edits are kept in the browser and mutate the shared level objects, so running bots see them straight away */
+const KEY = 'vehicleSim.botSkills';
+export function saveBotSkills() { try { localStorage.setItem(KEY, JSON.stringify(BOT_SKILLS.map((s) => Object.fromEntries(BOT_PARAMS.map((p) => [p.key, s[p.key]]))))); } catch { /* storage unavailable */ } }
+export function resetBotSkill(i) { Object.assign(BOT_SKILLS[i], BOT_SKILL_DEFAULTS[i]); saveBotSkills(); }
+export function resetAllBotSkills() { BOT_SKILLS.forEach((_, i) => Object.assign(BOT_SKILLS[i], BOT_SKILL_DEFAULTS[i])); saveBotSkills(); }
+try { (JSON.parse(globalThis.localStorage?.getItem(KEY) || 'null') || []).forEach((o, i) => { if (BOT_SKILLS[i]) for (const p of BOT_PARAMS) if (Number.isFinite(o?.[p.key])) BOT_SKILLS[i][p.key] = Math.min(p.max, Math.max(p.min, o[p.key])); }); } catch { /* ignore */ }
+export const MISTAKE_TYPES = ['late braking', 'missed apex', 'sliding exit', 'over-braking'];
+const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
 
 /**
  * AI driver for a practice opponent. It precomputes a racing line that uses the
@@ -23,8 +50,9 @@ export const BOT_SKILLS = [
 const LINE_CACHE = new WeakMap();
 
 export class BotDriver {
-  constructor(world, vehicle, skill = BOT_SKILLS[2], { calibrated = true, mapId = null, learn = true, grip = null } = {}) {
-    this.world = world; this.car = vehicle; this.learning = learn;
+  constructor(world, vehicle, skill = BOT_SKILLS[2], { calibrated = true, mapId = null, learn = true, grip = null, paceBias = 1 } = {}) {
+    this.world = world; this.car = vehicle; this.learning = learn; this.paceBias = paceBias;
+    this.paceNoise = 1; this.mistake = null; this.mistakeLog = [];
     // start from the offline calibration for this car and circuit if there is one
     const ratio = calibrated && mapId ? BOT_CALIBRATION[mapId]?.[vehicle.config.name] : null;
     this.car.directSteer = true;                         // the bot outputs a wheel angle directly
@@ -106,7 +134,17 @@ export class BotDriver {
     const cfg = this.car.config, M = this.M, skill = this.skill;
     const mu = (skill.grip / 0.95) * this.carGrip;
     const aero = -(cfg.aero.liftCoefFront + cfg.aero.liftCoefRear) * 0.5 * 1.225 * cfg.aero.frontalArea / cfg.body.mass;
-    if (!this._cmax) this._cmax = this.curv.map((_, i) => { let m = 0; for (let j = -4; j <= 4; j++) m = Math.max(m, Math.abs(this.curv[(i + j + M) % M])); return m; });
+    if (!this._cmax) {
+      this._cmax = this.curv.map((_, i) => { let m = 0; for (let j = -4; j <= 4; j++) m = Math.max(m, Math.abs(this.curv[(i + j + M) % M])); return m; });
+      // corner apexes: curvature peaks tighter than a 120 m radius, at least 60 m apart
+      const sep = Math.round(60 / this.step), c = this.curv.map(Math.abs);
+      this.apexes = [];
+      for (let i = 0; i < M; i++) {
+        if (c[i] < 1 / 120) continue;
+        let peak = true; for (let j = -sep; j <= sep && peak; j++) if (c[(i + j + M) % M] > c[i]) peak = false;
+        if (peak && !this.apexes.some((a) => Math.abs(a - i) < sep)) this.apexes.push(i);
+      }
+    }
     this.vCorner = this._cmax.map((k) => Math.min(95, Math.sqrt((mu * G) / Math.max(1e-4, k - mu * aero))));
     this.brakeDecel = mu * G * skill.brake;
     this._replan();
@@ -159,6 +197,25 @@ export class BotDriver {
     this.idx = ii; this.iErr = 0; this.stuck = 0; this.lat = 0; this.latTarget = 0; this.thr = 0;
   }
 
+  // ---------------------------------------------------------------- corner-by-corner variation
+  /** signed metres from sample i to the apex a (+ = past it) */
+  _rel(i, a) { let d = (i - a + this.M) % this.M; if (d > this.M / 2) d -= this.M; return d * this.step; }
+
+  /** approaching a new corner: roll this corner's pace and whether we make a mistake here */
+  _corner(idx) {
+    let next = -1, best = Infinity;
+    for (const a of this.apexes) { const r = -this._rel(idx, a); if (r > 0 && r < best) { best = r; next = a; } }
+    if (next < 0 || best > 220 || next === this._rolled) return;
+    this._rolled = next;
+    const sk = this.skill;
+    this.paceNoise = 1 + gauss() * (sk.consistency ?? 0);
+    if (Math.random() < (sk.mistakes ?? 0)) {
+      const type = MISTAKE_TYPES[Math.floor(Math.random() * MISTAKE_TYPES.length)];
+      this.mistake = { type, apex: next, sev: (sk.severity ?? 0.5) * (0.5 + Math.random() * 0.5), side: Math.random() < 0.5 ? -1 : 1, t: 0 };
+      this.mistakeLog.push(type);
+    }
+  }
+
   // ---------------------------------------------------------------- driving
   /** call once per physics step before car.step(dt). others = the other cars (a vehicle, an array, or null). */
   drive(dt, others) {
@@ -203,6 +260,19 @@ export class BotDriver {
         }
       }
     }
+    // corner-by-corner pace and mistakes
+    this._corner(idx);
+    const mk = this.mistake, rel = mk ? this._rel(idx, mk.apex) : 0;
+    if (mk && rel > 160) this.mistake = null;
+    let mkSpeed = 1, mkLat = 0, mkThrottle = false, mkLim = 0;
+    if (this.mistake) {
+      mk.t += dt;
+      if (mk.type === 'late braking' && rel > -160 && rel < 20) mkSpeed = 1.05 + 0.12 * mk.sev;              // carries too much speed in
+      else if (mk.type === 'over-braking' && rel > -90 && rel < 10) mkSpeed = 0.8 - 0.2 * mk.sev;           // scrubs off too much
+      else if (mk.type === 'missed apex' && rel > -50 && rel < 90) { mkLat = mk.side * (1.2 + 2.5 * mk.sev) * Math.sin(Math.PI * (rel + 50) / 140); mkLim = 0.5 + 1.5 * mk.sev; }
+      else if (mk.type === 'sliding exit' && rel > 5 && rel < 90) mkThrottle = true;                         // floors it too early
+    }
+    if (this.latTarget === 0 && mkLat) this.latTarget = mkLat;
     this.lat += Math.max(-dt * 4, Math.min(dt * 4, this.latTarget - this.lat));       // move sideways at up to 4 m/s
 
     // path tracking (Stanley-style): curvature feed-forward + heading error + cross-track error,
@@ -210,7 +280,8 @@ export class BotDriver {
     // when passing.
     car.body.localDir(_f.set(0, 0, 1), _f);
     const ai = (idx + Math.round((4 + v * 0.12) / this.step)) % M, ta = this.tan[ai], tr = T[ai];
-    const off = Math.max(-this.lim[ai], Math.min(this.lim[ai], this.d[ai] + this.lat));
+    const limA = this.lim[ai] + mkLim;                     // a missed apex can put a wheel over the kerb
+    const off = Math.max(-limA, Math.min(limA, this.d[ai] + this.lat));
     const lx = tr.x + tr.rx * off, lz = tr.z + tr.rz * off;
     const fx = p.x + _f.x * (4 + v * 0.12), fz = p.z + _f.z * (4 + v * 0.12);   // where the nose will be
     const heading = Math.atan2(-(ta.x * _f.z - ta.z * _f.x), ta.x * _f.x + ta.z * _f.z);   // + = line turns right of us
@@ -220,14 +291,16 @@ export class BotDriver {
     const moment = (Math.abs(car.telemetry.slipAngle || 0) > 0.26 && v > 8) || (devNow > 3 && this.latTarget === 0);
     this._clean = moment ? 0 : (this._clean || 0) + v * dt;
     if (this._clean > 400) { this._clean = 0; if (this.carGrip < 0.95 * this.peak) { this.carGrip = Math.min(0.95 * this.peak, this.carGrip * 1.005); this._corners(); } }
-    if (moment && (this._lastLearn === undefined || ((idx - this._lastLearn + M) % M) * this.step > 60)) { if (this.learning) this._learnFrom(idx); this._lastLearn = idx; this.moments = (this.moments || 0) + 1; }
+    // its own deliberate mistakes don't teach it anything
+    if (moment && (this._lastLearn === undefined || ((idx - this._lastLearn + M) % M) * this.step > 60)) { if (this.learning && !this.mistake) this._learnFrom(idx); this._lastLearn = idx; this.moments = (this.moments || 0) + 1; }
     const ff = Math.atan(cfg.geometry.wheelbase * this.curv[ai]);
     // catch slides: countersteer with the body slip angle once the rear steps out
     const beta = car.telemetry.slipAngle || 0, slide = Math.max(0, Math.abs(beta) - 0.05);
     const steerAng = ff + 0.9 * heading - Math.atan((1.4 * cross) / (v + 3)) + Math.sign(beta) * slide * 0.9;
 
     // speed: look ~0.6 s ahead on the plan, PI throttle, brake when over it
-    const want = Math.min(cap, this.plan[idx], this.plan[(idx + Math.round((v * 0.6) / this.step)) % M]) * (devNow > 1.5 ? Math.max(0.6, 1 - (devNow - 1.5) * 0.08) : 1), e = want - v;
+    const pace = this.paceNoise * this.paceBias * mkSpeed;
+    const want = Math.min(cap, Math.min(this.plan[idx], this.plan[(idx + Math.round((v * 0.6) / this.step)) % M]) * pace * (devNow > 1.5 && !this.mistake ? Math.max(0.6, 1 - (devNow - 1.5) * 0.08) : 1)), e = want - v;
     this.iErr = Math.max(-0.5, Math.min(0.5, this.iErr + e * dt * 0.3));
     const slipDeg = Math.abs(car.telemetry.slipAngle) * 57.3;
     const traction = Math.max(0, Math.min(1, 1 - (slipDeg - 3) / 5));
@@ -238,6 +311,7 @@ export class BotDriver {
     // ease off the throttle rather than snapping shut (sudden lifts unsettle lift-off-oversteer cars),
     // and in a front-driver catch a slide with some power, as a driver would
     let thr = throttle, brk = brake;
+    if (mkThrottle && mk.t < 0.8 + 1.0 * mk.sev) { thr = 1; brk = 0; }   // sliding exit: too much power too soon
     if (cfg.drivetrain.layout === 'FWD' && slipDeg > 6) { thr = Math.max(thr, 0.5); brk = 0; }
     this.thr = (this.thr ?? 0) + Math.max(-2.5 * dt, Math.min(6 * dt, thr - (this.thr ?? 0)));
     car.setInput({ steer: Math.max(-1, Math.min(1, steerAng / (cfg.steering.maxAngle * Math.PI / 180))), throttle: brk > 0 ? Math.min(this.thr, 0.1) : this.thr, brake: brk, handbrake: 0, clutch: 0 });
