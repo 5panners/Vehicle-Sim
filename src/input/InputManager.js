@@ -108,8 +108,8 @@ export class InputManager {
   load() {
     let data = null;
     try { data = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { /* storage unavailable */ }
-    this.data = data && data.profiles ? data : { profiles: {}, keyboard: { steerSpeed: 3.5 }, global: { rumble: 0.7, steeringMode: 'pad' } };
-    this.data.global = { rumble: 0.7, steeringMode: 'pad', ...this.data.global };
+    this.data = data && data.profiles ? data : { profiles: {}, keyboard: { steerSpeed: 3.5 }, global: { rumble: 0.7, steeringMode: 'pad', steerSensitivity: 0.6 } };
+    this.data.global = { rumble: 0.7, steeringMode: 'pad', steerSensitivity: 0.6, ...this.data.global };
   }
   save() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data)); } catch { /* ignore */ } }
 

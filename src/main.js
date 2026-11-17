@@ -101,7 +101,11 @@ class App {
   }
 
   // ------------------------------------------------------------------ vehicle mgmt
-  applySteeringMode() { this.vehicle.directSteer = this.input.data.global.steeringMode === 'wheel'; }
+  applySteeringMode() {
+    const g = this.input.data.global;
+    this.vehicle.directSteer = g.steeringMode === 'wheel';
+    this.vehicle.steerSensitivity = g.steerSensitivity;
+  }
 
   applyConfig(cfg) {
     const assists = this.vehicle.assists;

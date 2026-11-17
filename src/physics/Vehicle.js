@@ -238,14 +238,17 @@ export class Vehicle {
     const tf = this.config.tires.front;
     const useful = (this.config.geometry.wheelbase * tf.peakFrictionY * G) / v2 + tf.peakSlipAngle * DEG * 1.0;
     const lock = lerp(s.maxAngle * DEG, Math.min(s.maxAngle * DEG, useful), s.speedSensitivity);
-    let target = this.input.steer * lock;
+    // steering sensitivity (Controls panel): less lock per input at speed, full lock kept for
+    // tight low-speed turns, and a slower steering rack everywhere
+    const sens = this.steerSensitivity ?? 1, atSpeed = clamp(Math.abs(vFwd) / 15, 0, 1);
+    let target = this.input.steer * lock * lerp(1, sens, atSpeed);
     // countersteer assist: steer toward the direction of travel when the rear steps out
     if (s.countersteerAssist > 0 && vFwd > 3) {
       const beta = Math.atan2(this.body.velocity.dot(_right), vFwd);
       target += s.countersteerAssist * beta * (1 - 0.5 * Math.abs(this.input.steer));
     }
     target = clamp(target, -s.maxAngle * DEG, s.maxAngle * DEG);
-    const rate = (this.steerRateOverride ?? s.steerSpeed) * s.maxAngle * DEG;
+    const rate = (this.steerRateOverride ?? s.steerSpeed) * s.maxAngle * DEG * Math.min(1, sens);
     const d = target - this.steerAngle;
     this.steerAngle += clamp(d, -rate * dt, rate * dt);
     this._applyWheelSteer();
