@@ -143,6 +143,14 @@ The AI is calibrated for Monaco like the other circuits (`src/game/botCalibratio
 | ![Cooper Straight below the garages](docs/screenshots/brands-cooper-straight.jpg) | ![Clearways to Clark Curve](docs/screenshots/brands-clearways.jpg) |
 | ![Pit straight from above](docs/screenshots/brands-pit-straight-aerial.jpg) | |
 
+### Sound
+
+Every car has its own procedural sound model (`src/audio/VehicleAudio.js`): the engine (a V8 sounds different from a four-cylinder, boosted cars add a turbo whistle), tyre squeal, loose-surface and kerb rumble, wall scrapes, and one-shot impacts for landings, bumps, wall hits and car-to-car contact. Your own car also has wind noise.
+
+Opponents are heard in space: each one is quieter the further away it is, sits in the stereo image where it is on track, loses its high frequencies with distance and shifts in pitch as it passes (Doppler). Each opponent is also tuned a little differently so you can tell them apart, and everything falls silent while the menu is open.
+
+The **Audio** tab in the menu (Esc) has volume sliders for master, engines, tyres and surfaces, impacts and scrapes, wind and opponents, switches for 3D positioning, Doppler and mute (M), and preview buttons for the engine, tyre squeal and impact sounds. Settings are saved in the browser.
+
 ### Lap timing
 
 Cross the start/finish line to start a lap. The HUD shows the lap time, three sector splits (purple = personal best), and your best and last lap.
@@ -154,6 +162,7 @@ A lap only counts if you actually drove it forwards. Straying more than 45 m fro
 **Esc** opens the menu (it pauses the game). It has three tabs:
 - **Create Race:** pick the track, 1–7 opponents, their skill (Rookie, Club, Pro, Alien), the number of laps (or open practice) and your grid slot, then **Start race**. Choosing another track reloads it and starts the race there. Your last setup is remembered.
 - **Bot AI:** tune the opponents, with separate settings for each skill level (see below).
+- **Audio:** volumes and 3D sound options (see Sound).
 - **Controls:** controller binding and calibration, steering sensitivity and rumble.
 - **Vehicle:** every car with its weight, rough power, drivetrain and description. Click one to drive it.
 

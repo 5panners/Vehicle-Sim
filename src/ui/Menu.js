@@ -13,7 +13,7 @@ const h = (tag, attrs = {}, ...kids) => {
   return el;
 };
 
-const TABS = [['race', 'Create Race'], ['ai', 'Bot AI'], ['controls', 'Controls'], ['vehicle', 'Vehicle']];
+const TABS = [['race', 'Create Race'], ['ai', 'Bot AI'], ['audio', 'Audio'], ['controls', 'Controls'], ['vehicle', 'Vehicle']];
 
 /** rough peak power from the torque curve (no boost), in hp */
 const peakHp = (cfg) => Math.round(Math.max(...cfg.engine.torqueCurve.map(([rpm, nm]) => (nm * rpm) / 9549)) * 1.341 * (1 + (cfg.engine.turbo?.maxBoost || 0)));
@@ -50,6 +50,7 @@ export class Menu {
     if (tab === 'race') this.body.append(this._race());
     else if (tab === 'vehicle') this.body.append(this._vehicle());
     else if (tab === 'ai') this.body.append(this._ai());
+    else if (tab === 'audio') this.body.append(this._audio());
     else { this.body.append(this.controlsRoot); this.setup.open(); }
     this.body.querySelector('button, select, input')?.focus();
   }
@@ -140,6 +141,38 @@ export class Menu {
         h('button', { class: 'btn ghost', onclick: () => { resetAllBotSkills(); app.race?.refreshSkills(); this.show('ai'); } }, 'Reset all levels')),
       h('p', { class: 'hint' }, '* = changed from the default. Hover a slider for what it does.'),
       mistakes);
+  }
+
+  // ---------------------------------------------------------------- Audio
+  _audio() {
+    const au = this.app.audio, S = au.settings;
+    const slider = (label, key, hint) => {
+      const out = h('span', { class: 'val' }, `${Math.round(S[key] * 100)}%`);
+      const r = h('input', { type: 'range', min: 0, max: key === 'master' ? 1 : 1.5, step: 0.05, value: S[key], title: hint });
+      r.addEventListener('input', () => { au.set(key, +r.value); out.textContent = `${Math.round(S[key] * 100)}%`; });
+      return h('div', { class: 'row' }, h('label', {}, label), r, out);
+    };
+    const check = (label, key, hint) => {
+      const c = h('input', { type: 'checkbox', title: hint }); c.checked = !!S[key];
+      c.addEventListener('change', () => { au.set(key, c.checked); this.show('audio'); });
+      return h('div', { class: 'row' }, h('label', {}, label), c, h('span', { class: 'hint' }, hint));
+    };
+    return h('div', { class: 'ai-form' },
+      h('p', { class: 'hint' }, 'Every car has its own sound: engine (with a turbo whistle on boosted cars), tyre squeal, loose-surface and kerb rumble, wall scrapes and impacts. Opponents are heard in space, with distance, stereo position and Doppler. Settings save in the browser and apply at once.'),
+      slider('Master volume', 'master', 'Overall level'),
+      slider('Engines', 'engine', 'Your engine, the opponents\' engines and the turbo whistle'),
+      slider('Tyres & surfaces', 'tyres', 'Squeal, gravel and grass rumble, kerb rumble'),
+      slider('Impacts & scrapes', 'impacts', 'Wall and car hits, landings, scraping barriers'),
+      slider('Wind', 'wind', 'Wind noise at speed (your car only)'),
+      slider('Opponents', 'opponents', 'How loud the other cars are overall'),
+      check('3D positioning', 'spatial', 'Opponents get quieter with distance and move across the stereo image'),
+      check('Doppler effect', 'doppler', 'Pitch shift as cars pass (needs 3D positioning)'),
+      check('Mute everything', 'muted', 'Same as the M key'),
+      h('div', { class: 'row btnrow' }, h('label', {}, 'Try it'),
+        h('button', { class: 'btn', onclick: () => au.preview('engine') }, 'Engine'),
+        h('button', { class: 'btn', onclick: () => au.preview('squeal') }, 'Tyre squeal'),
+        h('button', { class: 'btn', onclick: () => au.preview('impact') }, 'Impact'),
+        h('button', { class: 'btn ghost', onclick: () => { au.resetSettings(); this.show('audio'); } }, 'Reset')));
   }
 
   // ---------------------------------------------------------------- Vehicle

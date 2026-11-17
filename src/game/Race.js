@@ -72,13 +72,17 @@ export class Race {
       const waiting = this.clock < b.goAt;
       if (waiting) b.vehicle.setInput({ steer: 0, throttle: 0.45, brake: 0, handbrake: 1, clutch: 0 });   // revving on the grid
       else b.driver.drive(DT, all.filter((v) => v !== b.vehicle));
-      b.vehicle.step(DT); b.vehicle.wallContact = null;
+      b.vehicle.step(DT);
+      const wc = b.vehicle.wallContact;                                    // keep what the sound model needs before it is consumed
+      if (wc) { b.vehicle.audioScrape = Math.max(b.vehicle.audioScrape || 0, wc.scrape); b.vehicle.audioHit = Math.max(b.vehicle.audioHit || 0, Math.min(1, wc.impact / 9)); }
+      b.vehicle.wallContact = null;
       if (waiting) { const bv = b.vehicle.body; bv.velocity.x = 0; bv.velocity.z = 0; bv.angularVelocity.y = 0; }
     }
     let bump = 0;
     for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
       const h = collideCars(all[i], all[j]);
-      if (i === 0) bump = Math.max(bump, h);              // only the player's knocks make a sound
+      if (h > 1) for (const v of [all[i], all[j]]) v.audioHit = Math.max(v.audioHit || 0, Math.min(1, h / 12));   // every car in the clash is heard
+      if (i === 0) bump = Math.max(bump, h);
     }
     return bump;
   }
@@ -144,5 +148,5 @@ export class Race {
 
   mapDots() { return this.bots.map((b) => ({ x: b.vehicle.body.position.x, z: b.vehicle.body.position.z, color: b.color })); }
 
-  dispose() { for (const b of this.bots) b.view.group.removeFromParent(); this.bots = []; }
+  dispose() { for (const b of this.bots) { b.view.group.removeFromParent(); this.app.audio?.dropVoice(b); } this.bots = []; }
 }

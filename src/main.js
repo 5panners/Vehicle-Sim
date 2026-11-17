@@ -247,6 +247,7 @@ class App {
     if (inp.pressed.menu) this.menu.toggle();
     this.menu.update(dt);
     const paused = this.menu.isOpen || !this.started;
+    this.audio.setPaused(paused);
     if (!paused) {
       if (inp.pressed.camera) { this.rig.next(); this.hud.showToast(`Camera: ${this.rig.modeName}`, 900); }
       if (inp.pressed.telemetry) this.hud.toggleTelemetry();
@@ -275,6 +276,7 @@ class App {
       this.worldView.setStartLights(this.lights.lit);
       this.hud.setStartLights(this.lights.lit, this.lights.phase === 'lights' || (this.lights.phase === 'go' && this.lights.t < 1));
       if (bump > 1.5) { this.audio.thump(Math.min(1, bump / 12)); this.hud.drift.combo = 0; }
+      if (race) this.audio.updateOthers(v, race.bots.map((b, i) => ({ key: b, vehicle: b.vehicle, index: i })));
       if (race) {
         for (const b of race.bots) if (b.vehicle.body.position.y < -60) b.driver.placeAt(b.driver.idx);
         for (const e of race.update(dt * (this.slowmo ? 0.25 : 1), lev)) {
@@ -319,8 +321,6 @@ class App {
       this.audio.update(v);
       // feedback
       const t = v.telemetry;
-      if (t.impact > 0.4 && this.prevImpact <= 0.4) this.audio.thump(t.impact * 0.6);
-      this.prevImpact = t.impact;
       let rough = 0;
       for (const w of v.wheels) if (w.contact && w.surface) rough = Math.max(rough, w.surface.bump * 30 * Math.min(1, v.speed / 20));
       const slip = Math.max(0, Math.min(1, (t.maxSlip || 0) - 0.85));

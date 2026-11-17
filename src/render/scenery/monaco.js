@@ -52,6 +52,12 @@ export function buildMonacoScenery(view) {
     o.castShadow = shadow; o.receiveShadow = true; parent.add(o); return o;
   };
 
+  /** collision walls round a building footprint (invisible: the building itself is the visual) */
+  const solidBox = (x, z, w, d, yaw, h = 6) => {
+    const c = Math.cos(yaw), s = Math.sin(yaw), P = (u, v) => [x + u * s + v * c, z + u * c - v * s];
+    world.addWall([P(-d / 2, -w / 2), P(-d / 2, w / 2), P(d / 2, w / 2), P(d / 2, -w / 2), P(-d / 2, -w / 2)], { height: h, thickness: 0.6, style: 'building' });
+  };
+
   // ============================================================ the sea, far hills, mountains
   const seaMesh = new THREE.Mesh(new THREE.PlaneGeometry(14000, 14000), new THREE.MeshLambertMaterial({ color: 0x2b93cc }));
   seaMesh.rotation.x = -Math.PI / 2; seaMesh.position.y = sea; seaMesh.receiveShadow = true; group.add(seaMesh);
@@ -100,6 +106,21 @@ export function buildMonacoScenery(view) {
   view._ribbon({ offA: (t) => -(t.w / 2 - 0.02), offB: (t) => -(t.w / 2 - 0.22), yOff: 0.05, mat: lineMat, step: 1 });
   // grid boxes are drawn by WorldView; start/finish gantry too
 
+  // ---- spatial hash of the circuit, so no building can overlap the track, its kerbs or the barriers
+  const trackHash = new Map(), TH = 24;
+  for (let i = 0; i < M; i += 3) { const t = T[i], k = `${Math.floor(t.x / TH)},${Math.floor(t.z / TH)}`; (trackHash.get(k) ?? trackHash.set(k, []).get(k)).push(t); }
+  /** does an oriented rectangle (cx, cz, w across / d along yaw) come within `margin` of the circuit's edge? */
+  const hitsTrack = (cx, cz, w, d, yaw, margin = 5) => {
+    const c = Math.cos(yaw), s = Math.sin(yaw), r = Math.hypot(w, d) / 2 + 20 + margin;
+    for (let gx = Math.floor((cx - r) / TH); gx <= Math.floor((cx + r) / TH); gx++) for (let gz = Math.floor((cz - r) / TH); gz <= Math.floor((cz + r) / TH); gz++) {
+      for (const t of trackHash.get(`${gx},${gz}`) ?? []) {
+        const dx = t.x - cx, dz = t.z - cz, u = dx * s + dz * c, v = dx * c - dz * s, m = t.w / 2 + margin;
+        if (Math.abs(u) < d / 2 + m && Math.abs(v) < w / 2 + m) return true;
+      }
+    }
+    return false;
+  };
+
   // ---- 4 m occupancy grid: where buildings stand (so trees, lamps and boats keep clear)
   const OC = 4, ON = Math.round(world.size / OC), occupied = new Uint8Array(ON * ON);
   const occ = (x, z) => { const i = Math.floor((x + world.half) / OC), j = Math.floor((z + world.half) / OC); return i < 0 || j < 0 || i >= ON || j >= ON ? 1 : occupied[j * ON + i]; };
@@ -136,7 +157,7 @@ export function buildMonacoScenery(view) {
       const k = this.pos.length / 3, u1 = len / 3.4, v1 = (y1 - y0) / 3.1;
       this.pos.push(a[0], y0, a[1], b[0], y0, b[1], b[0], y1, b[1], a[0], y1, a[1]);
       for (let i = 0; i < 4; i++) { this.nor.push(nx, 0, nz); this.col.push(color.r, color.g, color.b); }
-      this.uv.push(0, 0, u1, 0, u1, v1, 0, v1); this.idx.push(k, k + 1, k + 2, k, k + 2, k + 3);
+      this.uv.push(0, 0, u1, 0, u1, v1, 0, v1); this.idx.push(k, k + 2, k + 1, k, k + 3, k + 2);      // outward-facing (the footprints run counter-clockwise)
     }
     roof(pts, y, color) {
       const k = this.pos.length / 3;
@@ -191,9 +212,14 @@ export function buildMonacoScenery(view) {
     // the Casino is the large footprint closest to the track at Casino Square; the rest become grand hotels
     const cs = frame(906, 0);
     landmarks.sort((a, b) => Math.hypot(a.x - cs.x, a.z - cs.z) - Math.hypot(b.x - cs.x, b.z - cs.z));
+    for (let i = landmarks.length - 1; i >= 0; i--) {                                    // pull each footprint back until it clears the circuit
+      const f = landmarks[i];
+      for (let k = 0; k < 8 && hitsTrack(f.x, f.z, f.wid, f.len, f.yaw, 4); k++) { f.wid *= 0.92; f.len *= 0.92; }
+      if (hitsTrack(f.x, f.z, f.wid, f.len, f.yaw, 4)) landmarks.splice(i, 1);
+    }
     landmarks.forEach((f, i) => {
       const g = Math.min(...[[0, 0], [f.len / 2, 0], [-f.len / 2, 0], [0, f.wid / 2], [0, -f.wid / 2]].map(([u, v]) => world.heightAtGrid(f.x + u * Math.sin(f.yaw) + v * Math.cos(f.yaw), f.z + u * Math.cos(f.yaw) - v * Math.sin(f.yaw)))) - 0.5;
-      grandBuilding(f, g, i === 0); markRect(f.x, f.z, f.wid, f.len, f.yaw, 3);
+      grandBuilding(f, g, i === 0); markRect(f.x, f.z, f.wid, f.len, f.yaw, 3); solidBox(f.x, f.z, f.wid, f.len, f.yaw, 10);
     });
   }
 
@@ -202,15 +228,15 @@ export function buildMonacoScenery(view) {
     const b = new Blocks(), stone = tint(0xeee2c6), stone2 = tint(0xe6d6b4), slate = tint(0x68877f);
     const w = f.len, d = f.wid, yaw = f.yaw, floors = isCasino ? 4 : 6, h = floors * 4.0, y0 = ground - 1.5;
     const P = (u, v) => [f.x + u * Math.sin(yaw) + v * Math.cos(yaw), f.z + u * Math.cos(yaw) - v * Math.sin(yaw)];
-    b.block(f.x, f.z, w, d, yaw, y0, ground + h, stone, tint(0x9a9a92));
+    b.block(f.x, f.z, d, w, yaw, y0, ground + h, stone, tint(0x9a9a92));
     // mansard roof: a smaller block stepped in, in patinated copper
-    b.block(f.x, f.z, w - 3, d - 3, yaw, ground + h, ground + h + 4.2, slate, slate);
-    b.block(f.x, f.z, w - 9, d - 9, yaw, ground + h + 4.2, ground + h + 5.2, slate, slate);
+    b.block(f.x, f.z, d - 3, w - 3, yaw, ground + h, ground + h + 4.2, slate, slate);
+    b.block(f.x, f.z, d - 9, w - 9, yaw, ground + h + 4.2, ground + h + 5.2, slate, slate);
     // end pavilions, a little taller, with their own roofs
     for (const sgn of [-1, 1]) {
       const [px, pz] = P(sgn * (w / 2 - 7), 0);
-      b.block(px, pz, 14, d + 1.5, yaw, y0, ground + h + 2.2, stone2, tint(0x9a9a92));
-      b.block(px, pz, 11, d - 2, yaw, ground + h + 2.2, ground + h + 8.5, slate, slate);
+      b.block(px, pz, d + 1.5, 14, yaw, y0, ground + h + 2.2, stone2, tint(0x9a9a92));
+      b.block(px, pz, d - 2, 11, yaw, ground + h + 2.2, ground + h + 8.5, slate, slate);
     }
     const mesh = b.mesh(); group.add(mesh);
     // domes and towers (smooth shapes, merged separately)
@@ -225,14 +251,14 @@ export function buildMonacoScenery(view) {
         box(0.35, 3.5, 0.35, mat.steel, px, ground + h + 25, pz, 0, group, false);
       }
       const [cx, cz] = P(0, -d / 2 + 2);                                                  // central pediment over the entrance
-      box(18, 5, 3, mat.white, cx, ground + h + 4.2, cz, yaw);
+      box(3, 5, 18, mat.white, cx, ground + h + 4.2, cz, yaw);
       const [tx, tz] = P(0, -d / 2 - 5);                                                  // terrace with balustrade
-      box(w * 0.55, 1.2, 10, mat.white, tx, ground, tz, yaw);
+      box(10, 1.2, w * 0.55, mat.white, tx, ground, tz, yaw);
       for (let u = -w * 0.27; u <= w * 0.27; u += 2.4) { const [qx, qz] = P(u, -d / 2 - 9.6); box(0.5, 1.3, 0.5, mat.white, qx, ground + 1.2, qz, yaw, group, false); }
     }
     // window bands on the long faces are carried by the shared texture; add a pale cornice line
     const [mx, mz] = P(0, 0);
-    box(w + 0.8, 0.5, d + 0.8, mat.white, mx, ground + h - 0.3, mz, yaw, group, false);
+    box(d + 0.8, 0.5, w + 0.8, mat.white, mx, ground + h - 0.3, mz, yaw, group, false);
   }
 
   // ============================================================ the tunnel and hotel, pit garages and stands go up first so the town keeps clear of them
@@ -271,7 +297,7 @@ export function buildMonacoScenery(view) {
         if (!onLand(px, pz, 6) || dTrack(px, pz) < 8.5 || cls(px, pz) === 2 || cls(px, pz) === 3) { ok = false; break; }
         const hg = world.heightAtGrid(px, pz); gmin = Math.min(gmin, hg); gmax = Math.max(gmax, hg);
       }
-      if (!ok || gmax - gmin > 9) continue;
+      if (!ok || gmax - gmin > 9 || hitsTrack(x, z, w, d, yaw, 6.5)) continue;
       // taller up the hill and away from the circuit; low and varied along the harbour front
       const rise = Math.min(1, Math.max(0, (ground - 6) / 70));
       const floors = Math.round(4 + rand() * 5 + rise * (4 + rand() * 8) + (far > 0 ? rand() * 3 : 0));
@@ -283,6 +309,7 @@ export function buildMonacoScenery(view) {
       B.block(x, z, w, d, yaw, gmin - 2.5, gmin + hgt, wall, tint(ROOF[(rand() * ROOF.length) | 0]));
       if (rand() < 0.5) B.block(x + (rand() - 0.5) * 3, z + (rand() - 0.5) * 3, w * 0.45, d * 0.45, yaw, gmin + hgt, gmin + hgt + 2.6, tint(0xe9e4d8), tint(0x9a9a92));   // lift house / roof terrace
       markRect(x, z, w, d, yaw, 2.5);
+      if (dt < 28) solidBox(x, z, w, d, yaw, 8);                                          // solid to cars as well as to the eye
       count++;
     }
     for (const B of tiles.values()) group.add(B.mesh());
