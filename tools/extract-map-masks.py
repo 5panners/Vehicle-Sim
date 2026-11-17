@@ -3,7 +3,7 @@
 Turn a circuit layout map into a world-space land-use grid, so a map's coastline, parks and
 building footprints sit exactly where the diagram has them relative to the track.
 
-  python3 tools/extract-map-masks.py tools/reference/monaco-masks.json
+  python3 tools/extract-map-masks.py tools/reference/<circuit>-masks.json
 
 Reads the same image the track was traced from, plus the TRANSFORM that tools/extract-track.py
 saved next to the centreline (pixel -> world), classifies pixels by colour, resamples them onto

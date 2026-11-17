@@ -3,8 +3,8 @@ import { SURFACES, SURF } from '../world/Surfaces.js';
 import { STRIPS, START_PAD, SKIDPAD, JUMP_PARK } from '../world/maps/test.js';
 import { gridSlots } from '../game/RaceStart.js';
 import { fbm } from '../world/noise.js';
+import { smoothstep } from '../physics/math.js';
 import { buildBrandsScenery } from './scenery/brandsHatch.js';
-import { buildMonacoScenery } from './scenery/monaco.js';
 import { buildSpaScenery } from './scenery/spa.js';
 
 export function noiseTexture(size = 256, contrast = 0.25, base = 0.85) {
@@ -48,7 +48,6 @@ export class WorldView {
     this._walls();
     if (scenery === 'test') this._scenery();
     else if (scenery === 'brands') buildBrandsScenery(this);
-    else if (scenery === 'monaco') buildMonacoScenery(this);
     else if (scenery === 'spa') buildSpaScenery(this);
   }
 
@@ -111,13 +110,26 @@ export class WorldView {
   }
 
   _terrain() {
-    const w = this.world, size = w.size, step = size > 2000 ? 4 : 2.5,   // big circuits use a coarser mesh
+    const w = this.world, size = w.size, step = size > 2000 ? 3 : 2.5,   // big circuits use a coarser mesh
        n = Math.round(size / step) + 1, half = size / 2;
     const pos = new Float32Array(n * n * 3), col = new Float32Array(n * n * 3), uv = new Float32Array(n * n * 2);
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
       const x = i * step - half, z = j * step - half, k = j * n + i;
-      const y = w.heightAtGrid(x, z);
-      pos[k * 3] = x; pos[k * 3 + 1] = y - 0.02; pos[k * 3 + 2] = z;
+      let y = w.heightAtGrid(x, z);
+      // with a coarse mesh the terrain triangles cut corners and poke up through the road, kerb and run-off strips
+      // (which follow the exact 1 m heights), so press the mesh down under the whole paved corridor and ease it back up beyond
+      let sink = 0;
+      if (size > 2000) {
+        const ti = w.trackInfo(x, z);
+        if (ti.index >= 0) {
+          const T = w.track[ti.index], side = Math.sign(ti.lat) || 1, m = w.map;
+          let reach = T.w / 2 + 1.3 + (m.tarmacDepth ? m.tarmacDepth(w, T, side) : 0);
+          const pb = side > 0 && m.pitBand ? m.pitBand(w, T) : null;
+          if (pb) reach = Math.max(reach, pb[1] + 6);
+          sink = 0.35 * (1 - smoothstep(reach - 0.5, reach + 5, ti.dist));
+        }
+      }
+      pos[k * 3] = x; pos[k * 3 + 1] = y - 0.02 - sink; pos[k * 3 + 2] = z;
       let sid = w.surfaceAt(x, z); if (sid === 9) sid = 0; // kerbs are drawn as a ribbon; keep the coarse terrain grey there
       // maps whose trackside tarmac/concrete (pit lane, run-off) is drawn as crisp ribbons keep the
       // coarse terrain grass-coloured there, so its 2.5 m vertex colours don't bleed past the ribbon

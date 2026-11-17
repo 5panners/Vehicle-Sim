@@ -46,7 +46,7 @@ class App {
     document.getElementById('app').append(renderer.domElement);
     const scene = this.scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0xdfe9f3, 250, 1600);
-    this.camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 6000);
+    this.camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.25, 6000);   // a larger near plane keeps coplanar surfaces from z-fighting
     this.hemi = new THREE.HemisphereLight(0xe3f0ff, 0x4a5a30, 1.1); scene.add(this.hemi);
     const sun = this.sun = new THREE.DirectionalLight(0xfff4e0, 2.4);
     sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);

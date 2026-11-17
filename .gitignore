@@ -7,11 +7,8 @@ node_modules/
 *.blend1
 
 # Third-party reference images (not ours to redistribute); derived data stays in the repo
-tools/reference/mini/
 tools/reference/*.png
 
-# Monaco reference screenshots (third-party images; used only for measuring)
-tools/reference/monaco/
 
 # Spa reference screenshots (third-party images; used only for measuring)
 tools/reference/spa/

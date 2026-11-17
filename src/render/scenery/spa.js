@@ -70,6 +70,17 @@ export function buildSpaScenery(view) {
     return { bases: segs.map((s) => s.base), segs };
   };
 
+  // ============================================================ tarmac run-off beside every corner (the physics ground is asphalt there)
+  {
+    const tarmac = lam(0x4f5155, { map: view.detail, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    for (const side of [-1, 1]) {
+      const depth = (t) => map.tarmacDepth(world, t, side);
+      // ribbons need offA < offB (or they are wound backwards): on the left the outer edge comes first
+      view._ribbon({ offA: (t) => (side < 0 ? -(t.w / 2 + depth(t)) : t.w / 2 + 1.2), offB: (t) => (side < 0 ? -(t.w / 2 + 1.2) : t.w / 2 + depth(t)),
+        yOff: 0.045, mat: tarmac, cols: 6, step: 2, uvScale: 18, filter: (t) => depth(t) > 2.2 });
+    }
+  }
+
   // ============================================================ painted run-off at Eau Rouge and Raidillon
   // Left of the track (outside of the compression): yellow and red lanes; right: a teal lane; both edged in white.
   {
@@ -109,12 +120,12 @@ export function buildSpaScenery(view) {
   const upper = along(gFrom, gTo, glat0 + 4, glat1 - 1, 5.6, mat.white, { y0: 7.55, segLen: 22, ...onGar });
   along(gFrom, gTo, glat0 + 3.7, glat1 - 0.7, 0.35, mat.dark, { y0: 13.1, segLen: 22, bases: upper.bases.map((b, i) => gar.bases[Math.min(gar.bases.length - 1, Math.floor(i * gar.bases.length / upper.bases.length))]) });
   for (const s of upper.segs) {                                                                  // glazing strip on the track face
-    const fx = s.x - s.t.rx * ((glat1 - glat0 - 5) / 2 - 0.05), fz = s.z - s.t.rz * ((glat1 - glat0 - 5) / 2 - 0.05);
+    const fx = s.x - s.t.rx * ((glat1 - glat0 - 5) / 2 + 0.1), fz = s.z - s.t.rz * ((glat1 - glat0 - 5) / 2 + 0.1);
     panel(s.len + 0.2, 3.4, mat.glass, fx, s.base + 8.7, fz, Math.atan2(-s.t.rx, -s.t.rz));
   }
-  const facade = new THREE.MeshLambertMaterial({ map: garageFacade(1) });
+  const facade = new THREE.MeshLambertMaterial({ map: garageFacade(1), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   for (const s of gar.segs) {                                                                    // garage fronts: one bay per ~9 m
-    const fx = s.x - s.t.rx * ((glat1 - glat0) / 2 + 0.02), fz = s.z - s.t.rz * ((glat1 - glat0) / 2 + 0.02);
+    const fx = s.x - s.t.rx * ((glat1 - glat0) / 2 + 0.1), fz = s.z - s.t.rz * ((glat1 - glat0) / 2 + 0.1);
     panel(s.len + 0.6, 7.2, facade, fx, s.base, fz, Math.atan2(-s.t.rx, -s.t.rz), (s.len + 0.6) / 9);
   }
   {                                                                                             // control tower near the start line
@@ -136,7 +147,8 @@ export function buildSpaScenery(view) {
   }
 
   // ============================================================ grandstands
-  const seatMats = { red: new THREE.MeshLambertMaterial({ map: seatTexture('#c2185b') }), blue: new THREE.MeshLambertMaterial({ map: seatTexture('#1f4e9a') }), yellow: new THREE.MeshLambertMaterial({ map: seatTexture('#e0a800') }) };
+  const seatM = (c) => new THREE.MeshLambertMaterial({ map: seatTexture(c), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const seatMats = { red: seatM('#c2185b'), blue: seatM('#1f4e9a'), yellow: seatM('#e0a800') };
   const bannerMat = new THREE.MeshLambertMaterial({ map: bannerTexture('SPA-FRANCORCHAMPS') });
   const scaffoldStand = (d0, d1, side, latFront, { rows = 9, riser = 0.55, depth = 0.95, lift = 1.8, seats = seatMats.red } = {}) => {
     const s = side, segLen = 14, n = Math.max(1, Math.round(span(d0, d1) / segLen)), len = span(d0, d1) / n;
@@ -148,7 +160,7 @@ export function buildSpaScenery(view) {
         const g = frame(d0 + (k + 0.5) * len, s * (latFront + (r + 0.5) * depth));
         const stepTop = base + lift + (r + 1) * riser;
         box(depth, 0.12, len, mat.dark, g.x, stepTop - 0.12, g.z, yaw);
-        panel(len, riser, seats, g.x - s * g.t.rx * depth * 0.5, stepTop - riser, g.z - s * g.t.rz * depth * 0.5, faceYaw, len / 6);
+        panel(len, riser, seats, g.x - s * g.t.rx * (depth * 0.5 + 0.06), stepTop - riser, g.z - s * g.t.rz * (depth * 0.5 + 0.06), faceYaw, len / 6);
       }
       for (let r = 0; r <= rows; r += 3) for (const u of [-0.5, 0, 0.5]) {
         const g = frame(d0 + (k + 0.5 + u * 0.98) * len, s * (latFront + r * depth));
@@ -157,7 +169,7 @@ export function buildSpaScenery(view) {
       const back = frame(d0 + (k + 0.5) * len, s * (latFront + rows * depth + 0.1));
       box(0.08, 1.2, len, mat.steel, back.x, base + lift + rows * riser, back.z, yaw);
       const fr = frame(d0 + (k + 0.5) * len, s * (latFront - 0.05));
-      panel(len, lift, bannerMat, fr.x, base, fr.z, faceYaw, 1);
+      panel(len, lift, bannerMat, fr.x - s * fr.t.rx * 0.08, base, fr.z - s * fr.t.rz * 0.08, faceYaw, 1);
       solid(f.x, f.z, rows * depth + 1, len, yaw, lift + rows * riser);
     }
   };
@@ -171,7 +183,7 @@ export function buildSpaScenery(view) {
         const g = frame(d0 + (k + 0.5) * len, s * (latFront + (r + 0.5) * depth));
         const top = base + 1.2 + (r + 1) * riser;
         box(depth, top - base, len - 0.8, mat.concrete, g.x, base, g.z, f.yaw);
-        panel(len - 0.8, riser, seats, g.x - s * g.t.rx * depth * 0.5, top - riser, g.z - s * g.t.rz * depth * 0.5, faceYaw, len / 6);
+        panel(len - 0.8, riser, seats, g.x - s * g.t.rx * (depth * 0.5 + 0.06), top - riser, g.z - s * g.t.rz * (depth * 0.5 + 0.06), faceYaw, len / 6);
       }
       const rH = base + 1.2 + rows * riser + 3.5, roof = frame(d0 + (k + 0.5) * len, s * (latFront + rows * depth * 0.45));
       const r = box(rows * depth + 2.5, 0.35, len - 0.4, mat.roof, roof.x, rH, roof.z, f.yaw); r.rotation.z = s * 0.08;

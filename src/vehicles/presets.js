@@ -190,41 +190,6 @@ export const PRESETS = [
     assists: { abs: false, tcs: true, stability: false },
   }),
   makeVehicle({
-    name: "'64 Works Mini", description: "Inspired by the 1960s works Cooper S rally cars: 720 kg, ~90 hp 1275 A-series, FWD with an open diff, rubber-cone suspension, 10-inch wheels and period tyres. No assists. Darty turn-in, lift-off oversteer.",
-    color: 0xb3121b, roofColor: 0xf3f1e7, accent: 0xffffff, style: 'mini', raceNumber: '37',
-    // glTF body (node tools/build-mini.mjs); the procedural 'mini' style is the fallback
-    model: { url: 'assets/models/mini.glb', prefix: 'MINI_', brakeMaterial: 'MINI_Taillight' },
-    body: {
-      mass: 720, cgHeight: 0.5, weightDistFront: 0.62, groundClearance: 0.15,
-      dimensions: { width: 1.41, height: 1.35, length: 3.05 },
-      inertiaScale: { x: 0.85, y: 0.8, z: 0.85 }, bodyFriction: 0.45,
-    },
-    geometry: { wheelbase: 2.036, trackFront: 1.24, trackRear: 1.2 },
-    // rubber cones: stiff, short, progressive (strong bump stops); stiff rear bar for lift-off rotation
-    suspension: {
-      front: { springRate: 32000, bumpDamping: 2000, reboundDamping: 2800, fastBumpThreshold: 0.25, fastBumpFactor: 0.45, restLength: 0.2, travel: 0.11, bumpStopRate: 220000, antiRollBar: 6000, camber: -1.5, camberGain: 10, toe: 0.1, caster: 3, rollCenterHeight: 0.08 },
-      rear: { springRate: 30000, bumpDamping: 1800, reboundDamping: 2600, fastBumpThreshold: 0.25, fastBumpFactor: 0.45, restLength: 0.2, travel: 0.11, bumpStopRate: 220000, antiRollBar: 9000, camber: -0.5, camberGain: 6, toe: -0.05, rollCenterHeight: 0.12 },
-      antiDive: 0.15, antiSquat: 0.1,
-    },
-    wheels: { front: { radius: 0.27, width: 0.145, inertia: 0.45 }, rear: { radius: 0.27, width: 0.145, inertia: 0.45 } },
-    // 1960s rubber: lower grip, peaks late and gently, slow carcass (long relaxation)
-    tires: {
-      front: { peakFrictionX: 0.92, peakFrictionY: 0.9, peakSlipRatio: 0.13, peakSlipAngle: 9, shapeY: { C: 1.25, E: 0.25 }, loadSensitivity: 0.12, nominalLoad: 2200, relaxationLengthX: 0.3, relaxationLengthY: 0.55, optimalTemp: 70, tempWindow: 40, heatRate: 2.5 },
-      rear: { peakFrictionX: 0.92, peakFrictionY: 0.86, peakSlipRatio: 0.13, peakSlipAngle: 9, shapeY: { C: 1.25, E: 0.25 }, loadSensitivity: 0.12, nominalLoad: 1500, relaxationLengthX: 0.3, relaxationLengthY: 0.55, optimalTemp: 70, tempWindow: 40, heatRate: 2.5 },
-    },
-    engine: {
-      torqueCurve: [[900, 60], [2000, 85], [3000, 100], [4500, 115], [5500, 112], [6500, 100], [7000, 90], [7300, 80]],
-      idleRPM: 900, redlineRPM: 7000, limiterRPM: 7300, limiterCutTime: 0.08,
-      inertia: 0.08, engineBrakingTorque: 30, throttleResponse: 12, cylinders: 4,
-    },
-    transmission: { gearRatios: [3.33, 2.09, 1.35, 1.0], reverseRatio: -3.35, finalDrive: 3.9, shiftTime: 0.28, clutchMaxTorque: 220, efficiency: 0.88, autoShiftUpRPM: 6800, autoShiftDownRPM: 3400 },
-    drivetrain: { layout: 'FWD', frontDiff: { type: 'open' } },
-    brakes: { maxTorque: 2300, bias: 0.7, handbrakeTorque: 1400 },
-    steering: { maxAngle: 34, ackermann: 0.7, steerSpeed: 4.5, speedSensitivity: 0.8, countersteerAssist: 0.15 },
-    aero: { dragCoefficient: 0.48, frontalArea: 1.75, liftCoefFront: 0.08, liftCoefRear: 0.12, angularDrag: 0.3 },
-    assists: { abs: false, tcs: false, stability: false },
-  }),
-  makeVehicle({
     name: 'Drift Car', description: 'Pro-drift build: ~550 hp turbo, 2-way LSD at near-full lock, 60° angle kit, hydraulic handbrake, grippier fronts than rears. TC off by default; throttle steers the angle.',
     color: 0x7c4dff, accent: 0x00e5ff, style: 'drift',
     body: {

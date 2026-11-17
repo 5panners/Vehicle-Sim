@@ -16,7 +16,7 @@
   </script>
 </head>
 <body>
-<div id="info">drag to orbit · wheel to zoom · ?model=assets/models/mini.glb&amp;yaw=-40&amp;pitch=12&amp;dist=5</div>
+<div id="info">drag to orbit · wheel to zoom · ?model=assets/models/gt3rs-proc.glb&amp;yaw=-40&amp;pitch=12&amp;dist=5</div>
 <script type="module">
 // Studio viewer for the generated car models. URL params: model, yaw, pitch (degrees), dist, wire=1
 import * as THREE from 'three';
@@ -52,7 +52,7 @@ const dist = +(q.get('dist') ?? 6), yaw = deg('yaw', -35), pitch = deg('pitch', 
 camera.position.set(T[0] + Math.sin(yaw) * Math.cos(pitch) * dist, T[1] + Math.sin(pitch) * dist, T[2] + Math.cos(yaw) * Math.cos(pitch) * dist);
 controls.update();
 
-const url = '../' + (q.get('model') ?? 'assets/models/mini.glb');
+const url = '../' + (q.get('model') ?? 'assets/models/gt3rs-proc.glb');
 new GLTFLoader().load(url, (g) => {
   let tris = 0;
   g.scene.traverse((o) => {

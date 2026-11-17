@@ -47,7 +47,7 @@ export class CarView {
     const b0 = y0 + 0.04, lowH = (style === 'proto' ? 0.42 : style === 'truck' ? 0.55 : style === 'gt3' ? 0.47 : style === 'drift' ? 0.48 : 0.5) * H, top = y0 + H;
     const hz = L / 2;
     // lower body: rounded tail, sloped nose
-    const nose = style === 'truck' ? 0.25 : style === 'proto' ? 1.1 : style === 'gt3' ? 0.85 : style === 'mini' ? 0.55 : 0.7;
+    const nose = style === 'truck' ? 0.25 : style === 'proto' ? 1.1 : style === 'gt3' ? 0.85 : 0.7;
     const wide = style === 'gt3' || style === 'drift';
     const bodyW = wide ? W * 0.88 : W; // GT3: narrower shell, wide-body arches added below
     const prof = [[-hz, b0], [-hz, b0 + lowH * 0.9], [-hz + 0.25, b0 + lowH], [hz - nose, b0 + lowH], [hz - 0.08, b0 + lowH * 0.55], [hz, b0 + lowH * 0.3], [hz - 0.05, b0]];
@@ -74,7 +74,6 @@ export class CarView {
       hatch: { r: -hz + 0.2, f: L * 0.16, rs: 0.25, fs: 0.75, w: 0.88 },
       proto: { r: -L * 0.12, f: L * 0.22, rs: 0.6, fs: 0.7, w: 0.5 },
       truck: { r: -L * 0.08, f: L * 0.2, rs: 0.1, fs: 0.45, w: 0.92 },
-      mini: { r: -hz + 0.3, f: L * 0.2, rs: 0.2, fs: 0.3, w: 0.92 },
       gt3: { r: -L * 0.3, f: L * 0.1, rs: 1.0, fs: 0.8, w: 0.74 },
       drift: { r: -L * 0.33, f: L * 0.12, rs: 0.9, fs: 0.75, w: 0.78 },
     }[style] || { r: -L * 0.3, f: L * 0.15, rs: 0.6, fs: 0.7, w: 0.86 };
@@ -88,12 +87,9 @@ export class CarView {
       pil.rotation.x = z > 0 ? -Math.atan2(cab.fs, top - cb) : Math.atan2(cab.rs, top - cb);
     }
     // bumpers / splitter / skirts
-    if (style === 'mini') this._miniKit(vehicle, body, { paint, dark, box, b0, lowH, top, hz, W, cab, roofMat });
-    else {
-      box(W * 0.96, 0.1, 0.3, dark, 0, b0 + 0.06, hz - 0.1);
-      box(W * 0.96, 0.12, 0.25, dark, 0, b0 + 0.08, -hz + 0.08);
-      box(W + 0.02, 0.08, L * 0.45, dark, 0, b0 + 0.05, 0);
-    }
+    box(W * 0.96, 0.1, 0.3, dark, 0, b0 + 0.06, hz - 0.1);
+    box(W * 0.96, 0.12, 0.25, dark, 0, b0 + 0.08, -hz + 0.08);
+    box(W + 0.02, 0.08, L * 0.45, dark, 0, b0 + 0.05, 0);
     if (style === 'truck') { // pickup bed walls
       const bedL = hz + cab.r - 0.1, bz = -hz + bedL / 2 + 0.05;
       for (const s of [-1, 1]) box(0.08, 0.4, bedL, paint, s * (W / 2 - 0.05), b0 + lowH + 0.2, bz);
@@ -109,9 +105,8 @@ export class CarView {
     // lights (+Z forward, -X right)
     const head = new THREE.MeshStandardMaterial({ color: 0xffffee, emissive: 0xffffcc, emissiveIntensity: 0.6 });
     for (const s of [-1, 1]) {
-      if (style !== 'mini') box(0.38, 0.1, 0.06, head, s * W * 0.33, b0 + lowH * 0.55, hz - 0.02);
-      if (style === 'mini') box(0.07, 0.17, 0.05, this.brakeMat, s * W * 0.42, b0 + lowH * 0.7, -hz - 0.02); // small vertical lamps
-      else box(0.4, 0.1, 0.06, this.brakeMat, s * W * 0.32, b0 + lowH * 0.78, -hz - 0.02);
+      box(0.38, 0.1, 0.06, head, s * W * 0.33, b0 + lowH * 0.55, hz - 0.02);
+      box(0.4, 0.1, 0.06, this.brakeMat, s * W * 0.32, b0 + lowH * 0.78, -hz - 0.02);
     }
     }
     this.group.add(body);
@@ -313,61 +308,6 @@ export class CarView {
       }
     }
     // (no brake/rain light: 1967 GP cars didn't have one)
-  }
-
-  /**
-   * '60s works Mini: chrome bumpers, round headlamps, moustache grille, rally spot
-   * lamps, leather bonnet straps, external seams, rally plate, door roundels, twin
-   * fuel caps, roof-edge gutters (roof colour comes from cfg.roofColor).
-   */
-  _miniKit(vehicle, body, { paint, dark, box, b0, lowH, top, hz, W, cab, roofMat }) {
-    const cfg = vehicle.config;
-    const chrome = new THREE.MeshStandardMaterial({ color: 0xdedede, metalness: 0.95, roughness: 0.15 });
-    const lamp = new THREE.MeshStandardMaterial({ color: 0xfffbe6, emissive: 0xfff3c0, emissiveIntensity: 0.7 });
-    const leather = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.9 });
-    const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
-    const disc = (r, len, mat, x, y, z, axis = 'z') => {
-      const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 20), mat);
-      if (axis === 'z') m.rotation.x = Math.PI / 2; else m.rotation.z = Math.PI / 2;
-      m.position.set(x, y, z); m.castShadow = true; body.add(m); return m;
-    };
-    const noseY = b0 + lowH * 0.55;
-    // chrome bumpers wrapping the corners, with over-riders
-    box(W * 0.98, 0.07, 0.08, chrome, 0, b0 + 0.13, hz + 0.02);
-    box(W * 0.98, 0.07, 0.08, chrome, 0, b0 + 0.15, -hz - 0.02);
-    for (const sx of [-0.28, 0.28]) { box(0.05, 0.16, 0.08, chrome, sx, b0 + 0.18, hz + 0.04); box(0.05, 0.16, 0.08, chrome, sx, b0 + 0.2, -hz - 0.04); }
-    // moustache grille with chrome surround
-    box(0.62, 0.2, 0.03, dark, 0, noseY - 0.04, hz - 0.03);
-    box(0.66, 0.02, 0.035, chrome, 0, noseY + 0.07, hz - 0.03);
-    for (let i = -3; i <= 3; i++) box(0.012, 0.18, 0.035, chrome, i * 0.085, noseY - 0.04, hz - 0.025);
-    // round headlamps set into the wings + chrome rims
-    for (const sx of [-1, 1]) {
-      disc(0.085, 0.04, lamp, sx * W * 0.36, noseY + 0.02, hz - 0.04);
-      disc(0.095, 0.03, chrome, sx * W * 0.36, noseY + 0.02, hz - 0.05);
-      // rally spot lamps on the grille/bumper (Monte Carlo spec)
-      disc(0.07, 0.07, lamp, sx * 0.17, b0 + 0.27, hz + 0.08);
-      disc(0.078, 0.06, dark, sx * 0.17, b0 + 0.27, hz + 0.06);
-    }
-    disc(0.07, 0.07, lamp, 0, b0 + 0.27, hz + 0.08); disc(0.078, 0.06, dark, 0, b0 + 0.27, hz + 0.06);
-    // leather bonnet straps + rally plate
-    const bonnetY = b0 + lowH + 0.045;
-    for (const sx of [-0.2, 0.2]) box(0.04, 0.012, 0.4, leather, sx, bonnetY, hz - 0.45);
-    const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.14), new THREE.MeshStandardMaterial({ map: rallyPlateTexture(cfg.raceNumber), roughness: 0.6 }));
-    plate.rotation.x = -Math.PI / 2 + 0.25; plate.position.set(0, bonnetY + 0.01, hz - 0.12); body.add(plate);
-    // external seams: A-panel verticals, roof gutters, sill flange
-    for (const sx of [-1, 1]) {
-      box(0.025, lowH * 0.9, 0.025, paint, sx * (W / 2 + 0.035), b0 + lowH * 0.5, cab.f + 0.05);
-      box(0.025, lowH * 0.9, 0.025, paint, sx * (W / 2 + 0.035), b0 + lowH * 0.5, cab.r + 0.05);
-      box(0.02, 0.025, (cab.f - cab.fs) - (cab.r + cab.rs) + 0.1, roofMat, sx * (W * cab.w / 2 + 0.015), top + 0.0, ((cab.f - cab.fs) + (cab.r + cab.rs)) / 2);
-      box(0.02, 0.03, cab.f - cab.r, paint, sx * (W / 2 + 0.035), b0 + 0.02, (cab.f + cab.r) / 2);
-      // door roundel with race number
-      const r = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), new THREE.MeshStandardMaterial({ map: roundelTexture(cfg.raceNumber), transparent: true, roughness: 0.6 }));
-      r.rotation.y = sx * Math.PI / 2; r.position.set(sx * (W / 2 + 0.045), b0 + lowH * 0.55, (cab.f + cab.r) / 2 + 0.1); body.add(r);
-      // twin fuel tank caps on the rear flanks
-      disc(0.045, 0.03, chrome, sx * (W / 2 + 0.04), b0 + lowH * 0.82, cab.r - 0.12, 'x');
-    }
-    // exhaust
-    const ex = disc(0.025, 0.25, chrome, -0.35, b0 + 0.07, -hz - 0.02); ex.rotation.x = Math.PI / 2;
   }
 
   /** Drift build: lip, carbon bonnet, low wing on stands, tow hooks, side-exit exhaust, livery band, banner. */
@@ -650,14 +590,5 @@ function roundelTexture(num = '1') {
   g.fillStyle = '#ffffff'; g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#111'; g.font = 'bold 72px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText(num, 64, 68);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
-}
-function rallyPlateTexture(num = '1') {
-  const c = document.createElement('canvas'); c.width = 384; c.height = 128;
-  const g = c.getContext('2d');
-  g.fillStyle = '#f5f5f5'; g.fillRect(0, 0, 384, 128);
-  g.strokeStyle = '#b71c1c'; g.lineWidth = 10; g.strokeRect(6, 6, 372, 116);
-  g.fillStyle = '#b71c1c'; g.font = 'bold 34px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(`RALLYE · ${num}`, 192, 66);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
