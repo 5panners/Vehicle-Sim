@@ -284,7 +284,7 @@ export const PRESETS = [
     },
     transmission: {
       gearRatios: [3.9, 3.0, 2.45, 2.05, 1.75, 1.52, 1.35, 1.2], reverseRatio: -3.5, finalDrive: 4.0,
-      shiftTime: 0.03, clutchMaxTorque: 900, efficiency: 0.93,
+      shiftTime: 0.03, clutchMaxTorque: 900, clutchEngageRPM: 4500, clutchFullRPM: 6000, efficiency: 0.93,
       autoShiftUpRPM: 11800, autoShiftDownRPM: 8500,
     },
     drivetrain: { layout: 'RWD', rearDiff: { type: 'lsd', preload: 100, powerLock: 0.4, coastLock: 0.3 } },
