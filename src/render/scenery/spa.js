@@ -194,12 +194,12 @@ export function buildSpaScenery(view) {
     }
   };
   const outer = (c, side, base = 0) => hw(c) + Math.max(map.tarmacDepth(world, T[idx(c)], side), 6.5) + 7 + base;
-  coveredStand(7010, 290, -1, h0 + 15, { rows: 14, bays: 7 });                                  // main grandstand opposite the pits
+  coveredStand(6900, 150, -1, h0 + 15, { rows: 14, bays: 7 });                                  // main grandstand opposite the pits
   coveredStand(C['Raidillon'] - 90, C['Raidillon'] + 70, -1, outer(C['Raidillon'] - 10, -1, 3), { rows: 14, bays: 6, seats: seatMats.red });   // above Raidillon
   scaffoldStand(C['La Source'] - 60, C['La Source'] + 50, -1, outer(C['La Source'], -1), { rows: 10 });                  // La Source (outside)
   scaffoldStand(C['Les Combes'] - 80, C['Les Combes'] + 30, -1, outer(C['Les Combes'], -1), { rows: 9, seats: seatMats.yellow });
   coveredStand(C['Bus Stop'] - 110, C['Bus Stop'] + 20, -1, outer(C['Bus Stop'], -1), { rows: 10, bays: 4, seats: seatMats.yellow });
-  for (const [d0, d1, side, lat] of [[7010, 290, -1, h0 + 15], [C['Raidillon'] - 90, C['Raidillon'] + 70, -1, outer(C['Raidillon'] - 10, -1, 3)],
+  for (const [d0, d1, side, lat] of [[6900, 150, -1, h0 + 15], [C['Raidillon'] - 90, C['Raidillon'] + 70, -1, outer(C['Raidillon'] - 10, -1, 3)],
     [C['La Source'] - 60, C['La Source'] + 50, -1, outer(C['La Source'], -1)], [C['Les Combes'] - 80, C['Les Combes'] + 30, -1, outer(C['Les Combes'], -1)],
     [C['Bus Stop'] - 110, C['Bus Stop'] + 20, -1, outer(C['Bus Stop'], -1)]]) keepOut.push({ ...frame((d0 + d1 + (d1 < d0 ? L : 0)) / 2, side * (lat + 10)), r: span(d0, d1) / 2 + 24 });
 
