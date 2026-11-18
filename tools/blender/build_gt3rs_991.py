@@ -1176,6 +1176,105 @@ def build_interior(coll, M):
 
 
 # --------------------------------------------------------------------------
+# race livery: number roundels, sponsor panels and centre stripes, draped over the body and glass
+RACE_NUMBER = "27"
+SPONSORS = [("APEX OIL", (0.02, 0.02, 0.025), (1.0, 0.78, 0.0)), ("ZENITH", (0.95, 0.95, 0.93), (0.05, 0.1, 0.35)), ("VELOCITY", (0.04, 0.12, 0.45), (1.0, 1.0, 1.0))]
+
+
+def text_tris(txt, size, bold_x=1.0):
+    """2D triangles of a string in Blender's default font, centred on the origin: ([(x, y)], [[i, j, k]])."""
+    cu = bpy.data.curves.new("livery_text", 'FONT')
+    cu.body = txt
+    cu.size = size
+    cu.align_x = 'CENTER'
+    cu.align_y = 'CENTER'
+    cu.fill_mode = 'BOTH'
+    ob = bpy.data.objects.new("livery_text", cu)
+    bpy.context.scene.collection.objects.link(ob)
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = bpy.data.meshes.new_from_object(ob.evaluated_get(dg))
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bmesh.ops.triangulate(bm, faces=bm.faces)
+    verts = [(v.co.x * bold_x, v.co.y) for v in bm.verts]
+    faces = [[v.index for v in f.verts] for f in bm.faces]
+    bm.free()
+    bpy.data.objects.remove(ob, do_unlink=True)
+    bpy.data.curves.remove(cu)
+    bpy.data.meshes.remove(me)
+    return verts, faces
+
+
+def build_livery(body, glass, coll, M):
+    # one projector over body + glass so decals can cross the windows
+    P = Projector(body)
+    bm = bmesh.new()
+    bm.from_mesh(body.data)
+    bm.from_mesh(glass.data)
+    P.bvh = BVHTree.FromBMesh(bm)
+    bm.free()
+    white = mat("GT3_DecalWhite", (0.92, 0.92, 0.9), 0.4)
+    black = mat("GT3_DecalBlack", (0.02, 0.02, 0.022), 0.45)
+    yellow = mat("GT3_DecalYellow", (1.0, 0.72, 0.0), 0.4)
+    navy = mat("GT3_DecalNavy", (0.03, 0.08, 0.32), 0.4)
+    mats = [white, black, yellow, navy]
+    WHITE, BLACK, YELLOW, NAVY = range(4)
+    D = DecalBuilder(P)
+
+    def txt(text, size, cu, cv, axis, sign, mi, off, flipu=False, flipv=False, rot=0.0, bold=1.0, mirror=False):
+        vs, fs = text_tris(text, size, bold)
+        ca, sa = math.cos(rot), math.sin(rot)
+        uv = []
+        for (x, y) in vs:
+            x, y = x * ca - y * sa, x * sa + y * ca
+            uv.append((cu + (-x if flipu else x), cv + (-y if flipv else y)))
+        D.add(uv, fs, axis, sign, off, mi, mirror=mirror)
+
+    def rect(u0, u1, v0, v1, nu, nv, axis, sign, mi, off, flipu=False):
+        top = [((u1 - (u1 - u0) * i / nu) if flipu else (u0 + (u1 - u0) * i / nu), v1) for i in range(nu + 1)]
+        bot = [(u, v0) for (u, _) in top]
+        uv, fc = strip_grid(top, bot, rows=nv)
+        D.add(uv, fc, axis, sign, off, mi)
+
+    def disc(cu, cv, r, axis, sign, mi, off, n=22, rings=3):
+        uv, fc = ellipse_grid(cu, cv, r, r, n=n, rings=rings)
+        D.add(uv, fc, axis, sign, off, mi)
+
+    # --- door roundels with the race number (both sides; text reads front to back on each side)
+    for sign in (1, -1):
+        flip = sign < 0                        # on the right-hand side +y runs the other way round for the viewer
+        disc(-0.02, 0.60, 0.165, 'x', sign, WHITE, 0.003)
+        txt(RACE_NUMBER, 0.20, -0.02, 0.60, 'x', sign, BLACK, 0.007, flipu=flip, bold=1.15)
+    # --- bonnet roundel (read from the front of the car) and a number on the roof
+    disc(0.0, -1.50, 0.20, 'z', 1, WHITE, 0.003, n=24, rings=3)
+    txt(RACE_NUMBER, 0.25, 0.0, -1.50, 'z', 1, BLACK, 0.007, bold=1.15)
+    # --- windscreen banner (reads from the front)
+    rect(-0.60, 0.60, 1.115, 1.175, 24, 2, 'y', -1, BLACK, 0.004)
+    txt("PORSCHE-STYLE RACING".replace("PORSCHE-STYLE", "APEX"), 0.052, 0.0, 1.145, 'y', -1, YELLOW, 0.008)
+    # --- sponsor bands along the sills and across the rear quarters
+    for sign in (1, -1):
+        flip = sign < 0
+        # lower door band with the main sponsor
+        rect(-0.46, 0.46, 0.305, 0.385, 30, 2, 'x', sign, BLACK, 0.003, flipu=flip)
+        txt("APEX OIL", 0.062, 0.0, 0.345, 'x', sign, YELLOW, 0.007, flipu=flip)
+        # front wing: small sponsor panel above the wheel arch
+        rect(-1.82, -1.30, 0.66, 0.73, 14, 2, 'x', sign, NAVY, 0.003, flipu=flip)
+        txt("ZENITH", 0.050, -1.56, 0.695, 'x', sign, WHITE, 0.007, flipu=flip)
+        # rear quarter band behind the rear wheel
+        rect(1.62, 2.05, 0.545, 0.605, 14, 2, 'x', sign, NAVY, 0.003, flipu=flip)
+        txt("VELOCITY", 0.042, 1.835, 0.575, 'x', sign, WHITE, 0.007, flipu=flip)
+    # --- twin centre stripes over the bonnet, roof and engine lid
+    for (y0, y1) in ((-2.06, -1.78), (-1.22, -0.95), (-0.18, 0.74), (1.42, 2.12)):
+        n = int((y1 - y0) / 0.05)
+        for x0 in (-0.115, 0.075):
+            top = [(x0 + 0.04, y0 + (y1 - y0) * i / n) for i in range(n + 1)]
+            bot = [(x0, y) for (_, y) in top]
+            uv, fc = strip_grid(top, bot, rows=1)
+            D.add(uv, fc, 'z', 1, 0.003, BLACK)
+    return D.build("GT3RS_Livery", coll, mats, smooth=40)
+
+
+# --------------------------------------------------------------------------
 def build():
     coll = get_coll(COLL)
     M = make_mats()
@@ -1242,6 +1341,7 @@ def build():
 
     set_smooth(body, 38)
     decals = build_decals(body, coll, M)
+    livery = build_livery(body, glass, coll, M)
     aero = build_aero(coll, M)
     trim = build_exhaust_mirrors(coll, M)
     interior = build_interior(coll, M)
