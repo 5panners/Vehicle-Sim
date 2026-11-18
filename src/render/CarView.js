@@ -24,7 +24,7 @@ export class CarView {
     this.blob.rotation.order = 'YXZ'; this.blob.rotation.x = -Math.PI / 2; this.blob.renderOrder = 2; this.blob.frustumCulled = false;
     scene.add(this.blob);
     // headlight pool: one additive quad of light on the road ahead (no real lights, so it costs next to nothing)
-    this.pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false, color: 0xfff0cc, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 }));
+    this.pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 1, 12), new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false, color: 0xfff0cc, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 }));
     this.pool.rotation.order = 'YXZ'; this.pool.rotation.x = -Math.PI / 2; this.pool.renderOrder = 3; this.pool.frustumCulled = false; this.pool.visible = false;
     scene.add(this.pool);
     this.headMats = [];            // the lamps' materials: they glow when the light goes
@@ -35,7 +35,7 @@ export class CarView {
     this.group.clear();
     this.vehicle = vehicle;
     this.blob.scale.set(W * 1.3, L * 1.15, 1);
-    this.pool.scale.set(Math.max(7, W * 4.6), 38, 1);
+    this.pool.scale.set(14, 38, 1);
     this.headMats = [];
     const paint = new THREE.MeshStandardMaterial({ color: this.tint ?? cfg.color, metalness: 0.4, roughness: 0.35 });
     const dark = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.6 });
@@ -601,6 +601,14 @@ export class CarView {
         this.pool.position.set(px, vehicle.world.heightAt(px, pz, false) + 0.05, pz);
         this.pool.rotation.y = this.blob.rotation.y;
         this.pool.material.opacity = 0.62 * dark;
+        // lie on the road: lift or drop each row of the strip to the ground under it, so crests and dips don't bury the light
+        this.pool.updateMatrixWorld(true);
+        const pg = this.pool.geometry.attributes.position, py = this.pool.position.y;
+        for (let i = 0; i < pg.count; i++) {
+          _v.set(pg.getX(i), pg.getY(i), 0).applyMatrix4(this.pool.matrixWorld);
+          pg.setZ(i, vehicle.world.heightAt(_v.x, _v.z, false) + 0.05 - py);
+        }
+        pg.needsUpdate = true;
       }
     }
     vehicle.wheels.forEach((w, i) => {
@@ -619,19 +627,30 @@ export class CarView {
   }
 }
 
-const _fwd = new THREE.Vector3();
+const _fwd = new THREE.Vector3(), _v = new THREE.Vector3();
 const SKIP_SHADOW = /interior|glass|details|livery|trim|caliper/i;
-/** light on the road from two lamps: two lobes, bright and wide in the near field, fading out along the length */
+/**
+ * light on the road from two lamps: two cones that start at the lamps and spread out with distance, each fading
+ * (and thinning) as it goes. The quad is 14 m wide and 38 m long; the car end is the top row of the texture (the quad's rear edge).
+ */
 function poolTexture() {
-  const W = 128, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const W = 256, H = 512, WORLD_W = 14, WORLD_L = 38, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'), img = g.createImageData(W, H), d = img.data;
   for (let j = 0; j < H; j++) {
-    const t = j / (H - 1);                                   // 0 at the far end of the beam, 1 at the car
-    const reach = Math.pow(t, 1.6) * smooth(0.0, 0.1, 1 - t);   // bright near the car, nothing right under the bumper
+    const s = j / (H - 1);                                                // 0 at the car (the top row sits at the rear edge of the quad), 1 at the far end of the beam
+    const dist = s * WORLD_L;
+    const fade = Math.pow(1 - s, 1.25) * smooth(0, 0.035, s);              // nothing right under the bumper, then fading with distance
+    const hw = 0.55 + 0.19 * dist;                                        // cone half-width (m): ~7.7 m at 38 m, a spread of about 10 degrees
+    const thin = 1 / (1 + 0.045 * dist);                                  // the light spreads over more road, so it gets dimmer
     for (let i = 0; i < W; i++) {
-      const x = (i / (W - 1) - 0.5) * 2, spread = 0.30 + 0.22 * (1 - t);
-      const lobe = (c0) => Math.exp(-Math.pow((x - c0) / spread, 2));
-      const v = Math.min(1, (lobe(-0.30) + lobe(0.30)) * 0.62) * reach;
+      const x = (i / (W - 1) - 0.5) * WORLD_W;
+      let v = 0;
+      for (const side of [-1, 1]) {
+        const cx = side * (0.62 + 0.035 * dist);                          // each cone drifts a little outward from its lamp
+        const u = (x - cx) / hw;
+        v += Math.exp(-u * u * 1.7) * (1 - 0.55 * Math.min(1, Math.abs(u)));   // soft edge, brighter along the axis
+      }
+      v = Math.min(1, v * 0.78 * fade * thin * 1.6);
       const k = (j * W + i) * 4; d[k] = d[k + 1] = d[k + 2] = 255; d[k + 3] = Math.round(255 * v);
     }
   }
