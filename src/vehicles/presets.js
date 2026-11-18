@@ -227,8 +227,8 @@ export const PRESETS = [
   makeVehicle({
     name: 'GT3', description: 'GT3-class endurance racer: 1300 kg, ~550 hp front-mid V8, sequential 6-speed, slicks and a big rear wing. ABS and TC are race-legal in GT3, so they stay on.',
     color: 0x1b5e20, accent: 0xffd600, style: 'gt3',
-    // glTF body (node tools/build-gt3rs.mjs); the procedural 'gt3' style is the fallback
-    model: { url: 'assets/models/gt3rs-proc.glb', prefix: 'GT3RS_', brakeMaterial: 'GT3_Taillight' },
+    // glTF body built in Blender (tools/blender/build_gt3rs_991.py); the procedural 'gt3' style is the fallback
+    model: { url: 'assets/models/gt3rs-991.glb', prefix: 'GT3RS_', brakeMaterial: 'GT3_Taillight' },
     body: {
       mass: 1300, cgHeight: 0.42, weightDistFront: 0.47, groundClearance: 0.07,
       dimensions: { width: 2.04, height: 1.22, length: 4.65 },

@@ -80,7 +80,7 @@ const TARMAC = [
   [C['Campus'], -40, 50, 16], [C['Stavelot'], -60, 100, 30], [C['Paul Frère'], -70, 90, 20], [C['Blanchimont'], -140, 170, 28], [C['Bus Stop'], -70, 70, 24],
 ];
 // level terraces cut into the hillside under the grandstands (the scenery builds them at track level): [centre, from, to, depth beyond the edge, side]
-const STAND_TERRACES = [[0, -70, 195, 40, -1], [C['Raidillon'], -110, 90, 52, -1], [C['La Source'], -80, 70, 58, -1], [C['Les Combes'], -100, 50, 52, -1], [C['Bus Stop'], -75, 60, 32, -1]];
+const STAND_TERRACES = [[0, -70, 195, 40, -1], [C['Raidillon'], -110, 90, 52, -1], [C['La Source'], -80, 70, 58, -1], [C['Les Combes'], -100, 50, 52, -1]];
 const GRAVEL = [[C['Les Combes'], 30, 90, 14], [C['Pouhon'] + 30, -20, 90, 16], [C['Stavelot'], 50, 130, 16]];   // the odd gravel bed beyond the tarmac
 const baseVerge = (s) => 9 + 2 * smoothstep(1300, 2300, s) * smoothstep(2430, 2330, s);   // barriers well back from the edge (a little more on the Kemmel straight)
 

@@ -6,7 +6,7 @@ import { broadleafTree, pineTree, farTree, garageFacade, seatTexture, bannerText
  * Spa-Francorchamps surroundings (low-poly, modelled on reference photos):
  *  - Eau Rouge / Raidillon: the painted red and yellow tarmac run-off and the teal strip opposite
  *  - the pit complex: two-storey garages on the right of the pit straight, the pit building and its control tower
- *  - covered stands opposite the pits and above Raidillon, scaffold stands at La Source, Les Combes and the Bus Stop
+ *  - covered stands opposite the pits and above Raidillon, scaffold stands at La Source and Les Combes
  *  - the Ardennes: dense spruce and pine forest with beech (from the map's woodland mask), pastures with farmhouses
  *  - advertising boards, marshal posts, brake boards, floodlights
  * Everything is placed by lap distance + lateral offset (+ = right of travel).
@@ -119,8 +119,9 @@ export function buildSpaScenery(view) {
   along(gFrom, gTo, glat0, glat1 + 0.3, 0.35, mat.grey, { y0: 7.2, ...onGar });                // flat roof
   along(gFrom, gTo, glat0 - 0.6, glat0 + 0.2, 1.0, mat.blue, { y0: 6.8, ...onGar });            // blue fascia band over the doors
   // the pit building: a white/grey three-storey block above the garages with a glazed upper floor and a tall control tower
-  const upper = along(gFrom, gTo, glat0 + 4, glat1 - 1, 5.6, mat.white, { y0: 7.55, segLen: 22, ...onGar });
-  along(gFrom, gTo, glat0 + 3.7, glat1 - 0.7, 0.35, mat.dark, { y0: 13.1, segLen: 22, bases: upper.bases.map((b, i) => gar.bases[Math.min(gar.bases.length - 1, Math.floor(i * gar.bases.length / upper.bases.length))]) });
+  // same 18 m sections as the garages, so each block of the upper floor sits on the garage below it
+  const upper = along(gFrom, gTo, glat0 + 4, glat1 - 1, 5.6, mat.white, { y0: 7.55, ...onGar });
+  along(gFrom, gTo, glat0 + 3.7, glat1 - 0.7, 0.35, mat.dark, { y0: 13.1, ...onGar });
   for (const s of upper.segs) {                                                                  // glazing strip on the track face
     const fx = s.x - s.t.rx * ((glat1 - glat0 - 5) / 2 + 0.1), fz = s.z - s.t.rz * ((glat1 - glat0 - 5) / 2 + 0.1);
     panel(s.len + 0.2, 3.4, mat.glass, fx, s.base + 8.7, fz, Math.atan2(-s.t.rx, -s.t.rz));
@@ -204,10 +205,8 @@ export function buildSpaScenery(view) {
   coveredStand(C['Raidillon'] - 90, C['Raidillon'] + 70, -1, outer(C['Raidillon'] - 10, -1, 3), { rows: 14, bays: 6, seats: seatMats.red });   // above Raidillon
   scaffoldStand(C['La Source'] - 60, C['La Source'] + 50, -1, outer(C['La Source'], -1), { rows: 10 });                  // La Source (outside)
   scaffoldStand(C['Les Combes'] - 80, C['Les Combes'] + 30, -1, outer(C['Les Combes'], -1), { rows: 9, seats: seatMats.yellow });
-  coveredStand(C['Bus Stop'] - 55, C['Bus Stop'] + 35, -1, outer(C['Bus Stop'], -1), { rows: 10, bays: 3, seats: seatMats.yellow });   // facing the chicane itself
   for (const [d0, d1, side, lat] of [[6960, 170, -1, h0 + 15], [C['Raidillon'] - 90, C['Raidillon'] + 70, -1, outer(C['Raidillon'] - 10, -1, 3)],
-    [C['La Source'] - 60, C['La Source'] + 50, -1, outer(C['La Source'], -1)], [C['Les Combes'] - 80, C['Les Combes'] + 30, -1, outer(C['Les Combes'], -1)],
-    [C['Bus Stop'] - 55, C['Bus Stop'] + 35, -1, outer(C['Bus Stop'], -1)]]) keepOut.push({ ...frame((d0 + d1 + (d1 < d0 ? L : 0)) / 2, side * (lat + 10)), r: span(d0, d1) / 2 + 24 });
+    [C['La Source'] - 60, C['La Source'] + 50, -1, outer(C['La Source'], -1)], [C['Les Combes'] - 80, C['Les Combes'] + 30, -1, outer(C['Les Combes'], -1)]]) keepOut.push({ ...frame((d0 + d1 + (d1 < d0 ? L : 0)) / 2, side * (lat + 10)), r: span(d0, d1) / 2 + 24 });
 
   // ============================================================ advertising boards, marshal posts, brake boards, lights
   const WORDS = [['SPA-FRANCORCHAMPS', '#111', '#fff'], ['ARDENNES', '#0b3d7a', '#fff'], ['BELGIQUE', '#c62828', '#fff'], ['LIÈGE', '#e8e8e8', '#0b3d7a'], ['STAVELOT', '#1b5e20', '#fff'], ['FRANCORCHAMPS', '#7a1020', '#fff']];
