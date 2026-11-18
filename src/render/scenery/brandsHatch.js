@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { rng } from '../../world/noise.js';
 import { labelSprite } from '../WorldView.js';
-import { broadleafTree, birchTree, bareTree, pineTree, farTree, garageFacade, officeFacade, seatTexture, bannerTexture } from './lowpoly.js';
+import { broadleafTree, birchTree, bareTree, pineTree, farTree, garageFacade, garageFronts, officeFacade, seatTexture, bannerTexture } from './lowpoly.js';
 import { TreeTiles } from './treelod.js';
 
 /**
@@ -108,11 +108,11 @@ export function buildBrandsScenery(view) {
   along(gFrom, gTo, h0 + 21, h0 + 36.3, 0.35, mat.grey, { y0: 7.8, ...onGar });             // flat grey roof
   along(gFrom, gTo, h0 + 20.4, h0 + 21.2, 1.1, mat.red, { y0: 7.4, ...onGar });              // red fascia band on the pit-lane edge
   along(gFrom, gTo, h0 + 26, h0 + 33, 1.6, mat.grey, { y0: 8.15, ...onGar });                // roof plant
-  const facadeMat = new THREE.MeshLambertMaterial({ map: garageFacade(1) });
-  for (const s of gar.segs) { // façade on the pit-lane face, one garage bay per ~9 m
+  const facadeMats = garageFronts();
+  gar.segs.forEach((s, i) => { // façade on the pit-lane face, one garage bay per ~9 m
     const fx = s.x - s.t.rx * 7.52, fz = s.z - s.t.rz * 7.52;
-    panel(s.len + 0.6, 7.8, facadeMat, fx, s.base, fz, Math.atan2(-s.t.rx, -s.t.rz), (s.len + 0.6) / 9);
-  }
+    panel(s.len + 0.6, 7.8, facadeMats[i % 2], fx, s.base, fz, Math.atan2(-s.t.rx, -s.t.rz), (s.len + 0.6) / 36);
+  });
   // race control tower (red drum top) near the pit exit
   {
     const f = frame(PIT.to - 25, h0 + 31), y = f.y;

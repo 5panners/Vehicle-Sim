@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { rng } from '../../world/noise.js';
-import { broadleafTree, pineTree, farTree, garageFacade, seatTexture, bannerTexture } from './lowpoly.js';
+import { broadleafTree, pineTree, farTree, garageFacade, garageFronts, seatTexture, bannerTexture } from './lowpoly.js';
 import { TreeTiles } from './treelod.js';
 
 /**
@@ -127,11 +127,11 @@ export function buildSpaScenery(view) {
     const fx = s.x - s.t.rx * ((glat1 - glat0 - 5) / 2 + 0.1), fz = s.z - s.t.rz * ((glat1 - glat0 - 5) / 2 + 0.1);
     panel(s.len + 0.2, 3.4, mat.glass, fx, s.base + 8.7, fz, Math.atan2(-s.t.rx, -s.t.rz));
   }
-  const facade = new THREE.MeshLambertMaterial({ map: garageFacade(1), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  for (const s of gar.segs) {                                                                    // garage fronts: one bay per ~9 m
+  const facades = garageFronts({ polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  gar.segs.forEach((s, i) => {                                                                    // garage fronts: one bay per ~9 m
     const fx = s.x - s.t.rx * ((glat1 - glat0) / 2 + 0.1), fz = s.z - s.t.rz * ((glat1 - glat0) / 2 + 0.1);
-    panel(s.len + 0.6, 7.2, facade, fx, s.base, fz, Math.atan2(-s.t.rx, -s.t.rz), (s.len + 0.6) / 9);
-  }
+    panel(s.len + 0.6, 7.2, facades[i % 2], fx, s.base, fz, Math.atan2(-s.t.rx, -s.t.rz), (s.len + 0.6) / 36);
+  });
   {                                                                                             // control tower near the start line
     const f = frame(40, glat0 + 6), y = groundUnder(30, 50, glat0 + 3, glat0 + 9);
     box(8, 26, 8, mat.concrete, f.x, y, f.z, f.yaw);

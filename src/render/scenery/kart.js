@@ -50,7 +50,7 @@ export function buildKartScenery(view) {
   const n = Math.round(span(g0, g1) / 7), len = span(g0, g1) / n;
   const facade = new THREE.MeshLambertMaterial({ map: garageFacade(1), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   for (let k = 0; k < n; k++) {
-    const d = g0 + (k + 0.5) * len, f = frame(d, (glat0 + glat1) / 2), base = Math.min(frame(d, glat0).y, frame(d, glat1).y) - 0.2;
+    const d = g0 + 3 + (k + 0.5) * len, f = frame(d, (glat0 + glat1) / 2), base = Math.min(frame(d, glat0).y, frame(d, glat1).y) - 0.2;
     if (!free(f.x, f.z, 6) || !free(frame(d, glat0).x, frame(d, glat0).z, 3)) continue;
     box(glat1 - glat0, 3.4, len - 0.4, mat.concrete, f.x, base, f.z, f.yaw);
     box(glat1 - glat0 + 0.8, 0.3, len, mat.grey, f.x, base + 3.4, f.z, f.yaw);
@@ -84,7 +84,7 @@ export function buildKartScenery(view) {
     }
   };
   stand(PIT.from + 10, 75, -1, hw(0) + 5.5, 7, 4);
-  stand(C['Turn 4'] - 25, C['Turn 4'] + 25, -map.outside(world, C['Turn 4']), hw(C['Turn 4']) + 7.5, 5, 2);
+  stand(C['Turn 4'] - 25, C['Turn 4'] + 25, map.outside(world, C['Turn 4']), hw(C['Turn 4']) + 7.5, 5, 2);
 
   // ---- advertising boards on the tyre walls, marshal posts, brake boards, floodlights
   const WORDS = [['APEX RING', '#111', '#ffc400'], ['KARTING', '#c62828', '#fff'], ['RACE · DRIFT · REPEAT', '#0b3d7a', '#fff'], ['PIT STOP', '#e8e8e8', '#111'], ['GRIP', '#1b5e20', '#fff']];

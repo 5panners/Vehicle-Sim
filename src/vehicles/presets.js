@@ -144,6 +144,40 @@ export const PRESETS = [
     assists: { abs: false, tcs: true, stability: false },
   }),
   makeVehicle({
+    name: 'Caterham 620R', description: 'Lightweight track-day roadster: 620 kg with driver, 310 hp supercharged 2.0 (peaky, revs to 8,000), 6-speed manual, RWD with a limited-slip diff, semi-slicks, no aero and no assists. 0-60 in under 3 seconds and it never stops talking to you; be smooth with the throttle.',
+    color: 0x0f3b22, accent: 0xe8a91f, style: 'cigar',
+    // glTF body built in Blender (tools/blender/build_caterham_620r.py)
+    model: { url: 'assets/models/caterham-620r.glb', prefix: 'CAT_', brakeMaterial: 'CAT_Taillight' },
+    view: { hood: [0.78, -0.3] },
+    body: {
+      mass: 620, cgHeight: 0.3, weightDistFront: 0.48, groundClearance: 0.1,
+      dimensions: { width: 1.7, height: 1.1, length: 3.1 },
+      inertiaScale: { x: 0.6, y: 0.7, z: 0.6 }, bodyFriction: 0.35,
+    },
+    geometry: { wheelbase: 2.4, trackFront: 1.24, trackRear: 1.28 },
+    suspension: {
+      front: { springRate: 48000, bumpDamping: 1800, reboundDamping: 2800, fastBumpThreshold: 0.2, fastBumpFactor: 0.45, restLength: 0.16, travel: 0.08, bumpStopRate: 250000, antiRollBar: 12000, camber: -1.5, camberGain: 12, toe: 0, caster: 6, rollCenterHeight: 0.04 },
+      rear: { springRate: 58000, bumpDamping: 2100, reboundDamping: 3200, fastBumpThreshold: 0.2, fastBumpFactor: 0.45, restLength: 0.16, travel: 0.08, bumpStopRate: 250000, antiRollBar: 5000, camber: -1.0, camberGain: 10, toe: 0.1, rollCenterHeight: 0.1 },
+      antiDive: 0.1, antiSquat: 0.2,
+    },
+    wheels: { front: { radius: 0.285, width: 0.205, inertia: 0.5 }, rear: { radius: 0.3, width: 0.26, inertia: 0.7 } },
+    tires: {
+      front: { peakFrictionX: 1.3, peakFrictionY: 1.38, peakSlipRatio: 0.09, peakSlipAngle: 6.5, shapeY: { C: 1.4, E: 0.0 }, loadSensitivity: 0.1, nominalLoad: 1450, relaxationLengthX: 0.22, relaxationLengthY: 0.36, optimalTemp: 80, tempWindow: 32, heatRate: 3 },
+      rear: { peakFrictionX: 1.38, peakFrictionY: 1.38, peakSlipRatio: 0.09, peakSlipAngle: 6.5, shapeY: { C: 1.4, E: 0.0 }, loadSensitivity: 0.1, nominalLoad: 1650, relaxationLengthX: 0.22, relaxationLengthY: 0.36, optimalTemp: 80, tempWindow: 32, heatRate: 3 },
+    },
+    engine: {
+      torqueCurve: [[1500, 170], [3000, 235], [4500, 270], [6000, 288], [7300, 297], [7900, 280], [8300, 240]],
+      idleRPM: 1400, redlineRPM: 8000, limiterRPM: 8300, limiterCutTime: 0.06,
+      inertia: 0.09, engineBrakingTorque: 40, throttleResponse: 16, cylinders: 4,
+    },
+    transmission: { gearRatios: [3.4, 2.3, 1.72, 1.35, 1.1, 0.9], reverseRatio: -3.3, finalDrive: 3.9, shiftTime: 0.1, clutchMaxTorque: 600, efficiency: 0.92, autoShiftUpRPM: 7800, autoShiftDownRPM: 4500 },
+    drivetrain: { layout: 'RWD', rearDiff: { type: 'lsd', preload: 60, powerLock: 0.45, coastLock: 0.25 } },
+    brakes: { maxTorque: 2600, bias: 0.62, handbrakeTorque: 1200 },
+    steering: { maxAngle: 32, ackermann: 0.7, steerSpeed: 5.0, speedSensitivity: 0.7, countersteerAssist: 0.3 },
+    aero: { dragCoefficient: 0.7, frontalArea: 1.3, liftCoefFront: 0.0, liftCoefRear: 0.05, angularDrag: 0.3 },
+    assists: { abs: false, tcs: false, stability: false },
+  }),
+  makeVehicle({
     name: 'Drift Car', description: 'Pro-drift build: ~550 hp turbo, 2-way LSD at near-full lock, 60° angle kit, hydraulic handbrake, grippier fronts than rears. TC off by default; throttle steers the angle.',
     color: 0x7c4dff, accent: 0x00e5ff, style: 'drift',
     body: {

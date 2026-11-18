@@ -105,7 +105,7 @@ export class HUD {
 
     // the car and the camera behind it
     const p = v.body.position, f = v.body.localDir({ x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: 0 }), fx = f.x, fz = f.z;
-    const k = 2.4, camH = 110 * k, camB = 46 * k, th = (50 * Math.PI) / 180, sinT = Math.sin(th), cosT = Math.cos(th);
+    const k = 3.8, camH = 110 * k, camB = 46 * k, th = (50 * Math.PI) / 180, sinT = Math.sin(th), cosT = Math.cos(th);
     const F = (W / 2) / Math.tan((30 * Math.PI) / 180), cx = W / 2, cy = H * 0.34;
     // returns [sx, sy, zv] or null when the point is behind the camera
     const proj = (x, y, z) => {

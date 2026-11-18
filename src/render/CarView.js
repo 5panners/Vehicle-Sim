@@ -592,7 +592,7 @@ export class CarView {
       const air = Math.max(0, b.position.y - g - vehicle.config.body.cgHeight);
       this.blob.material.opacity = Math.max(0.15, 0.9 - air * 0.15);
       // headlights: lamps glow and a pool of light lies on the road ahead, once the light starts to go
-      const dark = lighting.dark;
+      const dark = vehicle.config.style === 'kart' ? 0 : lighting.dark;   // karts have no headlights
       for (const m of this.headMats) m.emissiveIntensity = m.userData.base + 3.2 * dark;
       this.pool.visible = dark > 0.02 && this.group.visible;
       if (this.pool.visible) {

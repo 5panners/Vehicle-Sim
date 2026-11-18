@@ -128,6 +128,54 @@ export function garageFacade(n = 1) {
   }, [n, 1]);
 }
 
+/**
+ * Pit garage fronts with three of every four roller doors rolled up on a lit interior (tyre stacks, tool chests, strip lights).
+ * One tile is four 9 m bays; the two returned materials show half a tile each (offset 0 and 0.5), so alternating them along the
+ * garages gives open, open, open, closed. The interior is an emissive map, so it glows at night without any real lights.
+ */
+export function garageFronts(extra = {}) {
+  const OPEN = [true, true, true, false];
+  const draw = (glow) => (g) => {
+    g.fillStyle = glow ? '#000' : '#d8d6d0'; g.fillRect(0, 0, 1024, 256);
+    OPEN.forEach((open, b) => {
+      const x0 = b * 256;
+      g.save(); g.translate(x0, 0);
+      if (!glow) {
+        g.fillStyle = '#c62828'; g.fillRect(0, 0, 256, 22);
+        g.fillStyle = '#25384c'; g.fillRect(8, 30, 240, 82);
+        g.fillStyle = '#e8e8e8'; for (let x = 8; x <= 248; x += 40) g.fillRect(x - 2, 30, 4, 82); g.fillRect(8, 68, 240, 3);
+        g.fillStyle = '#8a8d91'; g.fillRect(0, 118, 256, 6);
+      } else { g.fillStyle = 'rgba(255,214,150,0.55)'; g.fillRect(8, 30, 240, 82); g.fillStyle = '#000'; for (let x = 8; x <= 248; x += 40) g.fillRect(x - 2, 30, 4, 82); }
+      if (open) {
+        if (!glow) {
+          g.fillStyle = '#2a2d31'; g.fillRect(28, 140, 200, 116);                                  // opening
+          g.fillStyle = '#7b8086'; g.fillRect(32, 154, 192, 102);                                  // back wall
+          g.fillStyle = '#a9aeb3'; g.fillRect(32, 236, 192, 20);                                   // floor
+          g.fillStyle = '#4c5055'; for (let y = 140; y < 152; y += 4) g.fillRect(28, y, 200, 2);   // the rolled-up door
+          g.fillStyle = '#c62828'; g.fillRect(44, 200, 42, 30); g.fillRect(170, 200, 42, 30);      // tool chests
+          g.fillStyle = '#15171a'; for (const cx of [60, 196]) for (const cy of [188, 176]) { g.beginPath(); g.ellipse(cx, cy + 36, 20, 8, 0, 0, 7); g.fill(); }   // tyre stacks
+          g.fillStyle = '#f2f2f2'; g.font = 'bold 22px system-ui'; g.textAlign = 'center'; g.fillText(String(b + 1), 128, 136);
+        } else {
+          const gr = g.createLinearGradient(0, 154, 0, 256); gr.addColorStop(0, 'rgba(255,236,190,0.95)'); gr.addColorStop(1, 'rgba(255,214,150,0.55)');
+          g.fillStyle = gr; g.fillRect(32, 154, 192, 102);
+          g.fillStyle = '#fff'; g.fillRect(48, 156, 160, 5); g.fillRect(48, 190, 160, 3);          // strip lights
+        }
+      } else if (!glow) {
+        g.fillStyle = '#5d6166'; g.fillRect(28, 140, 200, 116);
+        g.fillStyle = '#4c5055'; for (let y = 144; y < 256; y += 7) g.fillRect(28, y, 200, 2);
+        g.fillStyle = '#f2f2f2'; g.font = 'bold 22px system-ui'; g.textAlign = 'center'; g.fillText(String(b + 1), 128, 136);
+      }
+      g.restore();
+    });
+  };
+  const map = canvasTex(1024, 256, draw(false)), glow = canvasTex(1024, 256, draw(true));
+  return [0, 0.5].map((o) => {
+    const m = map.clone(), e = glow.clone();
+    m.offset.set(o, 0); e.offset.set(o, 0); m.needsUpdate = e.needsUpdate = true;
+    return new THREE.MeshLambertMaterial({ map: m, emissive: 0xffffff, emissiveMap: e, emissiveIntensity: 0.85, ...extra });
+  });
+}
+
 /** Office / hospitality building: horizontal glass bands with mullions on white render. */
 export function officeFacade(floors = 3, bays = 10, { wall = '#f1f1ee', glass = '#2c4357', band = null } = {}) {
   return canvasTex(256, 256, (g) => {
