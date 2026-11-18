@@ -211,7 +211,7 @@ export class Race {
     return `<h2>${me === 1 ? 'Winner!' : `Finished P${me}`}</h2><table><tr><th></th><th>Driver</th><th>Time</th><th>Best lap</th></tr>${rows}</table>`;
   }
 
-  mapDots() { return this.others.filter((b) => !b.remote || b.seen).map((b) => ({ x: b.vehicle.body.position.x, z: b.vehicle.body.position.z, color: b.color })); }
+  mapDots() { return this.others.filter((b) => !b.remote || b.seen).map((b) => ({ x: b.vehicle.body.position.x, y: b.vehicle.body.position.y, z: b.vehicle.body.position.z, color: b.color })); }
 
   dispose() { for (const b of this.others) { b.view.group.removeFromParent(); b.view.blob.removeFromParent(); b.view.pool.removeFromParent(); this.app.audio?.dropVoice(b); } this.bots = []; this.remotes = []; }
 }

@@ -76,103 +76,112 @@ export class HUD {
 
   // ---------------------------------------------------------------- track map
   /**
-   * North-up minimap. The static layer (track, walls, test areas) is drawn once to
-   * an offscreen canvas; each frame only blits it and draws the car arrow.
-   * Seen from above with +Z up the screen, the driver's right (-X) is screen right,
-   * so world (x, z) -> canvas (cx - x*s, cy - z*s).
+   * 3/4-view minimap: a camera hovering behind and above the car looks down the road ahead, and the map turns with
+   * the car (heading-up). The track is projected every frame as a ribbon of quads, far ones first, over a faint
+   * ground grid; the height of the ground is real, so hills show. World north is shown by the compass in the corner.
+   * Game axes: the car faces +z, its left is +x, so (u = right, w = forward) = (-dx*fz + dz*fx, dx*fx + dz*fz).
    */
   buildMap(world, zones = {}) {
     this.world = world;
-    const T = world.track;
-    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
-    for (const t of T) { x0 = Math.min(x0, t.x); x1 = Math.max(x1, t.x); z0 = Math.min(z0, t.z); z1 = Math.max(z1, t.z); }
-    for (const r of Object.values(zones)) { x0 = Math.min(x0, r.x0); x1 = Math.max(x1, r.x1); z0 = Math.min(z0, r.z0); z1 = Math.max(z1, r.z1); }
-    const pad = 20; x0 -= pad; x1 += pad; z0 -= pad; z1 += pad;
-    this.mapBounds = { x0, x1, z0, z1, aspect: (x1 - x0) / (z1 - z0) };
+    const T = world.track, step = Math.max(1, Math.round(6 / ((T.length ? Math.hypot(T[1].x - T[0].x, T[1].z - T[0].z) : 1) || 1)));
+    this.mapPts = [];
+    for (let i = 0; i < T.length; i += step) { const t = T[i]; this.mapPts.push({ x: t.x, y: t.y, z: t.z, rx: t.rx, rz: t.rz, hw: t.w / 2 }); }
     this.mapZones = zones;
-    this._mapStatic = null; // (re)drawn at the current display size on next frame
-  }
-
-  _mapProject(x, z, W, H) {
-    const b = this.mapBounds, s = Math.min(W / (b.x1 - b.x0), H / (b.z1 - b.z0));
-    const cx = W / 2, cy = H / 2, mx = (b.x0 + b.x1) / 2, mz = (b.z0 + b.z1) / 2;
-    return [cx - (x - mx) * s, cy - (z - mz) * s, s];
-  }
-
-  _drawMapStatic(W, H, dpr) {
-    const c = document.createElement('canvas'); c.width = W * dpr; c.height = H * dpr;
-    const g = c.getContext('2d'); g.scale(dpr, dpr);
-    const P = (x, z) => this._mapProject(x, z, W, H);
-    // background
-    g.fillStyle = 'rgba(10,14,20,0.85)'; g.beginPath(); g.roundRect(0, 0, W, H, 10); g.fill();
-    // infield test areas (faint)
-    g.fillStyle = 'rgba(255,255,255,0.08)';
-    for (const r of Object.values(this.mapZones)) {
-      const [ax, az] = P(r.x0, r.z0), [bx, bz] = P(r.x1, r.z1);
-      g.fillRect(Math.min(ax, bx), Math.min(az, bz), Math.abs(bx - ax), Math.abs(bz - az));
-    }
-    // track: dark casing + light surface
-    const T = this.world.track;
-    const path = () => { g.beginPath(); T.forEach((t, i) => { const [x, y] = P(t.x, t.z); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath(); };
-    const [, , sc] = P(0, 0);
-    const tw = Math.max(3, 14 * sc);
-    g.lineJoin = 'round'; g.lineCap = 'round';
-    path(); g.strokeStyle = 'rgba(0,0,0,0.9)'; g.lineWidth = tw + 3; g.stroke();
-    path(); g.strokeStyle = '#d7dde3'; g.lineWidth = tw; g.stroke();
-    // walls: street/concrete walls in red, Armco as a faint line, buildings not drawn
-    for (const [styles, col, lw] of [[['armco', 'pitwall'], 'rgba(255,255,255,0.18)', 0.8], [['street', 'concrete'], '#ff4d4d', 1.5]]) {
-      g.strokeStyle = col; g.lineWidth = lw; g.beginPath();
-      for (const w of this.world.walls || []) { if (!styles.includes(w.style)) continue; const [ax, ay] = P(w.ax, w.az), [bx, by] = P(w.bx, w.bz); g.moveTo(ax, ay); g.lineTo(bx, by); }
-      g.stroke();
-    }
-    // start / finish line
-    const t0 = T[0], hw = 9;
-    const [sx0, sy0] = P(t0.x + t0.rx * hw, t0.z + t0.rz * hw), [sx1, sy1] = P(t0.x - t0.rx * hw, t0.z - t0.rz * hw);
-    g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.beginPath(); g.moveTo(sx0, sy0); g.lineTo(sx1, sy1); g.stroke();
-    g.strokeStyle = '#111'; g.lineWidth = 1; g.setLineDash([2, 2]); g.beginPath(); g.moveTo(sx0, sy0); g.lineTo(sx1, sy1); g.stroke(); g.setLineDash([]);
-    g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '9px system-ui'; g.fillText('N', W - 12, 12);
-    return c;
   }
 
   _updateMap(v) {
     if (!this.world || this.mapEl.classList.contains('off')) return;
-    this._mapTick = !this._mapTick; if (this._mapTick && this._mapStatic) return;   // redraw every other frame: 30 Hz is plenty for the little arrow
     const cv = this.mapEl.firstChild, dpr = Math.min(2, window.devicePixelRatio || 1);
-    const W = Math.round(this.mapEl.clientWidth), H = Math.round(W / this.mapBounds.aspect);
+    const W = Math.round(this.mapEl.clientWidth), H = Math.round(W * 0.8);
     if (!W) return;
-    if (!this._mapStatic || this._mapW !== W || this._mapDpr !== dpr) {
-      cv.width = W * dpr; cv.height = H * dpr; cv.style.height = H + 'px';
-      this._mapStatic = this._drawMapStatic(W, H, dpr); this._mapW = W; this._mapDpr = dpr;
-    }
+    if (this._mapW !== W || this._mapDpr !== dpr) { cv.width = W * dpr; cv.height = H * dpr; cv.style.height = H + 'px'; this._mapW = W; this._mapDpr = dpr; }
     const g = cv.getContext('2d');
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    g.clearRect(0, 0, cv.width, cv.height);
-    g.drawImage(this._mapStatic, 0, 0);
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // other cars (practice opponent): coloured dots under the player's arrow
-    for (const o of this.mapOthers || []) {
-      const [ox, oy] = this._mapProject(o.x, o.z, W, H);
-      g.beginPath(); g.arc(Math.min(W - 5, Math.max(5, ox)), Math.min(H - 5, Math.max(5, oy)), 4.5, 0, Math.PI * 2);
-      g.fillStyle = o.color; g.fill(); g.lineWidth = 1.2; g.strokeStyle = '#000'; g.stroke();
+    g.clearRect(0, 0, W, H);
+    // frame
+    g.save(); g.beginPath(); g.roundRect(0, 0, W, H, 10); g.clip();
+    const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, 'rgba(26,40,60,0.92)'); bg.addColorStop(1, 'rgba(8,12,18,0.92)');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+
+    // the car and the camera behind it
+    const p = v.body.position, f = v.body.localDir({ x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: 0 }), fx = f.x, fz = f.z;
+    const k = 2.4, camH = 110 * k, camB = 46 * k, th = (50 * Math.PI) / 180, sinT = Math.sin(th), cosT = Math.cos(th);
+    const F = (W / 2) / Math.tan((30 * Math.PI) / 180), cx = W / 2, cy = H * 0.34;
+    // returns [sx, sy, zv] or null when the point is behind the camera
+    const proj = (x, y, z) => {
+      const dx = x - p.x, dz = z - p.z, u = -dx * fz + dz * fx, w = dx * fx + dz * fz, yy = (y - p.y) * 1.3;
+      const vy = yy - camH, vz = w + camB;                          // camera at (0, camH, -camB), looking forward and down
+      const zv = -vy * sinT + vz * cosT, yv = vy * cosT + vz * sinT;
+      if (zv < 12) return null;
+      return [cx + (u / zv) * F, cy - (yv / zv) * F, zv];
+    };
+    const horizon = 260 * k, ZF = 520 * k;
+
+    // faint ground grid, fixed to the world so it turns with the map
+    g.lineWidth = 1; g.strokeStyle = 'rgba(120,160,200,0.13)';
+    const G = 60, gx0 = Math.floor((p.x - 330 * k) / G) * G, gz0 = Math.floor((p.z - 330 * k) / G) * G;
+    g.beginPath();
+    for (let i = 0; i <= (660 * k) / G + 1; i++) {
+      const xx = gx0 + i * G, zz = gz0 + i * G;
+      let a = proj(xx, p.y, gz0), b = proj(xx, p.y, gz0 + 660 * k + G);
+      if (a && b) { g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); }
+      a = proj(gx0, p.y, zz); b = proj(gx0 + 660 * k + G, p.y, zz);
+      if (a && b) { g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); }
     }
-    // car arrow, pointing along the car's heading
-    const p = v.body.position, f = v.body.localDir({ x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: 0 });
-    let [x, y] = this._mapProject(p.x, p.z, W, H);
-    // off the map (the world is bigger than the circuit): pin to the edge, draw hollow
-    const m = 7, off = x < m || x > W - m || y < m || y > H - m;
-    x = Math.min(W - m, Math.max(m, x)); y = Math.min(H - m, Math.max(m, y));
-    const a = Math.atan2(-f.z, -f.x);
-    g.save(); g.translate(x, y); g.rotate(a);
-    g.beginPath(); g.moveTo(9, 0); g.lineTo(-6, 5.5); g.lineTo(-3, 0); g.lineTo(-6, -5.5); g.closePath();
-    g.lineWidth = 1.5; g.strokeStyle = off ? '#ffd54f' : '#000'; g.stroke();
-    if (!off) { g.fillStyle = '#ffd54f'; g.fill(); }
+    g.stroke();
+
+    // test-area rectangles (the proving ground)
+    for (const r of Object.values(this.mapZones || {})) {
+      const c = [proj(r.x0, p.y, r.z0), proj(r.x1, p.y, r.z0), proj(r.x1, p.y, r.z1), proj(r.x0, p.y, r.z1)];
+      if (c.some((q) => !q)) continue;
+      g.fillStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); c.forEach((q, i) => (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))); g.closePath(); g.fill();
+    }
+
+    // the track: a ribbon of quads, far ones first
+    const P = this.mapPts, n = P.length, segs = [];
+    for (let i = 0; i < n; i++) {
+      const a = P[i], b = P[(i + 1) % n];
+      const dx = a.x - p.x, dz = a.z - p.z;
+      if (dx * dx + dz * dz > horizon * horizon) continue;
+      const q = [proj(a.x + a.rx * a.hw, a.y, a.z + a.rz * a.hw), proj(b.x + b.rx * b.hw, b.y, b.z + b.rz * b.hw), proj(b.x - b.rx * b.hw, b.y, b.z - b.rz * b.hw), proj(a.x - a.rx * a.hw, a.y, a.z - a.rz * a.hw)];
+      if (q.some((c) => !c)) continue;
+      segs.push({ q, d: (q[0][2] + q[2][2]) / 2, first: i === 0 });
+    }
+    segs.sort((s1, s2) => s2.d - s1.d);
+    g.lineJoin = 'round';
+    for (const s of segs) {
+      const fade = Math.max(0.12, 1 - s.d / ZF);
+      g.globalAlpha = fade;
+      g.beginPath(); s.q.forEach((c, i) => (i ? g.lineTo(c[0], c[1]) : g.moveTo(c[0], c[1]))); g.closePath();
+      g.fillStyle = g.strokeStyle = s.first ? '#ffffff' : '#c9d1d9'; g.lineWidth = 1; g.fill(); g.stroke();
+    }
+    g.globalAlpha = 1;
+
+    // other cars (opponents and remote players): coloured pins standing on the road
+    for (const o of this.mapOthers || []) {
+      const base = proj(o.x, p.y + (o.y ?? 0), o.z), top = proj(o.x, p.y + (o.y ?? 0) + 7, o.z);
+      if (!base || !top) continue;
+      g.strokeStyle = 'rgba(0,0,0,0.7)'; g.lineWidth = 1; g.beginPath(); g.moveTo(base[0], base[1]); g.lineTo(top[0], top[1]); g.stroke();
+      g.beginPath(); g.arc(top[0], top[1], 4.2, 0, Math.PI * 2); g.fillStyle = o.color; g.fill(); g.lineWidth = 1.2; g.strokeStyle = '#000'; g.stroke();
+    }
+
+    // your car: an arrow lying on the road, always pointing up the screen
+    const ar = [proj(p.x + fx * 9, p.y, p.z + fz * 9), proj(p.x - fx * 5 - fz * 5.5, p.y, p.z - fz * 5 + fx * 5.5), proj(p.x - fx * 2, p.y, p.z - fz * 2), proj(p.x - fx * 5 + fz * 5.5, p.y, p.z - fz * 5 - fx * 5.5)];
+    if (ar.every(Boolean)) {
+      g.beginPath(); ar.forEach((c, i) => (i ? g.lineTo(c[0], c[1]) : g.moveTo(c[0], c[1]))); g.closePath();
+      g.fillStyle = '#ffd54f'; g.fill(); g.lineWidth = 1.6; g.strokeStyle = '#000'; g.stroke();
+    }
+
+    // compass: where world north is, relative to the car
+    const nu = -fz * 0 + (fx * 0 + 0), nUp = (0 * fx + 1 * fz), nRight = (-0 * fz + 1 * fx);   // north = world +z: right = fx*1, forward = fz*1
+    const R = 15, ccx = W - 22, ccy = 22;
+    g.beginPath(); g.arc(ccx, ccy, R, 0, Math.PI * 2); g.fillStyle = 'rgba(0,0,0,0.35)'; g.fill(); g.strokeStyle = 'rgba(255,255,255,0.3)'; g.lineWidth = 1; g.stroke();
+    g.fillStyle = '#ff6b6b'; g.font = 'bold 10px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('N', ccx + nRight * (R - 6), ccy - nUp * (R - 6));
     g.restore();
+    g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = 1; g.beginPath(); g.roundRect(0.5, 0.5, W - 1, H - 1, 10); g.stroke();
   }
-  toggleUnits() {
-    this.units = this.units === 'mph' ? 'kmh' : 'mph';
-    try { localStorage.setItem('vehicleSim.units', this.units); } catch { /* ignore */ }
-    return this.units;
-  }
+
   toggleMap() { this.mapEl.classList.toggle('off'); return !this.mapEl.classList.contains('off'); }
 
   showToast(msg, ms = 1800) {
