@@ -128,7 +128,7 @@ export class WorldView {
           let reach = T.w / 2 + 1.3 + (m.tarmacDepth ? m.tarmacDepth(w, T, side) : 0);
           const pb = side > 0 && m.pitBand ? m.pitBand(w, T) : null;
           if (pb) reach = Math.max(reach, pb[1] + 6);
-          sink = 0.35 * (1 - smoothstep(reach - 0.5, reach + 5, ti.dist));
+          sink = 0.6 * (1 - smoothstep(reach - 0.5, reach + 6, ti.dist));
         }
       }
       pos[k * 3] = x; pos[k * 3 + 1] = y - 0.02 - sink; pos[k * 3 + 2] = z;

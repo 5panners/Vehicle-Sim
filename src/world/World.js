@@ -230,6 +230,7 @@ export class World {
       }
     }
 
+    const flatArr = map.flatWidth ? new Float32Array(n * n) : null;   // per cell: how far the ground is held flat beside the track
     for (let j = 0; j < n; j++) {
       const z = j * res - half;
       for (let i = 0; i < n; i++) {
@@ -242,6 +243,7 @@ export class World {
           const s = this.track[trackIdx[k]], hw = s.w / 2;
           // maps can keep the ground flat further out on one side (tarmac run-off, gravel traps)
           const fw = map.flatWidth ? map.flatWidth(s, trackLat[k], this) : 0;
+          if (flatArr) flatArr[k] = fw;
           const t = smoothstep(hw + 1.5 + fw, hw + blend + fw, d);
           h = lerp(trackH[k], h, t);
           if (d <= hw) surf = SURF.Asphalt;
@@ -253,6 +255,24 @@ export class World {
         }
         this.height[k] = h;
         this.surface[k] = surf;
+      }
+    }
+    // the nearest-sample lookup flips between neighbouring track samples on the outside of tight bends, which leaves
+    // small steps in the flat run-off ground: even those out (kerb edge and anything beyond the flat zone are untouched)
+    if (flatArr) {
+      const cells = [];
+      for (let k = 0; k < n * n; k++) {
+        if (flatArr[k] > 3 && trackIdx[k] >= 0) { const hw = this.track[trackIdx[k]].w / 2; if (trackDist[k] > hw + 2 && trackDist[k] < hw + flatArr[k] - 1) cells.push(k); }
+      }
+      const R = 4;
+      for (let pass = 0; pass < 4; pass++) {
+        const out = new Float32Array(cells.length);
+        cells.forEach((k, c) => {
+          const i = k % n, j = (k / n) | 0; let sum = 0, cnt = 0;
+          for (let dj = -R; dj <= R; dj++) for (let di = -R; di <= R; di++) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue; sum += this.height[jj * n + ii]; cnt++; }
+          out[c] = sum / cnt;
+        });
+        cells.forEach((k, c) => { this.height[k] = out[c]; });
       }
     }
     this.trackDist = trackDist;
