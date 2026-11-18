@@ -195,11 +195,11 @@ class CarVoice {
     let squeal = 0, loose = 0, kerb = 0;
     for (const w of vehicle.wheels) {
       if (!w.contact || !w.surface) continue;
-      if (w.surface.smoke) squeal = Math.max(squeal, Math.min(1, Math.max(0, w.tire.normSlip - 0.9) * 0.8) * Math.min(1, w.Fz / 3000));
+      if (w.surface.smoke) squeal = Math.max(squeal, Math.min(1, Math.max(0, w.tire.normSlip - 0.85) * 1.2) * Math.min(1, w.Fz / Math.max(300, w.staticLoad * 0.9)));   // loaded relative to the car's own weight, so a kart squeals like a coupe
       if (w.surface.dust) loose = Math.max(loose, Math.min(1, Math.abs(w.vx) / 25));
       if (w.surface.name === 'Kerb') kerb = 1;
     }
-    this.squealGain.gain.setTargetAtTime(squeal * 0.18 * S.tyres, t, 0.03);
+    this.squealGain.gain.setTargetAtTime(squeal * 0.6 * S.tyres, t, 0.03);
     this.squealFilter.frequency.setTargetAtTime((800 + squeal * 400) * dop, t, 0.05);
     this.looseGain.gain.setTargetAtTime(loose * 0.25 * S.tyres, t, 0.05);
     const sp2 = vehicle.speed;

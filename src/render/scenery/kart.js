@@ -16,6 +16,8 @@ export function buildKartScenery(view) {
   const hw = (d) => T[idx(d)].w / 2;
   const span = (d0, d1) => (d1 < d0 ? d1 + L : d1) - d0;
   const keepOut = [];
+  // nothing is placed where it would sit on the circuit: r metres clear of the track edge, on every part of the lap
+  const free = (x, z, r) => !T.some((s) => (s.x - x) ** 2 + (s.z - z) ** 2 < (s.w / 2 + r) ** 2);
   const group = new THREE.Group(); scene.add(group);
   const lam = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });
   const mat = { concrete: lam(0xd2cfc8, { map: view.detail }), white: lam(0xf3f3f0), grey: lam(0x8d9196), dark: lam(0x2c2f33), orange: lam(0xff7a1a), red: lam(0xc62828), yellow: lam(0xf2b705), roof: lam(0xe9ecef), blue: lam(0x1d4f91),
@@ -49,6 +51,7 @@ export function buildKartScenery(view) {
   const facade = new THREE.MeshLambertMaterial({ map: garageFacade(1), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   for (let k = 0; k < n; k++) {
     const d = g0 + (k + 0.5) * len, f = frame(d, (glat0 + glat1) / 2), base = Math.min(frame(d, glat0).y, frame(d, glat1).y) - 0.2;
+    if (!free(f.x, f.z, 6) || !free(frame(d, glat0).x, frame(d, glat0).z, 3)) continue;
     box(glat1 - glat0, 3.4, len - 0.4, mat.concrete, f.x, base, f.z, f.yaw);
     box(glat1 - glat0 + 0.8, 0.3, len, mat.grey, f.x, base + 3.4, f.z, f.yaw);
     const fx = f.x - f.t.rx * ((glat1 - glat0) / 2 + 0.05), fz = f.z - f.t.rz * ((glat1 - glat0) / 2 + 0.05);
@@ -57,8 +60,9 @@ export function buildKartScenery(view) {
   }
   {                                                                                      // race control tower at the start line
     const f = frame(18, glat1 + 5), y = frame(18, glat1 + 5).y;
+    if (free(f.x, f.z, 8)) {
     box(7, 9, 6, mat.white, f.x, y, f.z, f.yaw); box(7.6, 3, 6.6, mat.glass, f.x, y + 9, f.z, f.yaw); box(8, 0.5, 7, mat.dark, f.x, y + 12, f.z, f.yaw);
-    box(0.15, 5, 0.15, mat.steel, f.x, y + 12.5, f.z); solid(f.x, f.z, 7, 6, f.yaw, 12);
+    box(0.15, 5, 0.15, mat.steel, f.x, y + 12.5, f.z); solid(f.x, f.z, 7, 6, f.yaw, 12); }
   }
 
   // ---- covered stand opposite the pits, a smaller one on the outside of the hairpin
@@ -67,6 +71,7 @@ export function buildKartScenery(view) {
     const len = span(d0, d1) / bays;
     for (let k = 0; k < bays; k++) {
       const d = d0 + (k + 0.5) * len, f = frame(d, side * (lat0 + rows * 0.45)), base = frame(d, side * lat0).y - 0.2;
+      if (!free(f.x, f.z, rows * 0.45 + 3.5) || !free(frame(d, side * lat0).x, frame(d, side * lat0).z, 2.5) || !free(frame(d, side * (lat0 + rows * 0.9 + 1)).x, frame(d, side * (lat0 + rows * 0.9 + 1)).z, 2.5)) continue;
       for (let r = 0; r < rows; r++) {
         const g = frame(d, side * (lat0 + (r + 0.5) * 0.9)), top = base + 0.5 + (r + 1) * 0.45;
         box(0.9, top - base, len - 0.6, mat.concrete, g.x, base, g.z, f.yaw);
@@ -89,25 +94,28 @@ export function buildKartScenery(view) {
     const side = Math.floor(d / 120) % 2 ? 1 : -1, off = hw(d) + 4.8;
     if (side > 0 && (d > PIT.from - 15 || d < PIT.to + 15)) continue;
     const f = frame(d, side * off), info = world.trackInfo(f.x, f.z);
+    if (!free(f.x, f.z, 2.4)) continue;
     if (info.index >= 0 && Math.min(Math.abs(info.index - idx(d)), M - Math.abs(info.index - idx(d))) > 30 && info.dist < 9) continue;   // not across another leg
     const m = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 0.9), ads[ak++ % ads.length]);
     m.position.set(f.x, f.y + 1.45, f.z); m.rotation.y = Math.atan2(-side * f.t.rx, -side * f.t.rz); group.add(m);
   }
   for (const key of Object.keys(C)) {
     const f = frame(C[key] + 6, map.outside(world, C[key]) * (hw(C[key]) + 6.6));
+    if (!free(f.x, f.z, 3)) continue;
     box(1.4, 2.4, 1.4, mat.orange, f.x, f.y - 0.1, f.z, f.yaw); box(1.7, 0.2, 1.7, mat.dark, f.x, f.y + 2.3, f.z, f.yaw);   // marshal post
   }
   for (const key of ['Turn 1', 'Turn 3', 'Turn 6']) {                                    // 100 / 50 brake boards
     const out = map.outside(world, C[key]);
     for (const m of [100, 50]) {
       const f = frame(C[key] - m - 6, -out * (hw(C[key]) + 2.6));
+      if (!free(f.x, f.z, 1.4)) continue;
       const tex = bannerTexture(String(m), { bg: '#f1f1ec', fg: '#111', w: 128, h: 96 }); tex.colorSpace = THREE.SRGBColorSpace;
       const pm = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.9), new THREE.MeshLambertMaterial({ map: tex })); pm.position.set(f.x, f.y + 2.1, f.z); pm.rotation.y = Math.atan2(out * f.t.rx, out * f.t.rz); group.add(pm);
       box(0.08, 2.1, 0.08, mat.steel, f.x, f.y, f.z, f.yaw);
     }
   }
   for (let d = PIT.from; span(PIT.from, d) < span(PIT.from, 90); d += 38) {             // floodlight masts behind the stand side
-    const f = frame(d, -(hw(d) + 4.4)); const m = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, 11, 7), mat.steel); m.position.set(f.x, f.y + 5.5, f.z); m.castShadow = true; group.add(m);
+    const f = frame(d, -(hw(d) + 4.4)); if (!free(f.x, f.z, 2)) continue; const m = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, 11, 7), mat.steel); m.position.set(f.x, f.y + 5.5, f.z); m.castShadow = true; group.add(m);
     box(2.4, 0.5, 0.7, mat.dark, f.x, f.y + 11, f.z, f.yaw + Math.PI / 2);
   }
 
@@ -115,8 +123,9 @@ export function buildKartScenery(view) {
   const tentCols = [0xc62828, 0x1d4f91, 0xf2b705, 0x2e7d32, 0xf3f3f0];
   for (let k = 0; k < 7; k++) {
     const d = PIT.from + 18 + k * 17, f = frame(d, glat1 + 14 + (k % 2) * 8), c = tentCols[k % tentCols.length];
+    if (!free(f.x, f.z, 7)) continue;
     box(5, 2.6, 6, lam(c), f.x, f.y, f.z, f.yaw); box(5.6, 0.3, 6.6, mat.roof, f.x, f.y + 2.6, f.z, f.yaw); keepOut.push({ x: f.x, z: f.z, r: 6 });
-    if (k % 2 === 0) { const v = frame(d + 8, glat1 + 26); box(2.4, 2.6, 6.4, lam(0xe8e8e8), v.x, v.y, v.z, v.yaw); keepOut.push({ x: v.x, z: v.z, r: 5 }); }
+    if (k % 2 === 0) { const v = frame(d + 8, glat1 + 26); if (!free(v.x, v.z, 6)) continue; box(2.4, 2.6, 6.4, lam(0xe8e8e8), v.x, v.y, v.z, v.yaw); keepOut.push({ x: v.x, z: v.z, r: 5 }); }
   }
 
   // ---- trees: a belt of woodland around the site, clear of the circuit and the paddock

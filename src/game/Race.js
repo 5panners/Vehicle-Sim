@@ -163,5 +163,5 @@ export class Race {
 
   mapDots() { return this.bots.map((b) => ({ x: b.vehicle.body.position.x, z: b.vehicle.body.position.z, color: b.color })); }
 
-  dispose() { for (const b of this.bots) { b.view.group.removeFromParent(); this.app.audio?.dropVoice(b); } this.bots = []; }
+  dispose() { for (const b of this.bots) { b.view.group.removeFromParent(); b.view.blob.removeFromParent(); this.app.audio?.dropVoice(b); } this.bots = []; }
 }

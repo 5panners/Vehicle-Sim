@@ -18,12 +18,17 @@ export class CarView {
     this.scene = scene;
     this.group = new THREE.Group();
     scene.add(this.group);
+    // soft contact shadow under every car: the real sun shadow is faint against the bright hemisphere light and dark tarmac
+    this.blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
+    this.blob.rotation.order = 'YXZ'; this.blob.rotation.x = -Math.PI / 2; this.blob.renderOrder = 2; this.blob.frustumCulled = false;
+    scene.add(this.blob);
   }
 
   build(vehicle) {
     const cfg = vehicle.config, b = cfg.body, { width: W, height: H, length: L } = b.dimensions;
     this.group.clear();
     this.vehicle = vehicle;
+    this.blob.scale.set(W * 1.3, L * 1.15, 1);
     const paint = new THREE.MeshStandardMaterial({ color: this.tint ?? cfg.color, metalness: 0.4, roughness: 0.35 });
     const dark = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.6 });
     const glass = new THREE.MeshStandardMaterial({ color: 0x1a2633, metalness: 0.6, roughness: 0.08 });
@@ -567,6 +572,14 @@ export class CarView {
     const b = vehicle.body;
     this.group.position.set(b.position.x, b.position.y, b.position.z);
     this.group.quaternion.set(b.orientation.x, b.orientation.y, b.orientation.z, b.orientation.w);
+    {
+      const f = _fwd.set(0, 0, 1).applyQuaternion(this.group.quaternion);
+      this.blob.rotation.y = Math.atan2(f.x, f.z);
+      const g = vehicle.world.heightAt(b.position.x, b.position.z, false);
+      this.blob.position.set(b.position.x, g + 0.03, b.position.z);
+      const air = Math.max(0, b.position.y - g - vehicle.config.body.cgHeight);
+      this.blob.material.opacity = Math.max(0.15, 0.9 - air * 0.15);
+    }
     vehicle.wheels.forEach((w, i) => {
       const g = this.wheelGroups[i];
       const len = w.susp.restLength - Math.min(w.compression, w.susp.travel);
@@ -581,6 +594,15 @@ export class CarView {
     if (this.steerWheel) this.steerWheel.rotation.z = vehicle.steerAngle * 2.2; // + = clockwise for the driver
     if (this.rearAxle) this.rearAxle.rotation.x = vehicle.wheels[2].rotation;
   }
+}
+
+const _fwd = new THREE.Vector3();
+function blobTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d'), grad = g.createRadialGradient(64, 64, 8, 64, 64, 62);
+  grad.addColorStop(0, 'rgba(0,0,0,0.85)'); grad.addColorStop(0.55, 'rgba(0,0,0,0.7)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
 }
 
 // ---------------------------------------------------------------- livery textures
