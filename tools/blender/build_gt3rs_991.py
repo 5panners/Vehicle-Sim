@@ -147,7 +147,7 @@ def make_mats():
     M['grille'] = mat("GT3_Grille", (0.004, 0.004, 0.004), 0.8)
     M['glass'] = mat("GT3_Glass", (0.05, 0.06, 0.07), 0.04, 0.0, alpha=0.32)
     M['lamp'] = mat("GT3_Headlight", (0.05, 0.055, 0.06), 0.05, 0.5, emit=(0.85, 0.9, 1.0), emit_strength=0.15)
-    M['tail'] = mat("GT3_Taillight", (0.55, 0.015, 0.012), 0.12, emit=(1.0, 0.02, 0.01), emit_strength=1.2)
+    M['tail'] = mat("GT3_Taillight", (0.45, 0.01, 0.01), 0.1, emit=(1.0, 0.02, 0.01), emit_strength=1.0)
     M['tire'] = mat("GT3_Tire", (0.022, 0.022, 0.022), 0.85)
     M['rim'] = mat("GT3_Rim", (0.035, 0.036, 0.04), 0.45, 0.6)
     M['disc'] = mat("GT3_BrakeDisc", (0.30, 0.30, 0.30), 0.45, 1.0)
@@ -647,17 +647,59 @@ def build_decals(body, coll, M):
     D.add(uv, fc, 'x', 1, 0.003, GRILLE, mirror=True)
 
     # --- rear (rear view, u = x, v = z)
-    # tail lights: two separate slim units on the rear face, tapering towards the centre
-    n = 12
-    top = [(0.30 + 0.56 * i / n, 0.665 - 0.030 * (i / n) ** 2) for i in range(n + 1)]
-    bot = [(x, 0.630 - 0.055 * (i / n) ** 1.6) for i, (x, _) in enumerate(top)]
-    uv, fc = strip_grid(top, bot, rows=2)
-    D.add(uv, fc, 'y', 1, 0.004, TAIL, mirror=True)
-    # clear inner strip in each light
-    top = [(0.36 + 0.44 * i / 6, 0.654 - 0.02 * (i / 6) ** 2) for i in range(7)]
-    bot = [(x, z - 0.007) for (x, z) in top]
-    uv, fc = strip_grid(top, bot)
-    D.add(uv, fc, 'y', 1, 0.007, METAL, mirror=True)
+    # tail lights: slim units that wrap round the corner of the tail and run forward along the fender top,
+    # ending in a smoked louvred tip. Each point is found by a ray fired in towards the body from a centre axis.
+    from math import sin, cos, radians
+    CY = 1.75
+    def wrap_hit(theta, z):
+        d = Vector((sin(theta), cos(theta), 0))
+        o = Vector((0, CY, z)) + d * 3.2
+        loc, nor, idx_, dist = P.bvh.ray_cast(o, -d)
+        if loc is None:
+            return None, None
+        if nor.dot(d) < 0:
+            nor = -nor
+        return loc, nor
+    ths = [radians(24 + 54 * i / 32) for i in range(33)]
+    for side in (1, -1):
+        rows = []
+        for k, th in enumerate(ths):
+            u = k / (len(ths) - 1)
+            top_z = 0.676 - 0.020 * u ** 2
+            thick = 0.082 * (1 - 0.72 * u ** 1.3)
+            rows.append([wrap_hit(th, top_z), wrap_hit(th, top_z - thick), u])
+        for part, (a, b) in (("lens", (0.0, 0.80)), ("tip", (0.80, 1.0))):
+            mi = TAIL if part == "lens" else GRILLE
+            vs, nors = [], []
+            sel = [r for r in rows if a - 1e-9 <= r[2] <= b + 1e-9]
+            for (h0, h1, u) in sel:
+                for (loc, nor) in (h0, h1):
+                    vs.append(None if loc is None else (Vector((loc.x * side, loc.y, loc.z)) + Vector((nor.x * side, nor.y, nor.z)) * 0.006))
+            for q in range(len(sel) - 1):
+                idxs = [2 * q, 2 * q + 1, 2 * q + 3, 2 * q + 2]
+                if any(vs[ii] is None for ii in idxs):
+                    continue
+                base = len(D.verts)
+                for ii in idxs:
+                    D.verts.append(tuple(vs[ii]))
+                f = [base, base + 1, base + 2, base + 3]
+                if side < 0:
+                    f = f[::-1]
+                D.faces.append(f); D.fm.append(mi)
+    # thin chrome-look inner line along the wrapped light
+    for side in (1, -1):
+        pts = []
+        for k, th in enumerate(ths[:22]):
+            loc, nor = wrap_hit(th, 0.652 - 0.02 * (k / 21) ** 2)
+            if loc is not None:
+                pts.append(Vector((loc.x * side, loc.y, loc.z)) + Vector((nor.x * side, nor.y, nor.z)) * 0.010)
+        for q in range(len(pts) - 1):
+            base = len(D.verts)
+            a, b = pts[q], pts[q + 1]
+            for v in (a, b, b + Vector((0, 0, -0.006)), a + Vector((0, 0, -0.006))):
+                D.verts.append(tuple(v))
+            f = [base, base + 1, base + 2, base + 3]
+            D.faces.append(f if side > 0 else f[::-1]); D.fm.append(METAL)
     # black band across the tail under the spoiler lip, joining the lights
     top = [(-0.30 + 0.60 * i / 10, 0.672) for i in range(11)]
     bot = [(x, 0.645) for (x, _) in top]
