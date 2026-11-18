@@ -227,10 +227,21 @@ export class Menu {
     this._clock = time.out; this._hourSlider = time.input;
     const flow = h('select', { onchange: (e) => g.set('flow', +e.target.value) }, ...FLOW_OPTIONS.map(([v, label]) => h('option', { value: v }, label)));
     flow.value = String(S.flow);
+    const pct = (v) => `${Math.round(v * 100)}%`;
+    const sunI = slider('Sun intensity', 'sunIntensity', 0, 3, 0.05, pct, 'Brightness of the sun (100% is the map\'s own daylight)');
+    const moonI = slider('Moon intensity', 'moonIntensity', 0, 10, 0.1, pct, 'Brightness of the moonlight at night');
+    const colour = (label, key, hint) => {
+      const c = h('input', { type: 'color', value: S[key], title: hint });
+      c.addEventListener('input', () => g.set(key, c.value));
+      return h('div', { class: 'row' }, h('label', {}, label), c, h('span', { class: 'hint' }, hint));
+    };
     return h('div', { class: 'ai-form' },
       h('p', { class: 'hint' }, 'Shadows, resolution and the sky. Time of day moves the sun (and the moon at night), the colour of the sky and fog and the light levels; the clock can run on its own so a race can end at dusk.'),
       shadow.row, scale.row, time.row,
       h('div', { class: 'row' }, h('label', {}, 'Time flow'), flow, h('span', { class: 'hint' }, 'How fast the clock runs')),
+      h('h3', {}, 'Sun and moon'),
+      sunI.row, colour('Sun colour', 'sunColor', 'Noon colour; it warms towards the horizon'),
+      moonI.row, colour('Moon colour', 'moonColor', 'Moonlight colour at night'),
       h('div', { class: 'row btnrow' }, h('label', {}, ''),
         h('button', { class: 'btn', onclick: () => { g.reset(); this.show('graphics'); } }, 'Reset graphics')));
   }

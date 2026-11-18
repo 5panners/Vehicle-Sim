@@ -10,10 +10,10 @@ import { smoothstep } from '../physics/math.js';
  */
 const KEY = 'vehicleSim.graphics';
 export const FLOW_OPTIONS = [[0, 'Frozen'], [1, 'Real time'], [10, '10×'], [60, '60× (a day in 24 min)'], [300, '300× (a day in 5 min)'], [1200, '1200× (a day in 72 s)']];
-const DEFAULTS = { shadowDistance: 45, renderScale: 1, hour: 11, flow: 0 };
+const DEFAULTS = { shadowDistance: 45, renderScale: 1, hour: 11, flow: 0, sunIntensity: 1, sunColor: '#fff5e0', moonIntensity: 1, moonColor: '#8ca8ff' };
 const NIGHT_TOP = new THREE.Color(0.012, 0.02, 0.06), NIGHT_BOTTOM = new THREE.Color(0.03, 0.04, 0.09);
 const DUSK = new THREE.Color(0.95, 0.45, 0.2);
-const SUN_WHITE = new THREE.Color(1.0, 0.96, 0.88), SUN_LOW = new THREE.Color(1.0, 0.58, 0.32), MOON = new THREE.Color(0.55, 0.66, 1.0);
+const LOW_TINT = new THREE.Color(1.0, 0.6, 0.38);   // a low sun is warmer than the colour picked for noon
 
 export class Graphics {
   constructor(app) {
@@ -78,12 +78,13 @@ export class Graphics {
     const light = sn >= 0 ? toSun : new THREE.Vector3(-toSun.x, -toSun.y, toSun.z);
     this.sunDir.copy(light);
     const base = app.baseLight;
-    const sunI = sn >= 0 ? this.day.sun * smoothstep(0, 0.25, sn) : this.day.sun * 0.14 * smoothstep(0, 0.25, -sn);
+    const sunI = sn >= 0 ? this.day.sun * s.sunIntensity * smoothstep(0, 0.25, sn) : this.day.sun * 0.14 * s.moonIntensity * smoothstep(0, 0.25, -sn);
     base.sun = sunI;
     base.hemi = this.day.hemi * (0.17 + 0.83 * f);   // never fully black: you can still drive at night
     base.exposure = this.day.exposure * (1 + 0.25 * (1 - f));
     const lowSun = 1 - smoothstep(0.1, 0.45, sn);
-    app.sun.color.copy(sn >= 0 ? SUN_WHITE.clone().lerp(SUN_LOW, lowSun) : MOON);
+    if (sn >= 0) { const noon = new THREE.Color(s.sunColor); app.sun.color.copy(noon).lerp(noon.clone().multiply(LOW_TINT), lowSun); }
+    else app.sun.color.set(s.moonColor);
     // sky and fog
     const dusk = Math.exp(-Math.pow(sn / 0.2, 2));
     const top = NIGHT_TOP.clone().lerp(this.day.top, f);
