@@ -152,6 +152,15 @@ A 723 m karting circuit, 8 m wide (10 m on the pit straight), with eight numbere
 | ![Cooper Straight below the garages](docs/screenshots/brands-cooper-straight.jpg) | ![Clearways to Clark Curve](docs/screenshots/brands-clearways.jpg) |
 | ![Pit straight from above](docs/screenshots/brands-pit-straight-aerial.jpg) | |
 
+### Graphics (Esc -> Graphics)
+
+- **Shadow distance:** how far around the car shadows are drawn, 0-200 m (0 turns them off; beyond 90 m the shadow map doubles in resolution).
+- **Render scale:** 50-150% of the screen's resolution: lower is faster, higher is sharper.
+- **Time of day:** drag the clock; the sun (the moon at night), the sky and fog colours and the light levels follow. Each map's own sky settings are its noon look.
+- **Time flow:** frozen, real time, or 10x / 60x / 300x / 1200x, so a race can run from day into dusk and night.
+
+All four are saved in your browser (`src/render/Graphics.js`).
+
 ### Sound
 
 Every car has its own procedural sound model (`src/audio/VehicleAudio.js`): the engine (a V8 sounds different from a four-cylinder, boosted cars add a turbo whistle), tyre squeal, loose-surface and kerb rumble, wall scrapes, and one-shot impacts for landings, bumps, wall hits and car-to-car contact. Your own car also has wind noise.

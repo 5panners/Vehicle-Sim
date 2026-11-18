@@ -2,6 +2,7 @@ import { PRESETS } from '../vehicles/presets.js';
 import { BOT_SKILLS, BOT_PARAMS, BOT_SKILL_DEFAULTS, MISTAKE_TYPES, saveBotSkills, resetBotSkill, resetAllBotSkills } from '../game/BotDriver.js';
 import { MAX_OPPONENTS } from '../game/Race.js';
 import { MAX_SLOTS, SLOT_KINDS } from '../net/Multiplayer.js';
+import { FLOW_OPTIONS } from '../render/Graphics.js';
 
 const h = (tag, attrs = {}, ...kids) => {
   const el = document.createElement(tag);
@@ -14,7 +15,7 @@ const h = (tag, attrs = {}, ...kids) => {
   return el;
 };
 
-const TABS = [['race', 'Create Race'], ['ai', 'Bot AI'], ['audio', 'Audio'], ['controls', 'Controls'], ['vehicle', 'Vehicle']];
+const TABS = [['race', 'Create Race'], ['ai', 'Bot AI'], ['audio', 'Audio'], ['graphics', 'Graphics'], ['controls', 'Controls'], ['vehicle', 'Vehicle']];
 
 /** rough peak power from the torque curve (no boost), in hp */
 const peakHp = (cfg) => Math.round(Math.max(...cfg.engine.torqueCurve.map(([rpm, nm]) => (nm * rpm) / 9549)) * 1.341 * (1 + (cfg.engine.turbo?.maxBoost || 0)));
@@ -52,6 +53,7 @@ export class Menu {
     else if (tab === 'vehicle') this.body.append(this._vehicle());
     else if (tab === 'ai') this.body.append(this._ai());
     else if (tab === 'audio') this.body.append(this._audio());
+    else if (tab === 'graphics') this.body.append(this._graphics());
     else { this.body.append(this.controlsRoot); this.setup.open(); }
     this.body.querySelector('button, select, input')?.focus();
   }
@@ -59,6 +61,7 @@ export class Menu {
   update(dt) {
     if (!this.isOpen) return;
     if (this.tab === 'controls') this.setup.update(dt);      // live input bars + its own pad navigation
+    if (this.tab === 'graphics' && this._clock) { this._clock.textContent = this.app.gfx.hourText; if (document.activeElement !== this._hourSlider) this._hourSlider.value = this.app.gfx.s.hour; }
     const pad = this.app.input.activePad();
     if (!pad || pad.mapping !== 'standard') return;
     const edge = (i) => { const v = pad.buttons[i]?.pressed; const was = this.navPrev[i]; this.navPrev[i] = v; return v && !was; };
@@ -210,6 +213,28 @@ export class Menu {
   }
 
   // ---------------------------------------------------------------- Audio
+  _graphics() {
+    const g = this.app.gfx, S = g.s;
+    const slider = (label, key, min, max, step, fmt, hint) => {
+      const out = h('span', { class: 'val' }, fmt(S[key]));
+      const r = h('input', { type: 'range', min, max, step, value: S[key], title: hint });
+      r.addEventListener('input', () => { g.set(key, +r.value); out.textContent = fmt(S[key]); });
+      return { row: h('div', { class: 'row' }, h('label', {}, label), r, out), input: r, out };
+    };
+    const shadow = slider('Shadow distance', 'shadowDistance', 0, 200, 5, (v) => (v ? `${v} m` : 'Off'), 'How far around the car shadows are drawn (0 turns them off)');
+    const scale = slider('Render scale', 'renderScale', 0.5, 1.5, 0.05, (v) => `${Math.round(v * 100)}%`, 'Below 100% draws fewer pixels (faster); above 100% is sharper but heavier');
+    const time = slider('Time of day', 'hour', 0, 24, 0.05, () => g.hourText, 'Drag to set the time');
+    this._clock = time.out; this._hourSlider = time.input;
+    const flow = h('select', { onchange: (e) => g.set('flow', +e.target.value) }, ...FLOW_OPTIONS.map(([v, label]) => h('option', { value: v }, label)));
+    flow.value = String(S.flow);
+    return h('div', { class: 'ai-form' },
+      h('p', { class: 'hint' }, 'Shadows, resolution and the sky. Time of day moves the sun (and the moon at night), the colour of the sky and fog and the light levels; the clock can run on its own so a race can end at dusk.'),
+      shadow.row, scale.row, time.row,
+      h('div', { class: 'row' }, h('label', {}, 'Time flow'), flow, h('span', { class: 'hint' }, 'How fast the clock runs')),
+      h('div', { class: 'row btnrow' }, h('label', {}, ''),
+        h('button', { class: 'btn', onclick: () => { g.reset(); this.show('graphics'); } }, 'Reset graphics')));
+  }
+
   _audio() {
     const au = this.app.audio, S = au.settings;
     const slider = (label, key, hint) => {

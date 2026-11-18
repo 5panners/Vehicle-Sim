@@ -19,6 +19,7 @@ import { HUD } from './ui/HUD.js';
 import { TuningPanel } from './ui/TuningPanel.js';
 import { VehicleAudio } from './audio/VehicleAudio.js';
 import { Multiplayer } from './net/Multiplayer.js';
+import { Graphics } from './render/Graphics.js';
 
 const DEFAULT_CAR = 'GT3';
 const PHYSICS_HZ = 600;          // fixed physics rate; 600 Hz keeps stiff tyres/suspension stable
@@ -65,6 +66,7 @@ class App {
     this.lapTimer = new LapTimer(this.world);
     this.maps = MAPS;
     this.worldView = new WorldView(this.world, scene);
+    this.gfx = new Graphics(this);   // shadow distance, render scale, time of day
     this.lights = new StartLights();
     this.presetIndex = Math.max(0, PRESETS.findIndex((p) => p.name === DEFAULT_CAR));   // opens in the GT3
     this.vehicle = new Vehicle(structuredClone(PRESETS[this.presetIndex]), this.world);
@@ -327,15 +329,17 @@ class App {
     this.rig.update(dt, v, inp.buttons.lookBack);
     const p = v.body.position;
     // tunnels: the daylight drops away as the car goes in (eased, so the eyes 'adapt')
+    this.gfx.update(dt);                     // time of day: sun position, sky, fog and base light levels
     if (this.world.map.inTunnel) {
       const info = this.world.trackInfo(p.x, p.z), T = this.world.track[Math.max(0, info.index)];
       const inside = info.index >= 0 && info.dist < T.w / 2 + 3 && this.world.map.inTunnel(this.world.map.dist(this.world, T));
       this.tunnelLight += ((inside ? 0.22 : 1) - this.tunnelLight) * (1 - Math.exp(-(inside ? 5 : 3) * dt));
-      const f = this.tunnelLight, b = this.baseLight;
-      this.hemi.intensity = b.hemi * (0.35 + 0.65 * f); this.sun.intensity = b.sun * f;
-      this.renderer.toneMappingExposure = b.exposure * (1 + (1 - f) * 0.55);
     }
-    this.sun.position.set(p.x + 60, p.y + 120, p.z + 40); this.sun.target.position.set(p.x, p.y, p.z);
+    const tl = this.tunnelLight, bl = this.baseLight;
+    this.hemi.intensity = bl.hemi * (0.35 + 0.65 * tl); this.sun.intensity = bl.sun * tl;
+    this.renderer.toneMappingExposure = bl.exposure * (1 + (1 - tl) * 0.55);
+    const sd = this.gfx.sunDir, reach = 130;
+    this.sun.position.set(p.x + sd.x * reach, p.y + sd.y * reach, p.z + sd.z * reach); this.sun.target.position.set(p.x, p.y, p.z);
     this.hud.update(dt, v, inp, { physicsHz: PHYSICS_HZ, camera: this.rig.modeName, slowmo: this.slowmo, lap: this.lapTimer });
     if (!paused) {
       this.audio.update(v);
