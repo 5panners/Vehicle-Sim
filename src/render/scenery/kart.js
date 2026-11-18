@@ -68,9 +68,11 @@ export function buildKartScenery(view) {
   // ---- covered stand opposite the pits, a smaller one on the outside of the hairpin
   const seat = new THREE.MeshLambertMaterial({ map: seatTexture('#1f4e9a'), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   const stand = (d0, d1, side, lat0, rows = 7, bays = 3, dx = 0) => {
-    const fr = (d, lat) => { const q = frame(d, lat); q.x += dx; return q; };   // dx: shift the whole stand along world x
+    let cur = 0;
+    const fr = (d, lat) => { const q = frame(d, lat); q.x += cur; return q; };   // dx: shift along world x (a number, or one per bay)
     const len = span(d0, d1) / bays;
     for (let k = 0; k < bays; k++) {
+      cur = Array.isArray(dx) ? dx[k] ?? 0 : dx;
       const d = d0 + (k + 0.5) * len, f = fr(d, side * (lat0 + rows * 0.45)), base = fr(d, side * lat0).y - 0.2;
       if (!free(f.x, f.z, rows * 0.45 + 3.5) || !free(fr(d, side * lat0).x, fr(d, side * lat0).z, 2.5) || !free(fr(d, side * (lat0 + rows * 0.9 + 1)).x, fr(d, side * (lat0 + rows * 0.9 + 1)).z, 2.5)) continue;
       for (let r = 0; r < rows; r++) {
@@ -85,7 +87,7 @@ export function buildKartScenery(view) {
     }
   };
   stand(PIT.from + 10, 75, -1, hw(0) + 5.5, 7, 4, 3);   // 3 m to the left (+x)
-  stand(C['Turn 5'] - 25, C['Turn 5'] + 25, -1, hw(C['Turn 5']) + 7.5, 5, 2);   // outer perimeter, behind the barrier (side -1 faces away from the infield here)
+  stand(C['Turn 5'] - 25, C['Turn 5'] + 25, -1, hw(C['Turn 5']) + 7.5, 5, 2, [0, 4]);   // outer perimeter, behind the barrier (side -1 faces away from the infield here)
 
   // ---- advertising boards on the tyre walls, marshal posts, brake boards, floodlights
   const WORDS = [['APEX RING', '#111', '#ffc400'], ['KARTING', '#c62828', '#fff'], ['RACE · DRIFT · REPEAT', '#0b3d7a', '#fff'], ['PIT STOP', '#e8e8e8', '#111'], ['GRIP', '#1b5e20', '#fff']];
