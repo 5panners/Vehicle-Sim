@@ -214,6 +214,14 @@ Each car starts from an offline calibration of how much grip the bot can really 
 node tools/bot-test.mjs brands "GT3" 2
 ```
 
+### Online multiplayer
+
+Create Race → **Play online**. Everyone types the same password; one player presses **Host match** and the others **Join match**. The host's grid has eight slots (P1 first), each set from a dropdown to **Bot**, **Player** (open for someone to join) or **NA**; joining players take the open Player slots in order, so any mix of players and bots works. The host picks the track, laps, bot skill and car (guests switch to the host's track and car automatically) and presses **Start online race**: everyone gets the same grid and the same start-light hold.
+
+How it works (`src/net/`): `Relay.js` is a tiny MQTT 3.1.1 client over secure WebSockets to a free public broker (`broker.emqx.io`, falling back to `broker.hivemq.com`). The password is SHA-256 hashed into the room's topic, so it never leaves the browser. Each player simulates their own car and broadcasts its state 15 times a second; the host runs the AI and broadcasts the bots. Other cars are drawn from those updates with dead reckoning and smoothing (`Race.applyRemote`); in contacts a remote car is immovable, so the local car takes the push and the other player's own machine handles theirs. An online race doesn't pause when you open the menu (your car brakes instead). Players who go quiet for 8 s are dropped and their slot reopens.
+
+It's a public relay: anyone who knows the password can see the game messages, so don't use a password you use elsewhere.
+
 ### Adding a circuit from a layout diagram
 
 ```bash

@@ -42,7 +42,7 @@ export class StartLights {
   constructor() { this.phase = 'idle'; this.t = 0; this.lit = 0; }
 
   /** start the sequence: a 1 s pause, five lights at 1 s intervals, then a random hold */
-  begin() { this.phase = 'lights'; this.t = 0; this.lit = 0; this.hold = 0.2 + Math.random() * 2.8; }
+  begin(hold) { this.phase = 'lights'; this.t = 0; this.lit = 0; this.hold = hold ?? 0.2 + Math.random() * 2.8; }   // online: the host picks the hold so every screen goes out together
 
   /** cars must stay on the grid until the lights go out */
   get held() { return this.phase === 'lights'; }

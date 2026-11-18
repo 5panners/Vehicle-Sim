@@ -18,6 +18,7 @@ import { ControllerSetup } from './ui/ControllerSetup.js';
 import { HUD } from './ui/HUD.js';
 import { TuningPanel } from './ui/TuningPanel.js';
 import { VehicleAudio } from './audio/VehicleAudio.js';
+import { Multiplayer } from './net/Multiplayer.js';
 
 const PHYSICS_HZ = 600;          // fixed physics rate; 600 Hz keeps stiff tyres/suspension stable
 const DT = 1 / PHYSICS_HZ;
@@ -84,6 +85,7 @@ class App {
     this.setup.onSettingsChanged = () => this.applySteeringMode();
     this.tuning = new TuningPanel(document.getElementById('tuning'), this);
     this.audio = new VehicleAudio();
+    this.net = new Multiplayer(this);
     this.applySteeringMode();
 
     this.spawnNames = Object.keys(this.world.spawnPoints()).filter((k) => !k.startsWith('_'));
@@ -100,7 +102,11 @@ class App {
       if (this.started) return;
       this.started = true; this.audio.start();
       document.getElementById('loading').remove();
-      if (this.pendingRace) { this.createRace(this.pendingRace); this.pendingRace = null; }
+      let auto = null; try { auto = JSON.parse(sessionStorage.getItem('vehicleSim.autoJoin') || 'null'); sessionStorage.removeItem('vehicleSim.autoJoin'); } catch { /* ignore */ }
+      if (auto?.password) {                                  // came back from a track switch for an online match: reconnect
+        const go = auto.role === 'host' ? this.net.host(auto.password, auto.slots || ['you', 'open']) : this.net.join(auto.password);
+        go.then(() => this.menu.open('race')).catch((e) => this.hud.showToast(`Online: ${e.message}`, 3000));
+      } else if (this.pendingRace) { this.createRace(this.pendingRace); this.pendingRace = null; }
       else if (!this.input.padConnected) this.hud.showToast('Tip: Esc / Start opens the menu: create a race, controls and vehicles', 4000);
     };
     addEventListener('pointerdown', start); addEventListener('keydown', start);
@@ -118,6 +124,9 @@ class App {
     this.vehicle.steerSensitivity = g.steerSensitivity;
   }
 
+  get playerName() { try { return localStorage.getItem('vehicleSim.name') || 'Player'; } catch { return 'Player'; } }
+  set playerName(n) { try { localStorage.setItem('vehicleSim.name', String(n).slice(0, 16)); } catch { /* ignore */ } }
+
   applyConfig(cfg) {
     const assists = this.vehicle.assists;
     this.vehicle.setConfig(cfg);
@@ -126,16 +135,18 @@ class App {
     this.race?.syncSpec();   // opponents keep the same spec as you
   }
 
-  loadPreset(i) {
+  loadPreset(i, { quiet = false } = {}) {
     this.presetIndex = i; this.torqueScale = 1;
     const pos = this.vehicle.body.position.clone(), yaw = this.currentYaw();
     this.vehicle = new Vehicle(structuredClone(PRESETS[i]), this.world);
     this.applySteeringMode();
     this.carView.build(this.vehicle);
     this.placeCar(pos.x, pos.z, yaw);
-    this.hud.showToast(PRESETS[i].name);
+    if (!quiet) this.hud.showToast(PRESETS[i].name);
     if (this.tuning.isOpen) this.tuning.render(); // keep the panel in sync when switching cars
-    if (this.race) this.createRace(this.race.settings);   // opponents always drive the same car as you
+    if (this.race?.online) this.race.syncSpec();           // online: the AI follows your car; the host's next start sends it to everyone
+    else if (this.race) this.createRace(this.race.settings);   // opponents always drive the same car as you
+    this.net?.refreshLobby();
   }
 
   // ------------------------------------------------------------------ races
@@ -153,7 +164,8 @@ class App {
       this.raceSettings = rest; this.switchMap(map); return;
     }
     if (!this.world.track) { this.hud.showToast('No circuit on this map for a race'); return; }
-    this.endRace();
+    this.endRace(true);
+    if (rest.online) { this.race = new Race(this, rest); this.race.start(); this.hud.showToast(`Online ${rest.laps ? `${rest.laps}-lap race` : 'practice'} · ${rest.lineup.length} on the grid · you start P${this.race.myGrid + 1}`, 2600); return; }
     if (rest.laps !== 0 || rest.opponents !== 1) this.raceSettings = rest;   // the O quick practice doesn't overwrite your race setup
     this.race = new Race(this, rest);
     this.race.start();
@@ -161,8 +173,9 @@ class App {
     this.hud.showToast(`${rest.laps ? `${rest.laps}-lap race` : 'Practice'} · ${n} opponent${n > 1 ? 's' : ''} (${BOT_SKILLS[rest.skill].name}) · you start P${Math.min(rest.slot, n + 1)}`, 2600);
   }
 
-  endRace() {
+  endRace(silent = false) {
     if (!this.race) return;
+    if (this.race.online && !silent && this.net.isHost) this.net.endRaceAll();   // the host ending it ends it for everyone
     this.race.dispose(); this.race = null; this.hud.mapOthers = [];
     this.lights.phase = 'idle'; this.lights.lit = 0; this.worldView.setStartLights(0); this.hud.setStartLights(0, false);
     this.hud.hideResults();
@@ -170,6 +183,7 @@ class App {
 
   /** O: quick practice against one opponent on the grid, or end the current race */
   toggleQuickRace() {
+    if (this.net.active) { this.hud.showToast('Online match: races start from the menu (Esc)', 2000); return; }
     if (this.race) { this.endRace(); this.hud.showToast('Race ended'); return; }
     this.createRace({ opponents: 1, skill: this.raceSettings.skill, laps: 0, slot: 2 });
   }
@@ -192,6 +206,7 @@ class App {
 
   spawn(name) {
     if (this.race) {
+      if (/grid/i.test(name) && this.race.online) { if (this.net.isHost) this.net.startRace(); else this.hud.showToast('Only the host can restart the race', 1500); return; }
       if (/grid/i.test(name)) { this.hud.hideResults(); this.race.start(); this.hud.showToast('Race restart: lights sequence', 1500); return; }
       this.race.botsToGrid();
     }
@@ -247,7 +262,9 @@ class App {
     // menu buttons
     if (inp.pressed.menu) this.menu.toggle();
     this.menu.update(dt);
-    const paused = this.menu.isOpen || !this.started;
+    const online = !!this.race?.online;
+    this.net.update(dt);                                    // online: keep talking even with the menu open
+    const paused = (this.menu.isOpen && !online) || !this.started;   // an online race can't pause: the others keep driving
     this.audio.setPaused(paused);
     if (!paused) {
       if (inp.pressed.camera) { this.rig.next(); this.hud.showToast(`Camera: ${this.rig.modeName}`, 900); }
@@ -258,7 +275,7 @@ class App {
         if (v.assists.autoGearbox) { v.assists.autoGearbox = false; this.hud.showToast('Manual gearbox (G toggles)'); }
         inp.pressed.shiftUp ? v.shiftUp() : v.shiftDown();
       }
-      const s = inp.state;
+      const s = this.menu.isOpen ? { steer: 0, throttle: 0, brake: 1, handbrake: 0, clutch: 0 } : inp.state;   // menu open online: brakes on
       const held = this.lights.held;   // on the grid: handbrake on (opens the clutch, so you can rev), car pinned
       v.setInput(held ? { steer: s.steer, throttle: s.throttle, brake: 0, handbrake: 1, clutch: 0 }
         : { steer: s.steer, throttle: s.throttle, brake: s.brake, handbrake: s.handbrake, clutch: s.clutch });
@@ -278,13 +295,13 @@ class App {
       this.worldView.setStartLights(this.lights.lit);
       this.hud.setStartLights(this.lights.lit, this.lights.phase === 'lights' || (this.lights.phase === 'go' && this.lights.t < 1));
       if (bump > 1.5) { this.audio.thump(Math.min(1, bump / 12)); this.hud.drift.combo = 0; }
-      if (race) this.audio.updateOthers(v, race.bots.map((b, i) => ({ key: b, vehicle: b.vehicle, index: i })));
+      if (race) this.audio.updateOthers(v, race.others.filter((b) => !b.remote || b.seen).map((b, i) => ({ key: b, vehicle: b.vehicle, index: i })));
       if (race) {
         for (const b of race.bots) if (b.vehicle.body.position.y < -60) b.driver.placeAt(b.driver.idx);
         for (const e of race.update(dt * (this.slowmo ? 0.25 : 1), lev)) {
           if (e.type === 'finish' && !e.car.isPlayer && e.place === 1) this.hud.showToast(`${e.car.name} wins!`, 2000);
           if (e.type === 'over') this.hud.showResults(race.resultsHtml(), [
-            ['Race again', () => { this.hud.hideResults(); race.start(); }],
+            ...(!race.online ? [['Race again', () => { this.hud.hideResults(); race.start(); }]] : this.net.isHost ? [['Race again', () => { this.hud.hideResults(); this.net.startRace(); }]] : []),
             ['Menu', () => { this.hud.hideResults(); this.menu.open('race'); }],
             ['Keep driving', () => this.hud.hideResults()]]);
         }
@@ -299,7 +316,7 @@ class App {
     // ---- views
     this.carView.update(v, inp.state.brake);
     if (this.race) {
-      for (const b of this.race.bots) b.view.update(b.vehicle, b.vehicle.input.brake);
+      for (const b of this.race.others) b.view.update(b.vehicle, b.vehicle.input.brake);
       this.hud.el.hBot.innerHTML = this.race.hudHtml();
       this.hud.mapOthers = this.race.mapDots();
     } else this.hud.el.hBot.textContent = '';

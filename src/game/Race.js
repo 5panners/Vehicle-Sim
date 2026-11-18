@@ -16,25 +16,45 @@ const hex = (c) => '#' + c.toString(16).padStart(6, '0');
  * Every opponent drives the same car as the player.
  */
 export class Race {
-  constructor(app, { opponents = 1, skill = 2, laps = 0, slot = 2 } = {}) {
+  constructor(app, { opponents = 1, skill = 2, laps = 0, slot = 2, lineup = null, online = false, hold = null } = {}) {
     this.app = app; this.world = app.world;
     this.settings = { opponents, skill, laps, slot };
-    this.laps = laps; this.M = this.world.track.length;
+    this.laps = laps; this.M = this.world.track.length; this.online = online; this.hold = hold;
     const cfg = app.vehicle.config;
-    this.bots = [];
-    for (let k = 0; k < Math.min(opponents, MAX_OPPONENTS); k++) {
+    // the grid, P1 first: 'me', 'bot' (AI run here) and 'remote' (another player's car, or the host's bots, drawn from network updates)
+    if (!lineup) {
+      const n = Math.min(opponents, MAX_OPPONENTS) + 1, mine = Math.max(1, Math.min(n, slot)) - 1;
+      lineup = Array.from({ length: n }, (_, i) => (i === mine ? { kind: 'me' } : { kind: 'bot' }));
+    }
+    this.lineup = lineup;
+    this.bots = []; this.remotes = [];
+    let k = 0;
+    for (const [g, l] of lineup.entries()) {
+      if (l.kind === 'me') { this.myGrid = g; continue; }
+      const c = k++ % BOT_COLORS.length, color = l.color ?? hex(BOT_COLORS[c]);
       const vehicle = new Vehicle(structuredClone(cfg), this.world);
-      vehicle.assists = { ...vehicle.assists, abs: app.vehicle.assists.abs, tcs: app.vehicle.assists.tcs, stability: app.vehicle.assists.stability };
-      const driver = new BotDriver(this.world, vehicle, BOT_SKILLS[skill], { mapId: app.mapId });
-      const view = new CarView(app.scene); view.tint = BOT_COLORS[k]; view.build(vehicle);
-      this.bots.push({ name: BOT_NAMES[k], color: hex(BOT_COLORS[k]), vehicle, driver, view, lap: new LapTimer(this.world), goAt: Infinity });
+      const view = new CarView(app.scene); view.tint = parseInt(color.slice(1), 16); view.build(vehicle);
+      const entry = { name: l.name ?? BOT_NAMES[c], color, vehicle, view, lap: new LapTimer(this.world), grid: g, key: l.key ?? `bot${g}` };
+      if (l.kind === 'bot') {
+        vehicle.assists = { ...vehicle.assists, abs: app.vehicle.assists.abs, tcs: app.vehicle.assists.tcs, stability: app.vehicle.assists.stability };
+        entry.driver = new BotDriver(this.world, vehicle, BOT_SKILLS[skill], { mapId: app.mapId }); entry.goAt = Infinity;
+        this.bots.push(entry);
+      } else {
+        // a remote car is moved by its owner only: here it is immovable, so contacts push the local car (or bot) the whole way
+        entry.remote = true; entry.seen = false; view.group.visible = view.blob.visible = false;
+        vehicle.body.invMass = 0; vehicle.body.invInertia.set(0, 0, 0);
+        this.remotes.push(entry);
+      }
     }
     this.player = { name: 'You', color: '#ffd54f', isPlayer: true, lap: app.lapTimer };
-    this.ref = this.bots[0].driver;                       // any driver gives us track lookups
+    // any driver gives us track lookups (an online guest has no AI of its own: use a parked one)
+    this.ref = this.bots[0]?.driver ?? new BotDriver(this.world, new Vehicle(structuredClone(cfg), this.world), BOT_SKILLS[skill], { mapId: app.mapId, learn: false });
   }
 
   get skill() { return BOT_SKILLS[this.settings.skill]; }
-  get cars() { return [this.player, ...this.bots]; }
+  get cars() { return [this.player, ...this.bots, ...this.remotes]; }
+  /** every car but yours: AI and remote */
+  get others() { return [...this.bots, ...this.remotes]; }
   vehicleOf(c) { return c.isPlayer ? this.app.vehicle : c.vehicle; }
 
   /** opponents always have the player's exact spec: tuning-panel changes, torque scale and assist toggles are copied across */
@@ -61,15 +81,43 @@ export class Race {
 
   /** everyone to the grid (player in the chosen slot, opponents filling the rest) and run the lights */
   start() {
-    const n = this.bots.length + 1, slots = gridSlots(this.world, n);
-    const mine = Math.max(1, Math.min(n, this.settings.slot)) - 1;
-    const order = slots.filter((_, i) => i !== mine);
-    this.bots.forEach((b, k) => { const s = order[k]; b.driver.placeAtLateral(s.index, s.lat); b.lap.reset(); b.goAt = Infinity; b.driver._oIdx = null; });
-    const ps = slots[mine];
+    const slots = gridSlots(this.world, this.lineup.length);
+    for (const b of this.bots) { const s = slots[b.grid]; b.driver.placeAtLateral(s.index, s.lat); b.lap.reset(); b.goAt = Infinity; b.driver._oIdx = null; }
+    for (const r of this.remotes) { const s = slots[r.grid]; r.vehicle.reset({ x: s.x, y: this.world.heightAt(s.x, s.z) + r.vehicle.config.body.cgHeight, z: s.z }, s.yaw); r.lap.reset(); }
+    const ps = slots[this.myGrid];
     this.app.placeCar(ps.x, ps.z, ps.yaw);                // also resets the player's lap timer
     this.clock = 0; this.startTime = null; this.finished = []; this.over = false;
     for (const c of this.cars) { c.idx = undefined; c.progress = null; c.finishTime = null; c.bestLap = null; }
-    this.app.lights.begin();
+    this.app.lights.begin(this.hold ?? undefined);
+  }
+
+  /** network states -> remote cars: dead reckoning from the last update, eased so corrections don't snap */
+  applyRemote(states, now, dt) {
+    const k = 1 - Math.exp(-14 * dt);
+    for (const r of this.remotes) {
+      const s = states.get(r.key); if (!s) continue;
+      const b = r.vehicle.body, age = Math.min(0.3, now - s.at);
+      const tx = s.p[0] + s.v[0] * age, ty = s.p[1] + s.v[1] * age, tz = s.p[2] + s.v[2] * age;
+      if (!r.seen || (b.position.x - tx) ** 2 + (b.position.z - tz) ** 2 > 400) { b.position.x = tx; b.position.y = ty; b.position.z = tz; Object.assign(b.orientation, { x: s.q[0], y: s.q[1], z: s.q[2], w: s.q[3] }); r.seen = true; r.view.group.visible = r.view.blob.visible = true; }
+      else {
+        b.position.x += (tx - b.position.x) * k; b.position.y += (ty - b.position.y) * k; b.position.z += (tz - b.position.z) * k;
+        const o = b.orientation; let [qx, qy, qz, qw] = s.q;
+        if (o.x * qx + o.y * qy + o.z * qz + o.w * qw < 0) { qx = -qx; qy = -qy; qz = -qz; qw = -qw; }
+        o.x += (qx - o.x) * k; o.y += (qy - o.y) * k; o.z += (qz - o.z) * k; o.w += (qw - o.w) * k;
+        const l = Math.hypot(o.x, o.y, o.z, o.w) || 1; o.x /= l; o.y /= l; o.z /= l; o.w /= l;
+      }
+      b.velocity.x = s.v[0]; b.velocity.y = s.v[1]; b.velocity.z = s.v[2];
+      const v = r.vehicle, sp = Math.hypot(s.v[0], s.v[2]);
+      v.drivetrain.engine.omega = s.rpm * Math.PI / 30; v.input.throttle = s.th; v.input.brake = s.br;
+      for (const w of v.wheels) { if (w.axle === 'front') w.steer = s.s; w.rotation += (sp / w.radius) * dt; w.compression = w.staticComp; }
+    }
+  }
+
+  /** a player left the online race: their car goes */
+  dropRemote(key) {
+    const i = this.remotes.findIndex((r) => r.key === key); if (i < 0) return;
+    const r = this.remotes[i]; r.view.group.removeFromParent(); r.view.blob.removeFromParent(); this.app.audio?.dropVoice(r);
+    this.remotes.splice(i, 1); this.finished = this.finished.filter((c) => c !== r);
   }
 
   /** opponents back to the grid, driving off at once (you spawned somewhere else) */
@@ -82,7 +130,8 @@ export class Race {
   /** physics step for the opponents (the player's car is stepped by the app). Returns the hardest contact. */
   step(DT) {
     this.clock += DT;
-    const pv = this.app.vehicle, all = [pv, ...this.bots.map((b) => b.vehicle)];
+    const pv = this.app.vehicle, all = [pv, ...this.bots.map((b) => b.vehicle), ...this.remotes.filter((r) => r.seen).map((r) => r.vehicle)];
+    const nLocal = 1 + this.bots.length;
     for (const b of this.bots) {
       const waiting = this.clock < b.goAt;
       if (waiting) b.vehicle.setInput({ steer: 0, throttle: 0.45, brake: 0, handbrake: 1, clutch: 0 });   // revving on the grid
@@ -95,6 +144,7 @@ export class Race {
     }
     let bump = 0;
     for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+      if (i >= nLocal && j >= nLocal) continue;                        // two remote cars sort themselves out on their own machines
       const h = collideCars(all[i], all[j]);
       if (h > 1) for (const v of [all[i], all[j]]) v.audioHit = Math.max(v.audioHit || 0, Math.min(1, h / 12));   // every car in the clash is heard
       if (i === 0) bump = Math.max(bump, h);
@@ -161,7 +211,7 @@ export class Race {
     return `<h2>${me === 1 ? 'Winner!' : `Finished P${me}`}</h2><table><tr><th></th><th>Driver</th><th>Time</th><th>Best lap</th></tr>${rows}</table>`;
   }
 
-  mapDots() { return this.bots.map((b) => ({ x: b.vehicle.body.position.x, z: b.vehicle.body.position.z, color: b.color })); }
+  mapDots() { return this.others.filter((b) => !b.remote || b.seen).map((b) => ({ x: b.vehicle.body.position.x, z: b.vehicle.body.position.z, color: b.color })); }
 
-  dispose() { for (const b of this.bots) { b.view.group.removeFromParent(); b.view.blob.removeFromParent(); this.app.audio?.dropVoice(b); } this.bots = []; }
+  dispose() { for (const b of this.others) { b.view.group.removeFromParent(); b.view.blob.removeFromParent(); this.app.audio?.dropVoice(b); } this.bots = []; this.remotes = []; }
 }

@@ -1,6 +1,7 @@
 import { PRESETS } from '../vehicles/presets.js';
 import { BOT_SKILLS, BOT_PARAMS, BOT_SKILL_DEFAULTS, MISTAKE_TYPES, saveBotSkills, resetBotSkill, resetAllBotSkills } from '../game/BotDriver.js';
 import { MAX_OPPONENTS } from '../game/Race.js';
+import { MAX_SLOTS, SLOT_KINDS } from '../net/Multiplayer.js';
 
 const h = (tag, attrs = {}, ...kids) => {
   const el = document.createElement(tag);
@@ -82,33 +83,98 @@ export class Menu {
   }
 
   // ---------------------------------------------------------------- Create Race
+  /** grid slots, P1 first: 'you', 'bot', 'open' (a player can join online), 'na' */
+  _slots(s) {
+    if (Array.isArray(s.slots) && s.slots.length === MAX_SLOTS) return s.slots;
+    const n = Math.min(MAX_OPPONENTS, s.opponents ?? 3) + 1, mine = Math.max(1, Math.min(n, s.slot ?? 1)) - 1;
+    return Array.from({ length: MAX_SLOTS }, (_, i) => (i === mine ? 'you' : i < n ? 'bot' : 'na'));
+  }
+
   _race() {
-    const app = this.app, s = { ...app.raceSettings, map: app.mapId };
-    const select = (value, options, onchange) => {
-      const el = h('select', { onchange: (e) => onchange(e.target.value) }, ...options.map(([v, label]) => h('option', { value: v }, label)));
+    const app = this.app, net = app.net, s = { ...app.raceSettings, map: app.mapId };
+    s.slots = this._slots(s);
+    const save = () => { const { map, ...rest } = s; app.raceSettings = rest; net.refreshLobby(); };
+    const select = (value, options, onchange, attrs = {}) => {
+      const el = h('select', { onchange: (e) => onchange(e.target.value), ...attrs }, ...options.map(([v, label]) => h('option', { value: v }, label)));
       el.value = String(value); return el;
     };
-    const slotSel = () => {
-      const n = s.opponents + 1;
-      return select(Math.min(s.slot, n), Array.from({ length: n }, (_, i) => [i + 1, i === 0 ? 'Pole (P1)' : i === n - 1 ? `P${i + 1} (back of the grid)` : `P${i + 1}`]), (v) => (s.slot = +v));
-    };
-    let slotRow = h('div', { class: 'row' }, h('label', {}, 'Your grid slot'), slotSel());
     const maps = Object.entries(app.maps).filter(([, m]) => m);
+    const online = net.active, host = net.isHost, guest = online && !host;
+    const nameIn = h('input', { type: 'text', value: app.playerName, maxlength: 16, class: 'text', onchange: (e) => { app.playerName = e.target.value.trim() || 'Player'; } });
+
+    // ---- the grid: one dropdown per slot
+    const grid = h('div', { class: 'slots' });
+    const drawSlots = () => {
+      grid.innerHTML = '';
+      const lobby = online ? net.lobby : null;
+      for (let i = 0; i < MAX_SLOTS; i++) {
+        let el;
+        const ls = lobby?.slots?.[i];
+        if (ls?.k === 'human') el = h('div', { class: 'slot-name' + (ls.id === net.id ? ' me' : '') }, ls.id === net.id ? `${ls.name} (you)` : ls.name);
+        else if (guest) el = h('div', { class: 'slot-name dim' }, ls ? (ls.k === 'bot' ? 'Bot' : ls.k === 'open' ? 'Open (player)' : 'NA') : '…');
+        else {
+          const kind = online ? ls?.k ?? 'na' : s.slots[i];
+          const opts = online ? SLOT_KINDS : [['you', `${app.playerName} (you)`], ...SLOT_KINDS];
+          el = select(kind, opts, (v) => {
+            if (online) { net.setSlot(i, v); drawSlots(); return; }
+            if (v === 'you') s.slots = s.slots.map((k) => (k === 'you' ? 'bot' : k));
+            else if (s.slots[i] === 'you') { this.app.hud.showToast('Pick another slot for yourself first', 1500); drawSlots(); return; }
+            s.slots[i] = v; save(); drawSlots();
+          });
+        }
+        grid.append(h('div', { class: 'slot' }, h('span', { class: 'pos' }, `P${i + 1}`), el));
+      }
+      const bots = online ? (lobby?.slots ?? []).filter((x) => x.k === 'bot').length : s.slots.filter((k) => k === 'bot').length;
+      const players = online ? (lobby?.slots ?? []).filter((x) => x.k === 'human').length : 1;
+      const open = online ? (lobby?.slots ?? []).filter((x) => x.k === 'open').length : s.slots.filter((k) => k === 'open').length;
+      grid.append(h('div', { class: 'slot-sum' }, online ? `${players} player${players === 1 ? '' : 's'} · ${bots} bot${bots === 1 ? '' : 's'}${open ? ` · ${open} open` : ''}` : `Solo against ${bots} bot${bots === 1 ? '' : 's'}${open ? ` · ${open} player slot${open === 1 ? '' : 's'} (fill when you host online)` : ''}`));
+    };
+    drawSlots();
+    net.onChange = () => { if (!this.isOpen || this.tab !== 'race') return; if (guest !== (net.active && !net.isHost) || online !== net.active) { this.show('race'); return; } if (guest) { this.show('race'); return; } drawSlots(); statusEl.textContent = net.status; buttons(); };
+
+    // ---- online: shared password through the relay
+    const pw = h('input', { type: 'password', placeholder: 'Password', class: 'text', value: net.password || '' });
+    const statusEl = h('span', { class: 'net-status' }, net.status);
+    const btnBox = h('span', { class: 'net-btns' });
+    const run = (p) => p.catch((e) => { statusEl.textContent = e.message; });
+    const buttons = () => {
+      btnBox.innerHTML = '';
+      if (!net.active) {
+        btnBox.append(
+          h('button', { class: 'btn primary', onclick: () => { app.playerName = nameIn.value.trim() || 'Player'; save(); run(net.host(pw.value, s.slots).then(() => this.show('race'))); } }, 'Host match'),
+          h('button', { class: 'btn', onclick: () => { app.playerName = nameIn.value.trim() || 'Player'; run(net.join(pw.value).then(() => this.show('race'))); } }, 'Join match'));
+      } else btnBox.append(h('button', { class: 'btn', onclick: () => { net.leave(); this.show('race'); } }, 'Leave'));
+    };
+    buttons();
+
+    const startBtn = guest ? h('span', { class: 'hint' }, 'The host starts the race.')
+      : h('button', { class: 'btn primary', onclick: () => {
+        save();
+        if (online) {
+          if (s.map !== app.mapId) { net._pendingMap(s.map); return; }      // the host moves everyone to the new track
+          this.close(); net.startRace(); return;
+        }
+        const lineup = s.slots.filter((k) => k === 'you' || k === 'bot').map((k) => ({ kind: k === 'you' ? 'me' : 'bot' }));
+        if (lineup.length < 2) { app.hud.showToast('Set at least one slot to Bot (or host online for players)', 2000); return; }
+        this.close(); app.createRace({ map: s.map, laps: s.laps, skill: s.skill, lineup, slots: s.slots, opponents: lineup.length - 1, slot: lineup.findIndex((l) => l.kind === 'me') + 1 });
+      } }, online ? 'Start online race' : 'Start race');
+
+    const lockIfGuest = guest ? { disabled: 'disabled' } : {};
     const box = h('div', { class: 'race-form' },
-      h('p', { class: 'hint' }, 'Line up on the grid against AI opponents in the same car as you, then wait for the five red lights to go out.'),
-      h('div', { class: 'row' }, h('label', {}, 'Track'), select(s.map, maps.map(([id, m]) => [id, m.name]), (v) => (s.map = v))),
-      h('div', { class: 'row' }, h('label', {}, 'Opponents'), select(s.opponents, Array.from({ length: MAX_OPPONENTS }, (_, i) => [i + 1, String(i + 1)]), (v) => {
-        s.opponents = +v; s.slot = Math.min(s.slot, s.opponents + 1);
-        const next = h('div', { class: 'row' }, h('label', {}, 'Your grid slot'), slotSel()); slotRow.replaceWith(next); slotRow = next;
-      })),
-      h('div', { class: 'row' }, h('label', {}, 'Opponent skill'), select(s.skill, BOT_SKILLS.map((k, i) => [i, k.name]), (v) => (s.skill = +v))),
-      h('div', { class: 'row' }, h('label', {}, 'Laps'), select(s.laps, [[0, 'Practice (no limit)'], [1, '1'], [3, '3'], [5, '5'], [10, '10'], [20, '20']], (v) => (s.laps = +v))),
-      slotRow,
-      h('div', { class: 'row' }, h('label', {}, 'Vehicle'), h('span', {}, app.vehicle.config.name), h('button', { class: 'btn ghost', onclick: () => this.show('vehicle') }, 'Change…')),
+      h('p', { class: 'hint' }, 'Line up on the grid against AI opponents in the same car as you, then wait for the five red lights to go out. Host online to race friends: everyone types the same password.'),
+      h('div', { class: 'row' }, h('label', {}, 'Your name'), nameIn),
+      h('div', { class: 'row' }, h('label', {}, 'Track'), select(online ? net.lobby?.map ?? app.mapId : s.map, maps.map(([id, m]) => [id, m.name]), (v) => { s.map = v; }, lockIfGuest)),
+      h('div', { class: 'row' }, h('label', {}, 'Bot skill'), select(online ? net.lobby?.skill ?? s.skill : s.skill, BOT_SKILLS.map((k, i) => [i, k.name]), (v) => { s.skill = +v; save(); }, lockIfGuest)),
+      h('div', { class: 'row' }, h('label', {}, 'Laps'), select(online ? net.lobby?.laps ?? s.laps : s.laps, [[0, 'Practice (no limit)'], [1, '1'], [3, '3'], [5, '5'], [10, '10'], [20, '20']], (v) => { s.laps = +v; save(); }, lockIfGuest)),
+      h('div', { class: 'row' }, h('label', {}, 'Vehicle'), h('span', {}, app.vehicle.config.name), guest ? h('span', { class: 'hint' }, '(set by the host)') : h('button', { class: 'btn ghost', onclick: () => this.show('vehicle') }, 'Change…')),
+      h('h3', {}, 'Grid'), grid,
+      h('h3', {}, 'Play online'),
+      h('div', { class: 'row' }, h('label', {}, 'Connect'), pw, btnBox),
+      h('div', { class: 'row' }, h('label', {}, ''), statusEl),
+      h('p', { class: 'hint' }, 'Type the same password on both sides, then one presses Host match and the others Join match. Joining players take the open Player slots. Runs through a free public relay: share the password only with the people you are racing.'),
       h('div', { class: 'row btnrow' },
-        h('label', {}, ''),
-        h('button', { class: 'btn primary', onclick: () => { this.close(); app.createRace(s); } }, 'Start race'),
-        app.race ? h('button', { class: 'btn', onclick: () => { app.endRace(); this.show('race'); } }, 'End current race') : null),
+        h('label', {}, ''), startBtn,
+        app.race ? h('button', { class: 'btn', onclick: () => { app.endRace(); this.show('race'); } }, online && !host ? 'Leave race' : 'End current race') : null),
       h('p', { class: 'hint' }, 'Quick keys: O = practice against one opponent · K = opponent skill · 1 = restart from the grid'));
     return box;
   }

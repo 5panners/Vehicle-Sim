@@ -92,6 +92,19 @@ select:focus, input:focus { outline: 2px solid var(--accent); }
 .race-form { max-width: 520px; }
 .race-form .row label { width: 150px; }
 .race-form select { min-width: 200px; }
+.race-form h3 { margin: 16px 0 6px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #8fb3ff; }
+.race-form input.text { background: #12161c; color: #e8edf3; border: 1px solid #34404e; border-radius: 6px; padding: 6px 8px; min-width: 190px; font: inherit; }
+.slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+.slot { display: flex; align-items: center; gap: 8px; }
+.slot .pos { width: 26px; color: #9aa6b2; font-variant-numeric: tabular-nums; }
+.slot select { min-width: 0; flex: 1; }
+.slot-name { flex: 1; padding: 6px 8px; border-radius: 6px; background: #12161c; border: 1px solid #2a333e; }
+.slot-name.me { color: #ffd54f; }
+.slot-name.dim { color: #9aa6b2; }
+.slot-sum { grid-column: 1 / -1; margin-top: 4px; color: #8fb3ff; font-weight: 600; }
+.net-btns { display: inline-flex; gap: 8px; margin-left: 8px; }
+.net-status { color: #c9d4df; font-size: 13px; }
+@media (max-width: 600px) { .slots { grid-template-columns: 1fr; } }
 .race-form .btnrow, .ai-form .btnrow { margin-top: 14px; }
 .btn.primary { background: var(--accent); color: #062033; font-weight: 700; padding: 8px 18px; font-size: 13px; }
 .btn.primary:hover, .btn.primary:focus { background: #81d4fa; }
