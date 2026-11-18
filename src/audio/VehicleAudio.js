@@ -160,14 +160,23 @@ class CarVoice {
     const m = this.m, ctx = m.ctx; if (!ctx || (m.settings.muted && !force)) return;
     const vol = m.settings.impacts * (this.spatial ? m.settings.opponents : 1), t = ctx.currentTime, st = Math.min(1, strength);
     const dest = force && !this.spatial ? m.master : this.fx;
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(34, t + 0.26);
-    g.gain.setValueAtTime(Math.max(0.0001, Math.min(0.8, st) * vol), t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-    o.connect(g).connect(dest); o.start(t); o.stop(t + 0.35);
-    if (st > 0.28) {                                                                          // crunch: filtered noise burst
-      const n = m.noise(), f = ctx.createBiquadFilter(), cg = ctx.createGain(); f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(2400, t); f.frequency.exponentialRampToValueAtTime(520, t + 0.22);
-      cg.gain.setValueAtTime(Math.min(0.55, st * 0.5) * vol, t); cg.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
-      n.connect(f).connect(cg).connect(dest); n.stop(t + 0.32);
+    // a heavy body thump: a low sine and its octave (so it is heard on laptop speakers too) falling in pitch
+    const amp = Math.max(0.0001, Math.min(0.8, st) * vol);
+    for (const [f0, f1, a, len] of [[78, 38, 1, 0.42], [150, 70, 0.55, 0.3]]) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + len * 0.8);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(amp * a, t + 0.008); g.gain.exponentialRampToValueAtTime(0.001, t + len);
+      o.connect(g).connect(dest); o.start(t); o.stop(t + len + 0.05);
+    }
+    // the 'whump' of panels: low-passed noise, darker the softer the hit
+    const n = m.noise(), lp = ctx.createBiquadFilter(), ng = ctx.createGain();
+    lp.type = 'lowpass'; lp.Q.value = 0.8; lp.frequency.setValueAtTime(500 + 700 * st, t); lp.frequency.exponentialRampToValueAtTime(160, t + 0.25);
+    ng.gain.setValueAtTime(Math.min(0.6, st * 0.7) * vol, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    n.connect(lp).connect(ng).connect(dest); n.stop(t + 0.34);
+    if (st > 0.35) {                                                                          // a little crunch on big hits, kept low-mid (no tin)
+      const c = m.noise(), f = ctx.createBiquadFilter(), cg = ctx.createGain(); f.type = 'bandpass'; f.Q.value = 0.9; f.frequency.setValueAtTime(1100, t); f.frequency.exponentialRampToValueAtTime(320, t + 0.18);
+      cg.gain.setValueAtTime(Math.min(0.25, (st - 0.35) * 0.4) * vol, t); cg.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      c.connect(f).connect(cg).connect(dest); c.stop(t + 0.24);
     }
   }
 

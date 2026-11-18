@@ -24,6 +24,8 @@ export function buildSpaScenery(view) {
   const span = (d0, d1) => (d1 < d0 ? d1 + L : d1) - d0;
   const inRange = (s, a, b) => (a <= b ? s >= a && s <= b : s >= a || s <= b);
   const keepOut = [];
+  // a grandstand bay is only built where its whole footprint is clear of every part of the circuit
+  const clearOf = (pts, r) => pts.every(([x, z]) => !T.some((s, i) => i % 2 === 0 && (s.x - x) ** 2 + (s.z - z) ** 2 < (s.w / 2 + r) ** 2));
   const group = new THREE.Group(); scene.add(group);
 
   // ---- materials
@@ -154,6 +156,8 @@ export function buildSpaScenery(view) {
     const s = side, segLen = 14, n = Math.max(1, Math.round(span(d0, d1) / segLen)), len = span(d0, d1) / n;
     for (let k = 0; k < n; k++) {
       const mid = latFront + (rows * depth) / 2, f = frame(d0 + (k + 0.5) * len, s * mid);
+      const corners = [[0, latFront], [0, latFront + rows * depth], [1, latFront], [1, latFront + rows * depth], [0.5, latFront]].map(([u, l]) => { const q = frame(d0 + (k + u) * len, s * l); return [q.x, q.z]; });
+      if (!clearOf(corners, 4)) continue;
       const base = groundUnder(d0 + k * len, d0 + (k + 1) * len, s * latFront, s * (latFront + rows * depth));
       const yaw = f.yaw, faceYaw = Math.atan2(-s * f.t.rx, -s * f.t.rz);
       for (let r = 0; r < rows; r++) {
@@ -177,6 +181,8 @@ export function buildSpaScenery(view) {
     const s = side, n = bays, len = span(d0, d1) / n;
     for (let k = 0; k < n; k++) {
       const mid = latFront + (rows * depth) / 2, f = frame(d0 + (k + 0.5) * len, s * mid);
+      const corners = [[0, latFront - 1.5], [0, latFront + rows * depth + 1], [1, latFront - 1.5], [1, latFront + rows * depth + 1], [0.5, latFront - 1.5]].map(([u, l]) => { const q = frame(d0 + (k + u) * len, s * l); return [q.x, q.z]; });
+      if (!clearOf(corners, 6)) continue;                          // the roof overhangs the front row: keep it well back from any track
       const base = groundUnder(d0 + k * len, d0 + (k + 1) * len, s * latFront, s * (latFront + rows * depth));
       const faceYaw = Math.atan2(-s * f.t.rx, -s * f.t.rz);
       for (let r = 0; r < rows; r++) {
@@ -194,14 +200,14 @@ export function buildSpaScenery(view) {
     }
   };
   const outer = (c, side, base = 0) => hw(c) + Math.max(map.tarmacDepth(world, T[idx(c)], side), 6.5) + 7 + base;
-  coveredStand(6900, 150, -1, h0 + 15, { rows: 14, bays: 7 });                                  // main grandstand opposite the pits
+  coveredStand(6960, 170, -1, h0 + 15, { rows: 14, bays: 6 });                                  // main grandstand opposite the pits
   coveredStand(C['Raidillon'] - 90, C['Raidillon'] + 70, -1, outer(C['Raidillon'] - 10, -1, 3), { rows: 14, bays: 6, seats: seatMats.red });   // above Raidillon
   scaffoldStand(C['La Source'] - 60, C['La Source'] + 50, -1, outer(C['La Source'], -1), { rows: 10 });                  // La Source (outside)
   scaffoldStand(C['Les Combes'] - 80, C['Les Combes'] + 30, -1, outer(C['Les Combes'], -1), { rows: 9, seats: seatMats.yellow });
-  coveredStand(C['Bus Stop'] - 110, C['Bus Stop'] + 20, -1, outer(C['Bus Stop'], -1), { rows: 10, bays: 4, seats: seatMats.yellow });
-  for (const [d0, d1, side, lat] of [[6900, 150, -1, h0 + 15], [C['Raidillon'] - 90, C['Raidillon'] + 70, -1, outer(C['Raidillon'] - 10, -1, 3)],
+  coveredStand(C['Bus Stop'] - 55, C['Bus Stop'] + 35, -1, outer(C['Bus Stop'], -1), { rows: 10, bays: 3, seats: seatMats.yellow });   // facing the chicane itself
+  for (const [d0, d1, side, lat] of [[6960, 170, -1, h0 + 15], [C['Raidillon'] - 90, C['Raidillon'] + 70, -1, outer(C['Raidillon'] - 10, -1, 3)],
     [C['La Source'] - 60, C['La Source'] + 50, -1, outer(C['La Source'], -1)], [C['Les Combes'] - 80, C['Les Combes'] + 30, -1, outer(C['Les Combes'], -1)],
-    [C['Bus Stop'] - 110, C['Bus Stop'] + 20, -1, outer(C['Bus Stop'], -1)]]) keepOut.push({ ...frame((d0 + d1 + (d1 < d0 ? L : 0)) / 2, side * (lat + 10)), r: span(d0, d1) / 2 + 24 });
+    [C['Bus Stop'] - 55, C['Bus Stop'] + 35, -1, outer(C['Bus Stop'], -1)]]) keepOut.push({ ...frame((d0 + d1 + (d1 < d0 ? L : 0)) / 2, side * (lat + 10)), r: span(d0, d1) / 2 + 24 });
 
   // ============================================================ advertising boards, marshal posts, brake boards, lights
   const WORDS = [['SPA-FRANCORCHAMPS', '#111', '#fff'], ['ARDENNES', '#0b3d7a', '#fff'], ['BELGIQUE', '#c62828', '#fff'], ['LIÈGE', '#e8e8e8', '#0b3d7a'], ['STAVELOT', '#1b5e20', '#fff'], ['FRANCORCHAMPS', '#7a1020', '#fff']];
