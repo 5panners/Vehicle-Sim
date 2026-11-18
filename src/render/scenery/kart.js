@@ -67,24 +67,25 @@ export function buildKartScenery(view) {
 
   // ---- covered stand opposite the pits, a smaller one on the outside of the hairpin
   const seat = new THREE.MeshLambertMaterial({ map: seatTexture('#1f4e9a'), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  const stand = (d0, d1, side, lat0, rows = 7, bays = 3) => {
+  const stand = (d0, d1, side, lat0, rows = 7, bays = 3, dx = 0) => {
+    const fr = (d, lat) => { const q = frame(d, lat); q.x += dx; return q; };   // dx: shift the whole stand along world x
     const len = span(d0, d1) / bays;
     for (let k = 0; k < bays; k++) {
-      const d = d0 + (k + 0.5) * len, f = frame(d, side * (lat0 + rows * 0.45)), base = frame(d, side * lat0).y - 0.2;
-      if (!free(f.x, f.z, rows * 0.45 + 3.5) || !free(frame(d, side * lat0).x, frame(d, side * lat0).z, 2.5) || !free(frame(d, side * (lat0 + rows * 0.9 + 1)).x, frame(d, side * (lat0 + rows * 0.9 + 1)).z, 2.5)) continue;
+      const d = d0 + (k + 0.5) * len, f = fr(d, side * (lat0 + rows * 0.45)), base = fr(d, side * lat0).y - 0.2;
+      if (!free(f.x, f.z, rows * 0.45 + 3.5) || !free(fr(d, side * lat0).x, fr(d, side * lat0).z, 2.5) || !free(fr(d, side * (lat0 + rows * 0.9 + 1)).x, fr(d, side * (lat0 + rows * 0.9 + 1)).z, 2.5)) continue;
       for (let r = 0; r < rows; r++) {
-        const g = frame(d, side * (lat0 + (r + 0.5) * 0.9)), top = base + 0.5 + (r + 1) * 0.45;
+        const g = fr(d, side * (lat0 + (r + 0.5) * 0.9)), top = base + 0.5 + (r + 1) * 0.45;
         box(0.9, top - base, len - 0.6, mat.concrete, g.x, base, g.z, f.yaw);
         panel(len - 0.6, 0.45, seat, g.x - side * g.t.rx * 0.51, top - 0.45, g.z - side * g.t.rz * 0.51, Math.atan2(-side * f.t.rx, -side * f.t.rz), (len - 0.6) / 5);
       }
-      const rH = base + 0.5 + rows * 0.45 + 2.6, roof = frame(d, side * (lat0 + rows * 0.45));
+      const rH = base + 0.5 + rows * 0.45 + 2.6, roof = fr(d, side * (lat0 + rows * 0.45));
       const r2 = box(rows * 0.9 + 1.6, 0.25, len - 0.3, mat.roof, roof.x, rH, roof.z, f.yaw); r2.rotation.z = side * 0.06;
-      for (const u of [-0.5, 0.5]) { const p = frame(d + u * len, side * (lat0 + rows * 0.9)); box(0.25, rH - base, 0.25, mat.steel, p.x, base, p.z, f.yaw); }
+      for (const u of [-0.5, 0.5]) { const p = fr(d + u * len, side * (lat0 + rows * 0.9)); box(0.25, rH - base, 0.25, mat.steel, p.x, base, p.z, f.yaw); }
       solid(f.x, f.z, rows * 0.9 + 1, len, f.yaw, rH - base);
     }
   };
-  stand(PIT.from + 10, 75, -1, hw(0) + 5.5, 7, 4);
-  stand(C['Turn 4'] - 25, C['Turn 4'] + 25, map.outside(world, C['Turn 4']), hw(C['Turn 4']) + 7.5, 5, 2);
+  stand(PIT.from + 10, 75, -1, hw(0) + 5.5, 7, 4, 3);   // 3 m to the left (+x)
+  stand(C['Turn 5'] - 25, C['Turn 5'] + 25, -1, hw(C['Turn 5']) + 7.5, 5, 2);   // outer perimeter, behind the barrier (side -1 faces away from the infield here)
 
   // ---- advertising boards on the tyre walls, marshal posts, brake boards, floodlights
   const WORDS = [['APEX RING', '#111', '#ffc400'], ['KARTING', '#c62828', '#fff'], ['RACE · DRIFT · REPEAT', '#0b3d7a', '#fff'], ['PIT STOP', '#e8e8e8', '#111'], ['GRIP', '#1b5e20', '#fff']];
