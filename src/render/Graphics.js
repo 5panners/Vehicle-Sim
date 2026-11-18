@@ -15,6 +15,28 @@ const NIGHT_TOP = new THREE.Color(0.012, 0.02, 0.06), NIGHT_BOTTOM = new THREE.C
 const DUSK = new THREE.Color(0.95, 0.45, 0.2);
 const LOW_TINT = new THREE.Color(1.0, 0.6, 0.38);   // a low sun is warmer than the colour picked for noon
 
+const SKY_R = 3500;
+
+/** radial sprite texture: a bright disc (radius = disc, 0..1 of the half-width) inside a soft glow */
+function discTexture(disc, glow, craters = false) {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'), m = 128;
+  if (glow > 0) {
+    const gr = g.createRadialGradient(m, m, m * disc * 0.9, m, m, m);
+    gr.addColorStop(0, `rgba(255,255,255,${glow})`); gr.addColorStop(0.25, `rgba(255,255,255,${glow * 0.35})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  }
+  g.fillStyle = '#ffffff'; g.beginPath(); g.arc(m, m, m * disc, 0, Math.PI * 2); g.fill();
+  if (craters) {                                            // pale grey maria and craters on the moon
+    g.save(); g.beginPath(); g.arc(m, m, m * disc, 0, Math.PI * 2); g.clip();
+    for (const [x, y, r, a] of [[-0.3, -0.25, 0.32, 0.22], [0.25, -0.1, 0.26, 0.18], [-0.05, 0.3, 0.3, 0.2], [0.35, 0.32, 0.12, 0.25], [-0.45, 0.15, 0.1, 0.25], [0.05, -0.5, 0.1, 0.2]]) {
+      g.fillStyle = `rgba(120,130,150,${a})`; g.beginPath(); g.arc(m + x * m * disc, m + y * m * disc, r * m * disc, 0, Math.PI * 2); g.fill();
+    }
+    g.restore();
+  }
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+}
+
 export class Graphics {
   constructor(app) {
     this.app = app;
@@ -24,7 +46,27 @@ export class Graphics {
     this._saveAcc = 0;
     const sky = app.world.map.sky || {};
     this.day = { top: new THREE.Color(sky.top ?? 0x3a7bd5), bottom: new THREE.Color(sky.bottom ?? 0xdfe9f3), sun: sky.sun ?? 2.4, hemi: sky.hemi ?? 1.1, exposure: 1.0 };
+    this._skyBodies();
     this.applyRender(); this.applyShadows(); this.update(0);
+  }
+
+  /** the sun and moon discs and a field of stars, drawn on a sphere that follows the camera */
+  _skyBodies() {
+    const mk = (tex, size) => {
+      const m = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, toneMapped: false });
+      const sp = new THREE.Sprite(m); sp.scale.set(size, size, 1); sp.renderOrder = -1; sp.frustumCulled = false; this.app.scene.add(sp); return sp;
+    };
+    this.sunSprite = mk(discTexture(0.13, 0.9), 1500);
+    this.moonSprite = mk(discTexture(0.42, 0.25, true), 520);
+    const n = 700, pos = new Float32Array(n * 3);
+    let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < n; i++) {
+      const u = rnd(), v = rnd() * 0.97, th = u * Math.PI * 2, y = v, r = Math.sqrt(1 - y * y);
+      pos.set([Math.cos(th) * r * SKY_R, y * SKY_R, Math.sin(th) * r * SKY_R], i * 3);
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    this.stars = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false, toneMapped: false }));
+    this.stars.frustumCulled = false; this.stars.renderOrder = -2; this.app.scene.add(this.stars);
   }
 
   save() { try { localStorage.setItem(KEY, JSON.stringify(this.s)); } catch { /* ignore */ } }
@@ -93,5 +135,16 @@ export class Graphics {
     if (u) { u.top.value.copy(top); u.bottom.value.copy(bottom); }
     if (app.scene.fog) app.scene.fog.color.copy(bottom).multiplyScalar(0.92);
     app.renderer.toneMappingExposure = base.exposure;
+    // the visible discs: placed far out along the light direction, following the camera
+    const cp = app.camera.position, up = sn >= 0;
+    this.sunSprite.position.set(cp.x + toSun.x * SKY_R, cp.y + toSun.y * SKY_R, cp.z + toSun.z * SKY_R);
+    this.sunSprite.material.opacity = smoothstep(-0.07, 0.03, sn) * Math.min(1, s.sunIntensity * 1.4);
+    this.sunSprite.material.color.copy(app.sun.color).lerp(new THREE.Color(1, 1, 1), up ? 0.35 * (1 - lowSun) : 0);
+    this.sunSprite.scale.setScalar(1500 * (1 + 0.5 * lowSun));              // a low sun looks bigger
+    this.moonSprite.position.set(cp.x - toSun.x * SKY_R, cp.y - toSun.y * SKY_R, cp.z + toSun.z * SKY_R);
+    this.moonSprite.material.opacity = smoothstep(0.0, -0.1, sn) * Math.min(1, 0.5 + s.moonIntensity * 0.5);
+    this.moonSprite.material.color.set(s.moonColor).lerp(new THREE.Color(1, 1, 1), 0.55);
+    this.stars.position.copy(cp);
+    this.stars.material.opacity = smoothstep(0.05, -0.2, sn) * 0.9;
   }
 }

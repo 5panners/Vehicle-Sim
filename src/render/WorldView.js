@@ -39,6 +39,7 @@ export function labelSprite(text, { size = 64, color = '#fff', bg = 'rgba(0,0,0,
 export class WorldView {
   constructor(world, scene) {
     this.world = world; this.scene = scene;
+    this.updaters = [];                // per-frame scenery work (tree level of detail ...), called with the camera
     this.detail = noiseTexture(256, 0.35, 0.9);
     this._sky();
     this._terrain();
@@ -275,6 +276,8 @@ export class WorldView {
   }
 
   /** number of start lights lit (0-5) */
+  update(camera) { for (const f of this.updaters) f(camera); }
+
   setStartLights(n) {
     this.startLamps?.forEach((m, i) => m.color.setHex(i < n ? 0xff1a1a : 0x2a0606));
   }

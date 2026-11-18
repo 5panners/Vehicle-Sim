@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { rng } from '../../world/noise.js';
 import { broadleafTree, pineTree, farTree, garageFacade, seatTexture, bannerTexture } from './lowpoly.js';
+import { TreeTiles } from './treelod.js';
 
 /**
  * Spa-Francorchamps surroundings (low-poly, modelled on reference photos):
@@ -266,7 +267,7 @@ export function buildSpaScenery(view) {
     { geo: broadleafTree(23, { h: 17, crown: 5.0, leaf: 0x5a8a3a }), far: farTree(23, { h: 17, crown: 5.0, leaf: 0x5a8a3a }), w: 12 },        // beech
     { geo: broadleafTree(37, { h: 13, crown: 4.2, leaf: 0x3f6f30 }), far: farTree(37, { h: 13, crown: 4.2, leaf: 0x3f6f30 }), w: 7 },
   ];
-  const LOD_FAR = 300, TILE = 240, wsum = VARIANTS.reduce((a, v) => a + v.w, 0);
+  const TILE = 240, wsum = VARIANTS.reduce((a, v) => a + v.w, 0);
   const pick = () => { let r = rand() * wsum; for (let i = 0; i < VARIANTS.length; i++) { r -= VARIANTS[i].w; if (r <= 0) return i; } return 0; };
   const tiles = new Map(); let placed = 0;
   for (let tries = 0; tries < 330000 && placed < 15000; tries++) {
@@ -279,14 +280,15 @@ export function buildSpaScenery(view) {
     tiles.get(key)[pick()].push([x, z, 0.72 + rand() * 0.6, rand() * 6.28]);
     placed++;
   }
-  const treeMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), tint = new THREE.Color();
+  const trees = new TreeTiles(group, 230, 330), tint = new THREE.Color();   // each tree fades between its two models by its own distance
+  view.updaters.push((camera) => trees.update(camera));
   for (const [key, lists] of tiles) {
     const [tx, tz] = key.split(',').map(Number);
-    const lod = new THREE.LOD(); lod.position.set((tx + 0.5) * TILE, 0, (tz + 0.5) * TILE);
+    const lod = { position: new THREE.Vector3((tx + 0.5) * TILE, 0, (tz + 0.5) * TILE) };
     const near = new THREE.Group(), far = new THREE.Group();
     lists.forEach((list, vi) => {
       if (!list.length) return;
-      const hi = new THREE.InstancedMesh(VARIANTS[vi].geo, treeMat, list.length), lo = new THREE.InstancedMesh(VARIANTS[vi].far, treeMat, list.length);
+      const hi = new THREE.InstancedMesh(VARIANTS[vi].geo, trees.near, list.length), lo = new THREE.InstancedMesh(VARIANTS[vi].far, trees.far, list.length);
       list.forEach(([x, z, s, r], i) => {
         q.setFromAxisAngle(up, r);
         m4.compose(V.set(x - lod.position.x, world.heightAtGrid(x, z) - 0.15, z - lod.position.z), q, S.set(s, s * (0.9 + rand() * 0.25), s));
@@ -296,7 +298,7 @@ export function buildSpaScenery(view) {
       hi.computeBoundingSphere(); lo.computeBoundingSphere(); hi.castShadow = true; hi.receiveShadow = true;
       near.add(hi); far.add(lo);
     });
-    lod.addLevel(near, 0); lod.addLevel(far, LOD_FAR); group.add(lod);
+    trees.add(lod.position.x, lod.position.z, TILE, near, far);
   }
   return { trees: placed, houses: houses.length, tiles: tiles.size };
 }

@@ -329,6 +329,7 @@ class App {
     this.rig.update(dt, v, inp.buttons.lookBack);
     const p = v.body.position;
     // tunnels: the daylight drops away as the car goes in (eased, so the eyes 'adapt')
+    this.worldView.update(this.camera);       // tree level of detail
     this.gfx.update(dt);                     // time of day: sun position, sky, fog and base light levels
     if (this.world.map.inTunnel) {
       const info = this.world.trackInfo(p.x, p.z), T = this.world.track[Math.max(0, info.index)];

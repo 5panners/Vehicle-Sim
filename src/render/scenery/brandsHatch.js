@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { rng } from '../../world/noise.js';
 import { labelSprite } from '../WorldView.js';
 import { broadleafTree, birchTree, bareTree, pineTree, farTree, garageFacade, officeFacade, seatTexture, bannerTexture } from './lowpoly.js';
+import { TreeTiles } from './treelod.js';
 
 /**
  * Brands Hatch surroundings (low-poly, modelled on reference photos):
@@ -344,7 +345,6 @@ export function buildBrandsScenery(view) {
     { geo: bareTree(77, { h: 10 }), far: farTree(77, { h: 10, crown: 3.6, bare: true, bark: 0x5a4a3c }), w: 8 },
     { geo: pineTree(3, { h: 16 }), far: farTree(3, { h: 16, crown: 2.6, leaf: 0x2f5530, bark: 0x6b4a33 }), w: 5 },                        // Scots pine
   ];
-  const LOD_FAR = 260;
   const wsum = VARIANTS.reduce((a, v) => a + v.w, 0);
   const pick = () => { let r = rand() * wsum; for (let i = 0; i < VARIANTS.length; i++) { r -= VARIANTS[i].w; if (r <= 0) return i; } return 0; };
   const TILE = 220, tiles = new Map();
@@ -359,15 +359,16 @@ export function buildBrandsScenery(view) {
     tiles.get(key)[pick()].push([x, z, 0.75 + rand() * 0.55, rand() * 6.28]);
     placed++;
   }
-  const treeMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  const trees = new TreeTiles(group, 190, 290);   // each tree fades between its two models by its own distance
+  view.updaters.push((camera) => trees.update(camera));
   const tint = new THREE.Color();
   for (const [key, lists] of tiles) {
     const [tx, tz] = key.split(',').map(Number);
-    const lod = new THREE.LOD(); lod.position.set((tx + 0.5) * TILE, 0, (tz + 0.5) * TILE);
+    const lod = { position: new THREE.Vector3((tx + 0.5) * TILE, 0, (tz + 0.5) * TILE) };
     const near = new THREE.Group(), far = new THREE.Group();
     lists.forEach((list, vi) => {
       if (!list.length) return;
-      const hi = new THREE.InstancedMesh(VARIANTS[vi].geo, treeMat, list.length), lo = new THREE.InstancedMesh(VARIANTS[vi].far, treeMat, list.length);
+      const hi = new THREE.InstancedMesh(VARIANTS[vi].geo, trees.near, list.length), lo = new THREE.InstancedMesh(VARIANTS[vi].far, trees.far, list.length);
       list.forEach(([x, z, s, r], i) => {
         q.setFromAxisAngle(up, r);
         m4.compose(V.set(x - lod.position.x, world.heightAtGrid(x, z) - 0.15, z - lod.position.z), q, S.set(s, s * (0.9 + rand() * 0.25), s));
@@ -378,8 +379,7 @@ export function buildBrandsScenery(view) {
       hi.castShadow = true; hi.receiveShadow = true;   // distant stand-ins don't need shadows
       near.add(hi); far.add(lo);
     });
-    lod.addLevel(near, 0); lod.addLevel(far, LOD_FAR);
-    group.add(lod);
+    trees.add(lod.position.x, lod.position.z, TILE, near, far);
   }
 
   return { trees: placed, houses: houses.length, cars: cars.length, tiles: tiles.size };
