@@ -320,9 +320,9 @@ class App {
     this.carView.update(v, inp.state.brake);
     if (this.race) {
       for (const b of this.race.others) b.view.update(b.vehicle, b.vehicle.input.brake);
-      this.hud.el.hBot.innerHTML = this.race.hudHtml();
+      this._botHud = (this._botHud || 0) + 1; if (this._botHud % 4 === 1) { const html = this.race.hudHtml(); if (this.hud.el.hBot._h !== html) { this.hud.el.hBot._h = html; this.hud.el.hBot.innerHTML = html; } }   // a few times a second is plenty
       this.hud.mapOthers = this.race.mapDots();
-    } else this.hud.el.hBot.textContent = '';
+    } else if (this.hud.el.hBot._h !== '') { this.hud.el.hBot._h = ''; this.hud.el.hBot.textContent = ''; }
     const wc = v.wallContact; // read before effects consume it
     if (!paused) this.effects.update(dt * (this.slowmo ? 0.25 : 1), v);
     if (wc) this.audio.scrape = Math.max(this.audio.scrape || 0, wc.scrape);

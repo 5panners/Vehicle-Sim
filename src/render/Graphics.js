@@ -44,6 +44,8 @@ export class Graphics {
     let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* ignore */ }
     this.s = { ...DEFAULTS, ...saved };
     this.sunDir = new THREE.Vector3(0.5, 0.8, 0.3);
+    this._toSun = new THREE.Vector3(); this._light = new THREE.Vector3();        // scratch objects: update() runs every frame and must not allocate
+    this._c1 = new THREE.Color(); this._c2 = new THREE.Color(); this._c3 = new THREE.Color(); this._white = new THREE.Color(1, 1, 1);
     this._saveAcc = 0;
     const sky = app.world.map.sky || {};
     this.day = { top: new THREE.Color(sky.top ?? 0x3a7bd5), bottom: new THREE.Color(sky.bottom ?? 0xdfe9f3), sun: sky.sun ?? 2.4, hemi: sky.hemi ?? 1.1, exposure: 1.0 };
@@ -118,8 +120,8 @@ export class Graphics {
     const f = smoothstep(-0.12, 0.35, sn);                                    // how 'day' the sky is
     lighting.dark = smoothstep(0.40, 0.06, sn);                              // headlights come on as the light starts to go
     // sun by day, moon by night: one directional light, faded to nothing as it crosses the horizon
-    const toSun = new THREE.Vector3(Math.cos(a) * 0.85, sn, 0.45).normalize();
-    const light = sn >= 0 ? toSun : new THREE.Vector3(-toSun.x, -toSun.y, toSun.z);
+    const toSun = this._toSun.set(Math.cos(a) * 0.85, sn, 0.45).normalize();
+    const light = sn >= 0 ? toSun : this._light.set(-toSun.x, -toSun.y, toSun.z);
     this.sunDir.copy(light);
     const base = app.baseLight;
     const sunI = sn >= 0 ? this.day.sun * s.sunIntensity * smoothstep(0, 0.25, sn) : this.day.sun * 0.14 * s.moonIntensity * smoothstep(0, 0.25, -sn);
@@ -127,12 +129,12 @@ export class Graphics {
     base.hemi = this.day.hemi * (0.17 + 0.83 * f);   // never fully black: you can still drive at night
     base.exposure = this.day.exposure * (1 + 0.25 * (1 - f));
     const lowSun = 1 - smoothstep(0.1, 0.45, sn);
-    if (sn >= 0) { const noon = new THREE.Color(s.sunColor); app.sun.color.copy(noon).lerp(noon.clone().multiply(LOW_TINT), lowSun); }
+    if (sn >= 0) { const noon = this._c1.set(s.sunColor); app.sun.color.copy(noon).lerp(this._c2.copy(noon).multiply(LOW_TINT), lowSun); }
     else app.sun.color.set(s.moonColor);
     // sky and fog
     const dusk = Math.exp(-Math.pow(sn / 0.2, 2));
-    const top = NIGHT_TOP.clone().lerp(this.day.top, f);
-    const bottom = NIGHT_BOTTOM.clone().lerp(this.day.bottom, f).lerp(DUSK, 0.55 * dusk);
+    const top = this._c2.copy(NIGHT_TOP).lerp(this.day.top, f);
+    const bottom = this._c3.copy(NIGHT_BOTTOM).lerp(this.day.bottom, f).lerp(DUSK, 0.55 * dusk);
     const u = app.worldView?.sky?.material?.uniforms;
     if (u) { u.top.value.copy(top); u.bottom.value.copy(bottom); }
     if (app.scene.fog) app.scene.fog.color.copy(bottom).multiplyScalar(0.92);
@@ -141,11 +143,11 @@ export class Graphics {
     const cp = app.camera.position, up = sn >= 0;
     this.sunSprite.position.set(cp.x + toSun.x * SKY_R, cp.y + toSun.y * SKY_R, cp.z + toSun.z * SKY_R);
     this.sunSprite.material.opacity = smoothstep(-0.07, 0.03, sn) * Math.min(1, s.sunIntensity * 1.4);
-    this.sunSprite.material.color.copy(app.sun.color).lerp(new THREE.Color(1, 1, 1), up ? 0.35 * (1 - lowSun) : 0);
+    this.sunSprite.material.color.copy(app.sun.color).lerp(this._white, up ? 0.35 * (1 - lowSun) : 0);
     this.sunSprite.scale.setScalar(1500 * (1 + 0.5 * lowSun));              // a low sun looks bigger
     this.moonSprite.position.set(cp.x - toSun.x * SKY_R, cp.y - toSun.y * SKY_R, cp.z + toSun.z * SKY_R);
     this.moonSprite.material.opacity = smoothstep(0.0, -0.1, sn) * Math.min(1, 0.5 + s.moonIntensity * 0.5);
-    this.moonSprite.material.color.set(s.moonColor).lerp(new THREE.Color(1, 1, 1), 0.55);
+    this.moonSprite.material.color.set(s.moonColor).lerp(this._white, 0.55);
     this.stars.position.copy(cp);
     this.stars.material.opacity = smoothstep(0.05, -0.2, sn) * 0.9;
   }

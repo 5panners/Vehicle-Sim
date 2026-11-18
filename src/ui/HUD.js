@@ -2,6 +2,12 @@ import { BUILD } from '../build.js';
 const $ = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; };
 const DEG = 180 / Math.PI;
 
+// DOM writes only when the value changed: even an identical textContent / style write costs a style recalculation
+const setText = (el, v) => { if (el._t !== v) { el._t = v; el.textContent = v; } };
+const setHtml = (el, v) => { if (el._h !== v) { el._h = v; el.innerHTML = v; } };
+const setClass = (el, v) => { if (el._c !== v) { el._c = v; el.className = v; } };
+const setStyle = (el, k, v) => { const key = '_s' + k; if (el[key] !== v) { el[key] = v; el.style[k] = v; } };
+
 export class HUD {
   constructor(root) {
     this.root = root;
@@ -130,6 +136,7 @@ export class HUD {
 
   _updateMap(v) {
     if (!this.world || this.mapEl.classList.contains('off')) return;
+    this._mapTick = !this._mapTick; if (this._mapTick && this._mapStatic) return;   // redraw every other frame: 30 Hz is plenty for the little arrow
     const cv = this.mapEl.firstChild, dpr = Math.min(2, window.devicePixelRatio || 1);
     const W = Math.round(this.mapEl.clientWidth), H = Math.round(W / this.mapBounds.aspect);
     if (!W) return;
@@ -191,42 +198,44 @@ export class HUD {
   update(dt, vehicle, input, extra) {
     const e = this.el, v = vehicle, eng = v.config.engine;
     this.fps += (1 / Math.max(dt, 1e-3) - this.fps) * 0.05;
-    e.hFps.textContent = `${this.fps.toFixed(0)} fps · physics ${extra.physicsHz} Hz${extra.slowmo ? ' · SLOW-MO' : ''}`;
-    e.hCam.textContent = `Camera: ${extra.camera}`;
-    e.hCar.textContent = v.config.name + (this.mapName ? `  ·  ${this.mapName}` : '');
+    this._slowT = (this._slowT || 0) + dt; const slow = this._slowT > 0.066; if (slow) this._slowT = 0;   // text that changes constantly is refreshed ~15 times a second
+    if (slow) setText(e.hFps, `${this.fps.toFixed(0)} fps · physics ${extra.physicsHz} Hz${extra.slowmo ? ' · SLOW-MO' : ''}`);
+    setText(e.hCam, `Camera: ${extra.camera}`);
+    setText(e.hCar, v.config.name + (this.mapName ? `  ·  ${this.mapName}` : ''));
     const lt = extra.lap;
-    if (lt) {
+    if (lt && (slow || !lt.running)) {
       const f = (t) => { const m = Math.floor(t / 60), s = t - m * 60; return `${m}:${s.toFixed(3).padStart(6, '0')}`; };
       const sec = lt.sectors.map((x, i) => `<span class="${x === null ? '' : lt.bestSectors[i] !== null && x <= lt.bestSectors[i] + 1e-6 ? 'pb' : ''}">S${i + 1} ${x === null ? '--.--' : x.toFixed(2)}</span>`).join(' ');
-      e.hLap.innerHTML = lt.running
+      setHtml(e.hLap, lt.running
         ? `<b class="${lt.valid ? '' : 'inv'}">LAP ${lt.lap} &nbsp;${f(lt.lapTime)}</b><br>${sec}<br>best ${lt.best === null ? '--:--.---' : f(lt.best)} · last ${lt.last ? f(lt.last.time) + (lt.last.valid ? '' : ' ✗') : '--:--.---'}`
-        : `<span class="small">Cross the start line to start timing</span>${lt.best !== null ? `<br>best ${f(lt.best)}` : ''}`;
+        : `<span class="small">Cross the start line to start timing</span>${lt.best !== null ? `<br>best ${f(lt.best)}` : ''}`);
     }
     const surfaces = [...new Set(v.wheels.filter((w) => w.contact && w.surface).map((w) => w.surface.name))];
-    e.hSurf.textContent = surfaces.length ? 'Surface: ' + surfaces.join(' / ') : 'Airborne';
-    e.hDev.textContent = input.padConnected ? `Controller: ${input.lastDevice === 'gamepad' ? 'active' : 'connected'}` : 'Keyboard (connect a controller anytime)';
-    e.aABS.className = v.assists.abs ? (v.absActive ? 'on act' : 'on') : '';
-    e.aTCS.className = v.assists.tcs ? (v.tcsActive ? 'on act' : 'on') : '';
-    e.aESC.className = v.assists.stability ? (v.escActive ? 'on act' : 'on') : '';
-    e.aAUTO.className = v.assists.autoGearbox ? 'on' : '';
-    e.aAUTO.textContent = v.assists.autoGearbox ? 'AUTO' : 'MANUAL';
+    setText(e.hSurf, surfaces.length ? 'Surface: ' + surfaces.join(' / ') : 'Airborne');
+    setText(e.hDev, input.padConnected ? `Controller: ${input.lastDevice === 'gamepad' ? 'active' : 'connected'}` : 'Keyboard (connect a controller anytime)');
+    setClass(e.aABS, v.assists.abs ? (v.absActive ? 'on act' : 'on') : '');
+    setClass(e.aTCS, v.assists.tcs ? (v.tcsActive ? 'on act' : 'on') : '');
+    setClass(e.aESC, v.assists.stability ? (v.escActive ? 'on act' : 'on') : '');
+    setClass(e.aAUTO, v.assists.autoGearbox ? 'on' : '');
+    setText(e.aAUTO, v.assists.autoGearbox ? 'AUTO' : 'MANUAL');
 
     const rpm = v.rpm, maxR = eng.limiterRPM * 1.02;
-    e.hRpm.style.width = `${Math.min(100, (rpm / maxR) * 100)}%`;
-    e.hRpm.classList.toggle('shift', rpm > eng.redlineRPM * 0.96);
-    e.hRed.style.left = `${(eng.redlineRPM / maxR) * 100}%`;
+    setStyle(e.hRpm, 'width', `${Math.min(100, Math.round((rpm / maxR) * 1000) / 10)}%`);
+    const shiftNow = rpm > eng.redlineRPM * 0.96; if (e.hRpm._shift !== shiftNow) { e.hRpm._shift = shiftNow; e.hRpm.classList.toggle('shift', shiftNow); }
+    setStyle(e.hRed, 'left', `${(eng.redlineRPM / maxR) * 100}%`);
     const g = v.gear;
-    e.hGear.textContent = g === 0 ? 'N' : g < 0 ? 'R' : g;
+    setText(e.hGear, g === 0 ? 'N' : g < 0 ? 'R' : String(g));
     const sp = v.forwardSpeed;
-    e.hSpd.textContent = Math.abs(this.units === 'kmh' ? sp * 3.6 : sp * 2.237).toFixed(0);
-    e.hUnit.textContent = this.units === 'kmh' ? 'km/h' : 'mph';
+    setText(e.hSpd, Math.abs(this.units === 'kmh' ? sp * 3.6 : sp * 2.237).toFixed(0));
+    setText(e.hUnit, this.units === 'kmh' ? 'km/h' : 'mph');
     const boost = v.drivetrain.engine.boost;
-    e.hRpmTxt.textContent = `${rpm.toFixed(0)} rpm${boost > 0.01 ? ` · boost ${(boost * 100).toFixed(0)}%` : ''}${v.drivetrain.clutchSlipping ? ' · clutch slip' : ''}`;
+    if (slow) setText(e.hRpmTxt, `${rpm.toFixed(0)} rpm${boost > 0.01 ? ` · boost ${(boost * 100).toFixed(0)}%` : ''}${v.drivetrain.clutchSlipping ? ' · clutch slip' : ''}`);
 
     const s = input.state;
-    e.iSteer.style.left = `${50 + Math.min(0, s.steer) * 50}%`; e.iSteer.style.width = `${Math.abs(s.steer) * 50}%`;
-    e.iThr.style.width = `${s.throttle * 100}%`; e.iBrk.style.width = `${s.brake * 100}%`;
-    e.iHb.style.width = `${s.handbrake * 100}%`; e.iClu.style.width = `${s.clutch * 100}%`;
+    const pc = (x) => `${Math.round(x * 1000) / 10}%`;
+    setStyle(e.iSteer, 'left', pc(0.5 + Math.min(0, s.steer) * 0.5)); setStyle(e.iSteer, 'width', pc(Math.abs(s.steer) * 0.5));
+    setStyle(e.iThr, 'width', pc(s.throttle)); setStyle(e.iBrk, 'width', pc(s.brake));
+    setStyle(e.iHb, 'width', pc(s.handbrake)); setStyle(e.iClu, 'width', pc(s.clutch));
 
     if (this.tele.classList.contains('open')) this._telemetry(v);
     this._driftMeter(dt, v);
@@ -254,11 +263,13 @@ export class HUD {
         d.combo = 0; d.active = false;
       }
     }
-    el.classList.toggle('show', d.active || d.total > 0);
-    el.classList.toggle('live', sliding);
-    el.firstChild.textContent = d.active ? `DRIFT ${Math.round(sliding ? ang : d.angle)}°` : '';
-    el.children[1].textContent = d.active ? Math.round(d.combo).toLocaleString() : '';
-    el.children[2].textContent = d.total > 0 ? `total ${d.total.toLocaleString()} · best ${d.best.toLocaleString()}` : '';
+    const showNow = d.active || d.total > 0; if (el._show !== showNow) { el._show = showNow; el.classList.toggle('show', showNow); }
+    if (el._live !== sliding) { el._live = sliding; el.classList.toggle('live', sliding); }
+    if (showNow) {
+      setText(el.firstChild, d.active ? `DRIFT ${Math.round(sliding ? ang : d.angle)}°` : '');
+      setText(el.children[1], d.active ? Math.round(d.combo).toLocaleString() : '');
+      setText(el.children[2], d.total > 0 ? `total ${d.total.toLocaleString()} · best ${d.best.toLocaleString()}` : '');
+    }
   }
   resetDrift() { Object.assign(this.drift, { combo: 0, total: 0, idle: 0, active: false, best: 0 }); }
 

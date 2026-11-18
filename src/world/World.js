@@ -204,14 +204,22 @@ export class World {
     // stamp track: nearest-sample distance & banked height
     const reach = this.maxHalfWidth + Math.max(33, blend + 1) + (map.flatReach ?? 0);
     const gravel = new Uint8Array(n * n);
+    const seen = new Int32Array(n * n).fill(-1);          // which sample last visited a cell (each cell is tested once per sample)
+    const r = Math.ceil(reach / res), lateralMax = Math.SQRT2 * r * res + 1;
     for (const s of this.track) {
       const ci = Math.round((s.x + half) / res), cj = Math.round((s.z + half) / res);
-      const r = Math.ceil(reach / res);
-      for (let j = cj - r; j <= cj + r; j++) {
-        if (j < 0 || j >= n) continue;
-        for (let i = ci - r; i <= ci + r; i++) {
-          if (i < 0 || i >= n) continue;
-          const x = i * res - half, z = j * res - half;
+      // only cells within 1.2 m of the cross-section line through the sample matter (|along| <= 1.2), so walk that thin strip
+      // instead of the whole square around the sample: same cells, a fraction of the work
+      for (let lt = -lateralMax; lt <= lateralMax; lt += 0.5) for (let u = -1.5; u <= 1.5; u += 0.5) {
+        const px = s.x + s.rx * lt + s.tx * u, pz = s.z + s.rz * lt + s.tz * u;
+        const i = Math.round((px + half) / res), j = Math.round((pz + half) / res);
+        if (i < 0 || j < 0 || i >= n || j >= n || Math.abs(i - ci) > r || Math.abs(j - cj) > r) continue;
+        const kk = j * n + i;
+        if (seen[kk] === s.i) continue;
+        seen[kk] = s.i;
+        {
+          {
+            const x = i * res - half, z = j * res - half;
           const dx = x - s.x, dz = z - s.z;
           const along = dx * s.tx + dz * s.tz;
           if (Math.abs(along) > 1.2) continue;
@@ -228,9 +236,11 @@ export class World {
           }
         }
       }
+      }
     }
 
-    const flatArr = map.flatWidth ? new Float32Array(n * n) : null;   // per cell: how far the ground is held flat beside the track
+    const flatArr = map.flatWidth ? new Float32Array(n * n) : null;
+    const fwCache = new Float32Array(this.track.length * 2).fill(NaN);   // per cell: how far the ground is held flat beside the track
     for (let j = 0; j < n; j++) {
       const z = j * res - half;
       for (let i = 0; i < n; i++) {
@@ -242,7 +252,12 @@ export class World {
         if (d < 1e8) {
           const s = this.track[trackIdx[k]], hw = s.w / 2;
           // maps can keep the ground flat further out on one side (tarmac run-off, gravel traps)
-          const fw = map.flatWidth ? map.flatWidth(s, trackLat[k], this) : 0;
+          let fw = 0;
+          if (map.flatWidth) {                                   // depends only on the sample and which side of it the cell is on: compute once per sample
+            const fk = s.i * 2 + (trackLat[k] > 0 ? 1 : 0);
+            fw = fwCache[fk];
+            if (fw !== fw) fw = fwCache[fk] = map.flatWidth(s, trackLat[k], this);   // NaN = not yet computed
+          }
           if (flatArr) flatArr[k] = fw;
           const t = smoothstep(hw + 1.5 + fw, hw + blend + fw, d);
           h = lerp(trackH[k], h, t);

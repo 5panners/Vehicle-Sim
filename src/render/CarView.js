@@ -200,7 +200,7 @@ export class CarView {
     const brakeName = vehicle.config.model.brakeMaterial;
     root.traverse((o) => {
       if (!o.isMesh) return;
-      o.castShadow = !o.material.transparent; o.receiveShadow = true;
+      o.castShadow = !o.material.transparent && !SKIP_SHADOW.test(`${o.name} ${o.parent?.name ?? ''}`); o.receiveShadow = true;   // small trim, decals, glass and the cabin cast no shadow: fewer draws in the shadow pass
       // opponent cars: recolour the model's paint (cloned so the player's car keeps its colour)
       if (this.tint !== undefined && /paint/i.test(o.material.name)) {
         if (!this._tintMat || this._tintMat.name !== o.material.name) { this._tintMat = o.material.clone(); this._tintMat.color.setHex(this.tint); }
@@ -215,7 +215,7 @@ export class CarView {
         o.material = this.brakeMat;
       }
     });
-    for (const n of [...wheels, ...calipers]) n?.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    for (const n of [...wheels, ...calipers]) n?.traverse((o) => { if (o.isMesh) { o.castShadow = !/caliper/i.test(n.name); o.receiveShadow = true; } });
     // without an environment map, fully metallic PBR surfaces (rims, discs) render near-black
     if (!this.scene.environment) {
       const softened = new Map();
@@ -620,6 +620,7 @@ export class CarView {
 }
 
 const _fwd = new THREE.Vector3();
+const SKIP_SHADOW = /interior|glass|details|livery|trim|caliper/i;
 /** light on the road from two lamps: two lobes, bright and wide in the near field, fading out along the length */
 function poolTexture() {
   const W = 128, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H;

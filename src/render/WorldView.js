@@ -145,22 +145,41 @@ export class WorldView {
       col[k * 3] = s.color[0] * v; col[k * 3 + 1] = s.color[1] * v; col[k * 3 + 2] = s.color[2] * v;
       uv[k * 2] = x / 8; uv[k * 2 + 1] = z / 8;
     }
-    const idx = new Uint32Array((n - 1) * (n - 1) * 6);
+    // normals come from one full-resolution pass, then the terrain is cut into square chunks that share the vertex
+    // buffers but have their own index lists and bounding spheres, so the renderer can skip the ones out of view
+    const full = new Uint32Array((n - 1) * (n - 1) * 6);
     let p = 0;
     for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
       const a = j * n + i, b = a + 1, c = a + n, d = c + 1;
-      idx[p++] = a; idx[p++] = c; idx[p++] = b; idx[p++] = b; idx[p++] = c; idx[p++] = d;
+      full[p++] = a; full[p++] = c; full[p++] = b; full[p++] = b; full[p++] = c; full[p++] = d;
     }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-    g.setIndex(new THREE.BufferAttribute(idx, 1));
-    g.computeVertexNormals();
+    const gAll = new THREE.BufferGeometry();
+    gAll.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    gAll.setIndex(new THREE.BufferAttribute(full, 1));
+    gAll.computeVertexNormals();
+    const posAttr = gAll.getAttribute('position'), nrmAttr = gAll.getAttribute('normal');
+    const colAttr = new THREE.BufferAttribute(col, 3), uvAttr = new THREE.BufferAttribute(uv, 2);
     const m = new THREE.MeshLambertMaterial({ vertexColors: true, map: this.detail });
-    const mesh = new THREE.Mesh(g, m);
-    mesh.receiveShadow = true;
-    this.scene.add(mesh);
+    const C = 48;                                                                // cells per chunk side (120 m at the 2.5 m mesh, 144 m at 3 m)
+    this.terrainChunks = [];
+    for (let cj = 0; cj < n - 1; cj += C) for (let ci = 0; ci < n - 1; ci += C) {
+      const i1 = Math.min(ci + C, n - 1), j1 = Math.min(cj + C, n - 1);
+      const idx = new Uint32Array((i1 - ci) * (j1 - cj) * 6);
+      let q = 0, ymin = Infinity, ymax = -Infinity;
+      for (let j = cj; j < j1; j++) for (let i = ci; i < i1; i++) {
+        const a = j * n + i, b = a + 1, c = a + n, d = c + 1;
+        idx[q++] = a; idx[q++] = c; idx[q++] = b; idx[q++] = b; idx[q++] = c; idx[q++] = d;
+      }
+      for (let j = cj; j <= j1; j++) for (let i = ci; i <= i1; i++) { const y = pos[(j * n + i) * 3 + 1]; if (y < ymin) ymin = y; if (y > ymax) ymax = y; }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', posAttr); g.setAttribute('normal', nrmAttr); g.setAttribute('color', colAttr); g.setAttribute('uv', uvAttr);
+      g.setIndex(new THREE.BufferAttribute(idx, 1));
+      const cx = ((ci + i1) / 2) * step - half, cz = ((cj + j1) / 2) * step - half, hw = ((i1 - ci) * step) / 2, hh = (ymax - ymin) / 2;
+      g.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, (ymin + ymax) / 2, cz), Math.hypot(hw, hw, hh) + 0.5);
+      const mesh = new THREE.Mesh(g, m);
+      mesh.receiveShadow = true;
+      this.scene.add(mesh); this.terrainChunks.push(mesh);
+    }
   }
 
   /**
