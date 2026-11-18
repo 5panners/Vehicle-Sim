@@ -45,6 +45,11 @@ def cmat():
     M['red'] = mat("CAT_Red", (0.7, 0.03, 0.02), 0.4)
     M['mirror'] = mat("CAT_Mirror", (0.75, 0.78, 0.8), 0.04, 0.9)
     M['pipe'] = mat("CAT_Exhaust", (0.5, 0.5, 0.5), 0.35, 1.0)
+    M['suit'] = mat("CAT_Suit", (0.02, 0.04, 0.22), 0.7)
+    M['helmet'] = mat("CAT_Helmet", (0.75, 0.75, 0.72), 0.2, coat=0.6)
+    M['visor'] = mat("CAT_Visor", (0.01, 0.012, 0.02), 0.05, 0.4)
+    M['belt'] = mat("CAT_Harness", (0.03, 0.03, 0.035), 0.9)
+    M['glove'] = mat("CAT_Glove", (0.015, 0.015, 0.016), 0.8)
     M['floor'] = mat("CAT_Floor", (0.02, 0.022, 0.024), 0.9)
     return M
 
@@ -414,6 +419,9 @@ def build_suspension(coll, M):
 
 
 # ---------------------------------------------------------------- cockpit
+WHEEL_C = (-0.255, 0.20, 0.775)     # steering wheel centre (raised 300 mm and moved 100 mm forward)
+
+
 def build_cockpit(coll, M):
     objs = []
     # scuttle / dashboard: a carbon cowl across the tub, face sloping toward the driver
@@ -436,16 +444,16 @@ def build_cockpit(coll, M):
                 lathe(B, [(0.0, 0.0), (0.0, 0.006), (0.032, 0.005)], 6, S, 'y', (x, 0.2 - (z - 0.55) * 0.22, z))
                 lathe(B, [(0.034, 0.0), (0.034, 0.011), (0.04, 0.011)], 6, K, 'y', (x, 0.2 - (z - 0.55) * 0.22, z + 0.0))
     # steering column + wheel (right-hand drive)
-    B.tube([(-0.255, 0.16, 0.50), (-0.255, 0.30, 0.575)], 0.014, K, 6)
+    B.tube([(-0.255, 0.12, 0.52), (-0.255, 0.20, 0.775)], 0.014, K, 6)
     rot = Matrix.Rotation(math.radians(-62), 3, 'X') @ Matrix.Rotation(math.radians(90), 3, 'X') @ Matrix.Rotation(math.radians(-90), 3, 'X')
     # ring in the plane facing the driver (normal tilted back toward +y)
     nrm = Vector((0, 0.80, 0.60)).normalized()
     rot = Vector((0, 0, 1)).rotation_difference(nrm).to_matrix()
-    torus(B, (-0.255, 0.30, 0.575), 0.135, 0.013, rot, K, 24, 6)
+    torus(B, WHEEL_C, 0.135, 0.013, rot, K, 24, 6)
     for a in (0, 2.1, 4.2):
         p = rot @ Vector((0.135 * math.cos(a), 0.135 * math.sin(a), 0))
-        B.tube([Vector((-0.255, 0.30, 0.575)), Vector((-0.255, 0.30, 0.575)) + p], 0.007, K, 5)
-    lathe(B, [(0, 0), (0, 0.03), (0.02, 0.03)], 10, K, 'y', (-0.255, 0.30, 0.575))
+        B.tube([Vector(WHEEL_C), Vector(WHEEL_C) + p], 0.007, K, 5)
+    lathe(B, [(0, 0), (0, 0.03), (0.02, 0.03)], 10, K, 'y', WHEEL_C)
     # gear lever and handbrake
     B.tube([(-0.02, 0.55, 0.40), (-0.02, 0.52, 0.52)], 0.007, CH, 5)
     lathe(B, [(0, 0), (0, 0.02), (0.02, 0.02), (0.04, 0.0)], 8, K, 'z', (-0.02, 0.52, 0.50))
@@ -468,6 +476,68 @@ def build_cockpit(coll, M):
             B.box((sx + bx, 0.67, 0.34), (0.04, 0.34, 0.15), ST)
     objs.append(B.obj("CAT_Cockpit", coll, [M['gauge'], M['black'], M['chrome'], M['chrome'], M['red'], M['seat']], smooth=45))
     return objs
+
+
+def build_driver(coll, M):
+    """a low-poly driver sitting in the right-hand seat: race suit with chest stripe, harness, HANS collar, gloved hands on the wheel, boots on the pedals, full-face helmet"""
+    B = Builder()
+    SU, HE, VI, GL, BE, YE, WH, BO, CH = range(9)
+    X = -0.255
+    A = Vector((0, 0.292, 0.956))                      # up the seat back
+    N = Vector((0, -0.956, 0.292))                     # out of the seat back, towards the dash
+    S0 = Vector((X, 0.778, 0.38))                      # a point on the seat-back surface just above the cushion
+    lean = Matrix.Rotation(math.radians(-17), 3, 'X').to_quaternion()
+    P = lambda u, w, v=0.0: S0 + A * u + N * w + Vector((v, 0, 0))
+
+    def tbox(u, w, v, sx, sd, sh, mi):                 # box in the seat-back frame
+        B.add(box_verts(P(u, w, v), (sx, sd, sh), lean), BOX_FACES, mi, 'c')
+
+    # pelvis resting on the cushion, waist, chest, shoulders
+    tbox(0.07, 0.13, 0, 0.36, 0.26, 0.17, SU)
+    tbox(0.20, 0.115, 0, 0.30, 0.20, 0.17, SU)
+    tbox(0.38, 0.12, 0, 0.38, 0.23, 0.22, SU)
+    tbox(0.41, 0.236, 0, 0.36, 0.006, 0.026, WH)     # chest stripe
+    tbox(0.47, 0.236, 0.10, 0.07, 0.006, 0.05, YE)   # sponsor patch
+    for sx in (-1, 1):
+        sh = P(0.49, 0.10, sx * 0.205)
+        lathe(B, [(-0.07, 0.0), (-0.05, 0.05), (0.0, 0.068), (0.05, 0.05), (0.07, 0.0)], 8, SU, 'x', tuple(sh))
+    # HANS collar and neck
+    tbox(0.54, 0.10, 0, 0.30, 0.20, 0.05, BO)
+    head = P(0.70, 0.15)
+    B.tube([P(0.52, 0.10), head + Vector((0, 0.01, -0.10))], 0.046, SU, 8)
+    # helmet: shell, chin bar, visor with white trim, stripe
+    lathe(B, [(-0.125, 0.0), (-0.115, 0.065), (-0.07, 0.108), (0.04, 0.125), (0.105, 0.09), (0.13, 0.0)], 14, HE, 'z', tuple(head))
+    B.box((head.x, head.y - 0.105, head.z - 0.085), (0.12, 0.06, 0.06), HE)
+    B.box((head.x, head.y - 0.111, head.z + 0.0), (0.175, 0.05, 0.068), WH)
+    B.box((head.x, head.y - 0.118, head.z + 0.0), (0.155, 0.05, 0.052), VI)
+    B.box((head.x, head.y, head.z + 0.124), (0.035, 0.20, 0.012), YE)
+    # harness: shoulder straps, lap belt and buckle
+    for sx in (-1, 1):
+        B.tube([P(0.55, 0.045, sx * 0.11), P(0.40, 0.235, sx * 0.09), P(0.14, 0.27, sx * 0.04)], 0.019, BE, 4)
+    B.tube([P(0.04, 0.265, -0.19), P(0.04, 0.285, 0.0), P(0.04, 0.265, 0.19)], 0.02, BE, 4)
+    B.box(tuple(P(0.04, 0.30, 0.0)), (0.055, 0.02, 0.055), CH)
+    # arms to the wheel (9 and 3 o'clock) and gloves with fingers
+    for sx in (-1, 1):
+        sh = P(0.49, 0.10, sx * 0.205)
+        hand = Vector(WHEEL_C) + Vector((sx * 0.135, 0.0, 0.0))
+        el = (sh + hand) / 2 + Vector((sx * 0.07, 0.07, -0.12))
+        B.tube([sh, el], 0.044, SU, 8)
+        B.tube([el, hand + Vector((0, 0.05, 0.0))], 0.036, SU, 8)
+        B.box(tuple(hand + Vector((0, 0.02, 0.0))), (0.085, 0.06, 0.09), GL)
+        for k in range(4):
+            B.box(tuple(hand + Vector((sx * -0.025 + sx * k * 0.0, -0.035, 0.036 - k * 0.024))), (0.075, 0.028, 0.02), GL)
+        B.box(tuple(hand + Vector((-sx * 0.055, 0.0, 0.03))), (0.02, 0.05, 0.03), GL)
+    # legs: hip -> knee -> ankle, knee pads, boots on the pedals
+    for sx in (-1, 1):
+        hip = P(0.09, 0.15, sx * 0.095)
+        knee = Vector((X + sx * 0.115, 0.31, 0.545))
+        ankle = Vector((X + sx * 0.075, 0.075, 0.36))
+        B.tube([hip, knee], 0.068, SU, 8)
+        B.tube([knee, ankle], 0.052, SU, 8)
+        lathe(B, [(-0.035, 0.0), (-0.03, 0.06), (0.03, 0.06), (0.04, 0.0)], 8, SU, 'y', tuple(knee))
+        B.box((ankle.x, ankle.y - 0.045, ankle.z - 0.035), (0.095, 0.25, 0.085), BO)
+        B.box((ankle.x, ankle.y - 0.045, ankle.z - 0.085), (0.1, 0.26, 0.02), CH)
+    return B.obj("CAT_Driver", coll, [M['suit'], M['helmet'], M['visor'], M['glove'], M['belt'], M['yellow'], M['white'], M['black'], M['chrome']], smooth=45)
 
 
 # ---------------------------------------------------------------- roll hoop, scuttle blade, mirrors, exhaust
@@ -692,6 +762,7 @@ def build():
     lamps = build_front_lamps(coll, M)
     susp = build_suspension(coll, M)
     cockpit = build_cockpit(coll, M)
+    driver = build_driver(coll, M)
     hoop = build_hoop(coll, M)
     scuttle = build_scuttle(coll, M)
     exhaust = build_exhaust(coll, M)

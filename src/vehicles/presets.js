@@ -148,7 +148,7 @@ export const PRESETS = [
     color: 0x0f3b22, accent: 0xe8a91f, style: 'cigar',
     // glTF body built in Blender (tools/blender/build_caterham_620r.py)
     model: { url: 'assets/models/caterham-620r.glb', prefix: 'CAT_', brakeMaterial: 'CAT_Taillight' },
-    view: { hood: [0.78, -0.3] },
+    view: { hood: [0.98, -0.6] },
     body: {
       mass: 620, cgHeight: 0.3, weightDistFront: 0.48, groundClearance: 0.1,
       dimensions: { width: 1.7, height: 1.1, length: 3.1 },
