@@ -373,7 +373,7 @@ def build_nose_details(coll, M):
     wires = B.obj("CAT_GrilleWires", coll, [M['white']], smooth=None)
     parts.append(wires)
     v2, f2 = text_tris("7", 0.19, 1.0)
-    vs = [(-u * 0.9, y0 - 0.0045, 0.445 + v) for (u, v) in v2]
+    vs = [(u * 0.9, y0 - 0.008, 0.445 + v) for (u, v) in v2]
     seven = mesh_obj("CAT_Seven", vs, [list(f) for f in f2], coll, [M['white']])
     bm = bmesh.new(); bm.from_mesh(seven.data); bm.normal_update()
     bmesh.ops.reverse_faces(bm, faces=[f for f in bm.faces if f.normal.y > 0]); bm.to_mesh(seven.data); bm.free()
@@ -436,8 +436,8 @@ def build_cockpit(coll, M):
     B = Builder()
     G, K, S, CH, RED, ST = 0, 1, 2, 3, 4, 5
     # gauges: three round dials in front of the driver (the right seat), switch bank to the left
-    for (x, z, r) in ((-0.17, 0.60, 0.040), (-0.28, 0.60, 0.040), (-0.39, 0.60, 0.032), (-0.34, 0.69, 0.024)):
-        lathe(B, [(0.0, 0.0), (0.0, r), (-0.012, r), (-0.016, r * 0.85)], 16, G, 'y', (x, 0.221 - (0.60 - z) * 0.0, z))
+    for (x, z, r) in ((-0.17, 0.735, 0.036), (-0.255, 0.742, 0.042), (-0.34, 0.735, 0.036), (-0.255, 0.69, 0.022)):   # up inside the wheel rim so they read through it
+        lathe(B, [(0.0, 0.0), (0.0, r), (-0.012, r), (-0.016, r * 0.85)], 16, G, 'y', (x, 0.09 + (0.795 - z) * 0.88 + 0.006, z))
     for row, z in enumerate((0.64, 0.70)):
         for k in range(6):
                 x = 0.05 + k * 0.058
@@ -477,6 +477,109 @@ def build_cockpit(coll, M):
     objs.append(B.obj("CAT_Cockpit", coll, [M['gauge'], M['black'], M['chrome'], M['chrome'], M['red'], M['seat']], smooth=45))
     return objs
 
+def build_helmet(coll, M, head):
+    """full-face race helmet (Arai/Bell GT style): one smooth shell, chin bar, tinted visor and trim painted by face material,
+    vents, aero tail, side pivots and a livery that matches the car"""
+    SH, VISOR, TRIM, YEL, GRN, WHT, VENT = range(7)
+    NPHI, NTH = 40, 80
+    phis = [math.radians(-64 + (90 + 64) * i / (NPHI - 1)) for i in range(NPHI)]
+    hx, hy, hz = head.x, head.y, head.z + 0.01
+    def sstep(a, b, x):
+        u = max(0.0, min(1.0, (x - a) / (b - a)))
+        return u * u * (3 - 2 * u)
+    def shape(phi, th):
+        """point on the shell, helmet-local: x right, y forward is -y (th = 0 faces the dash), z up"""
+        c, s = math.cos(phi), math.sin(phi)
+        front = max(0.0, math.cos(th))                       # 1 at the nose, 0 at the sides, <0 behind
+        rx, ry, rz = 0.108, 0.150, 0.138
+        # chin bar: pushes the lower front forward and in
+        chin = sstep(-0.0, 1.0, front) * sstep(math.radians(-5), math.radians(-52), phi)
+        ry_ = ry + 0.034 * chin
+        rx_ = rx - 0.020 * chin
+        # flat-ish crown, a little rear flare at the neck roll
+        rz_ = rz * (1.0 - 0.06 * sstep(60, 90, math.degrees(phi)))
+        rear = max(0.0, -math.cos(th)) * sstep(math.radians(-40), math.radians(-62), phi)
+        ry_ += 0.01 * rear
+        # brow ridge over the eye port
+        brow = sstep(0.55, 1.0, front) * math.exp(-((math.degrees(phi) - 16) / 7) ** 2)
+        ry_ += 0.006 * brow
+        x = rx_ * c * math.sin(th)
+        y = -ry_ * c * math.cos(th)
+        z = rz_ * s
+        return x, y, z
+    def region(phi, th):
+        ang = math.degrees(min(th, 2 * math.pi - th))        # angle off the nose
+        d = math.degrees(phi)
+        # visor window and its seal
+        # neck roll
+        if d < -58: return TRIM
+        # livery: centre stripe over the top, green side band, yellow edge line
+        x = math.sin(th)
+        if d > 12 and abs(x) < 0.17 and ang < 170: return YEL
+        if d > 12 and 0.17 <= abs(x) < 0.23 and ang < 170: return WHT
+        if -36 <= d < -22 and 62 < ang < 160: return GRN
+        if -22 <= d < -18 and 62 < ang < 160: return YEL
+        return SH
+    def vert(phi, th):
+        x, y, z = shape(phi, th)
+        return (hx + x, hy + y, hz + z)
+    verts, faces, fm = [], [], []
+    for i in range(NPHI):
+        for j in range(NTH):
+            th = 2 * math.pi * j / NTH
+            verts.append(vert(phis[i], th))
+    for i in range(NPHI - 1):
+        for j in range(NTH):
+            j2 = (j + 1) % NTH
+            faces.append([i * NTH + j, i * NTH + j2, (i + 1) * NTH + j2, (i + 1) * NTH + j])
+            pm, tm = (phis[i] + phis[i + 1]) / 2, 2 * math.pi * (j + 0.5) / NTH
+            fm.append(region(pm, tm))
+    # close the crown
+    top = [(NPHI - 1) * NTH + j for j in range(NTH)]
+    faces.append(top[::-1]); fm.append(YEL if False else SH)
+    mats = [M['helmet'], M['visor'], M['belt'], M['yellow'], M['paint'], M['white'], M['black']]
+    ob = mesh_obj("CAT_Helmet", verts, faces, coll, mats, face_mats=fm, smooth_angle=55)
+    orient_faces(ob, (hx, hy, hz), outward=True)
+    # visor, its seal and the chin vent: smooth painted discs laid on the shell (no stair-stepping)
+    def disc(name, e_th, e_ph, c_ph, c_th, scale, mi, nr=4, na=36, bulge=0.0):
+        vs = [None]
+        rings = []
+        for r in range(1, nr + 1):
+            rr = r / nr
+            ring = []
+            for a in range(na):
+                ang = 2 * math.pi * a / na
+                th = c_th + math.radians(e_th) * rr * math.cos(ang)
+                ph = math.radians(c_ph) + math.radians(e_ph) * rr * math.sin(ang)
+                x, y, z = shape(ph, th)
+                k = scale + bulge * (1 - rr * rr)
+                ring.append((hx + x * k, hy + y * k, hz + z * k))
+            rings.append(ring)
+        cx, cy, cz = shape(math.radians(c_ph), c_th)
+        k = scale + bulge
+        verts = [(hx + cx * k, hy + cy * k, hz + cz * k)] + [v for ring in rings for v in ring]
+        faces = []
+        for a in range(na):
+            faces.append([0, 1 + a, 1 + (a + 1) % na])
+        for r in range(nr - 1):
+            for a in range(na):
+                a2 = (a + 1) % na
+                faces.append([1 + r * na + a, 1 + (r + 1) * na + a, 1 + (r + 1) * na + a2, 1 + r * na + a2])
+        o = mesh_obj(name, verts, faces, coll, [mi], smooth_angle=80)
+        orient_faces(o, (hx, hy, hz), outward=True)
+        return o
+    disc("CAT_HelmetSeal", 63, 19.5, -1.0, 0.0, 1.014, M['belt'])
+    disc("CAT_HelmetVisor", 56, 14.5, -1.0, 0.0, 1.022, M['visor'], nr=5, bulge=0.01)
+    disc("CAT_HelmetVent", 13, 4.5, -39, 0.0, 1.014, M['black'], nr=2, na=16)
+    # side pivots and an aero tail, as small separate solids
+    B = Builder()
+    for sx in (-1, 1):
+        lathe(B, [(0.0, 0.0), (0.0, 0.020), (0.008, 0.020), (0.010, 0.012), (0.014, 0.012)], 12, 0, 'x', (hx + sx * 0.104, hy - 0.015, hz + 0.0), flip=(sx < 0))
+    B.add(box_verts(Vector((hx, hy + 0.15, hz + 0.052)), (0.13, 0.05, 0.012), Matrix.Rotation(math.radians(-14), 3, 'X').to_quaternion()), BOX_FACES, 1, 'c')
+    B.add(box_verts(Vector((hx, hy + 0.14, hz + 0.01)), (0.012, 0.07, 0.06)), BOX_FACES, 1, 'c')
+    extra = B.obj("CAT_HelmetBits", coll, [M['chrome'], M['carbon']], smooth=45)
+    return ob
+
 
 def build_driver(coll, M):
     """a low-poly driver sitting in the right-hand seat: race suit with chest stripe, harness, HANS collar, gloved hands on the wheel, boots on the pedals, full-face helmet"""
@@ -502,15 +605,10 @@ def build_driver(coll, M):
         sh = P(0.49, 0.10, sx * 0.205)
         lathe(B, [(-0.07, 0.0), (-0.05, 0.05), (0.0, 0.068), (0.05, 0.05), (0.07, 0.0)], 8, SU, 'x', tuple(sh))
     # HANS collar and neck
-    tbox(0.54, 0.10, 0, 0.30, 0.20, 0.05, BO)
-    head = P(0.70, 0.15)
-    B.tube([P(0.52, 0.10), head + Vector((0, 0.01, -0.10))], 0.046, SU, 8)
-    # helmet: shell, chin bar, visor with white trim, stripe
-    lathe(B, [(-0.125, 0.0), (-0.115, 0.065), (-0.07, 0.108), (0.04, 0.125), (0.105, 0.09), (0.13, 0.0)], 14, HE, 'z', tuple(head))
-    B.box((head.x, head.y - 0.105, head.z - 0.085), (0.12, 0.06, 0.06), HE)
-    B.box((head.x, head.y - 0.111, head.z + 0.0), (0.175, 0.05, 0.068), WH)
-    B.box((head.x, head.y - 0.118, head.z + 0.0), (0.155, 0.05, 0.052), VI)
-    B.box((head.x, head.y, head.z + 0.124), (0.035, 0.20, 0.012), YE)
+    head = P(0.70, 0.15) - Vector((0, 0, 0.05))     # head and helmet lowered 5 cm
+    B.tube([P(0.52, 0.10), head + Vector((0, 0.01, -0.085))], 0.064, SU, 10)
+    # helmet: a smooth shell with a painted visor, built as its own object (see build_helmet)
+    build_helmet(coll, M, head)
     # harness: shoulder straps, lap belt and buckle
     for sx in (-1, 1):
         B.tube([P(0.55, 0.045, sx * 0.11), P(0.40, 0.235, sx * 0.09), P(0.14, 0.27, sx * 0.04)], 0.019, BE, 4)
