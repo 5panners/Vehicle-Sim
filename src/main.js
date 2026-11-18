@@ -20,6 +20,7 @@ import { TuningPanel } from './ui/TuningPanel.js';
 import { VehicleAudio } from './audio/VehicleAudio.js';
 import { Multiplayer } from './net/Multiplayer.js';
 
+const DEFAULT_CAR = 'GT3';
 const PHYSICS_HZ = 600;          // fixed physics rate; 600 Hz keeps stiff tyres/suspension stable
 const DT = 1 / PHYSICS_HZ;
 const MAX_STEPS_PER_FRAME = 60;
@@ -65,8 +66,8 @@ class App {
     this.maps = MAPS;
     this.worldView = new WorldView(this.world, scene);
     this.lights = new StartLights();
-    this.presetIndex = 0;
-    this.vehicle = new Vehicle(structuredClone(PRESETS[0]), this.world);
+    this.presetIndex = Math.max(0, PRESETS.findIndex((p) => p.name === DEFAULT_CAR));   // opens in the GT3
+    this.vehicle = new Vehicle(structuredClone(PRESETS[this.presetIndex]), this.world);
     this.carView = new CarView(scene);
     this.carView.build(this.vehicle);
     this.effects = new Effects(scene);

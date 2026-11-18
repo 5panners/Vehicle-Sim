@@ -5,4 +5,4 @@ import spa from './spa.js';
 import kart from './kart.js';
 
 export const MAPS = { [test.id]: test, [brands.id]: brands, [spa.id]: spa, [kart.id]: kart };
-export const DEFAULT_MAP = 'test';
+export const DEFAULT_MAP = 'brands';
