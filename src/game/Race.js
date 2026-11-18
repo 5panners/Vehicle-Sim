@@ -41,7 +41,7 @@ export class Race {
         this.bots.push(entry);
       } else {
         // a remote car is moved by its owner only: here it is immovable, so contacts push the local car (or bot) the whole way
-        entry.remote = true; entry.seen = false; view.group.visible = view.blob.visible = false;
+        entry.remote = true; entry.seen = false; view.group.visible = view.blob.visible = false; view.pool.visible = false;
         vehicle.body.invMass = 0; vehicle.body.invInertia.set(0, 0, 0);
         this.remotes.push(entry);
       }
@@ -116,7 +116,7 @@ export class Race {
   /** a player left the online race: their car goes */
   dropRemote(key) {
     const i = this.remotes.findIndex((r) => r.key === key); if (i < 0) return;
-    const r = this.remotes[i]; r.view.group.removeFromParent(); r.view.blob.removeFromParent(); this.app.audio?.dropVoice(r);
+    const r = this.remotes[i]; r.view.group.removeFromParent(); r.view.blob.removeFromParent(); r.view.pool.removeFromParent(); this.app.audio?.dropVoice(r);
     this.remotes.splice(i, 1); this.finished = this.finished.filter((c) => c !== r);
   }
 
@@ -213,5 +213,5 @@ export class Race {
 
   mapDots() { return this.others.filter((b) => !b.remote || b.seen).map((b) => ({ x: b.vehicle.body.position.x, z: b.vehicle.body.position.z, color: b.color })); }
 
-  dispose() { for (const b of this.others) { b.view.group.removeFromParent(); b.view.blob.removeFromParent(); this.app.audio?.dropVoice(b); } this.bots = []; this.remotes = []; }
+  dispose() { for (const b of this.others) { b.view.group.removeFromParent(); b.view.blob.removeFromParent(); b.view.pool.removeFromParent(); this.app.audio?.dropVoice(b); } this.bots = []; this.remotes = []; }
 }

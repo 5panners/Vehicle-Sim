@@ -2,9 +2,7 @@
 export const BOT_CALIBRATION = {
   "brands": {
     "Track Prototype": 0.95,
-    "Rally AWD": 0.95,
     "GT Coupe": 0.95,
-    "Hot Hatch": 0.754,
     "'67 Lotus GP": 0.651,
     "Muscle Car": 0.761,
     "Formula 1": 0.929,
@@ -17,8 +15,6 @@ export const BOT_CALIBRATION = {
   "test": {
     "Track Prototype": 0.95,
     "GT Coupe": 0.95,
-    "Rally AWD": 0.95,
-    "Hot Hatch": 0.95,
     "'67 Lotus GP": 0.651,
     "Muscle Car": 0.931,
     "Formula 1": 0.95,
@@ -30,9 +26,7 @@ export const BOT_CALIBRATION = {
   },
   "spa": {
     "Track Prototype": 0.95,
-    "Rally AWD": 0.86,
     "GT Coupe": 0.704,
-    "Hot Hatch": 0.671,
     "'67 Lotus GP": 0.499,
     "Muscle Car": 0.661,
     "Formula 1": 0.95,
@@ -45,9 +39,7 @@ export const BOT_CALIBRATION = {
   "kart": {
     "GT Coupe": 0.95,
     "Muscle Car": 0.95,
-    "Hot Hatch": 0.95,
     "Track Prototype": 0.95,
-    "Rally AWD": 0.95,
     "'67 Lotus GP": 0.809,
     "Drift Car": 0.894,
     "GT3": 0.95,

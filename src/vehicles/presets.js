@@ -71,52 +71,6 @@ export const PRESETS = [
     name: 'GT Coupe', description: 'Front-engine RWD sports car, ~450 hp, clutch-type LSD. Balanced, drifts on demand.',
   }),
   makeVehicle({
-    name: 'Hot Hatch', description: 'Turbo FWD, ~280 hp. Lift-off rotation, torque steer limited by front LSD.',
-    color: 0x2266dd, style: 'hatch',
-    body: { mass: 1250, cgHeight: 0.52, weightDistFront: 0.62, dimensions: { width: 1.8, height: 1.45, length: 4.25 } },
-    geometry: { wheelbase: 2.6, trackFront: 1.55, trackRear: 1.53 },
-    suspension: { front: { springRate: 48000, antiRollBar: 18000 }, rear: { springRate: 40000, antiRollBar: 28000, toe: 0.1 } },
-    wheels: { front: { radius: 0.32, width: 0.235, inertia: 1.0 }, rear: { radius: 0.32, width: 0.235, inertia: 1.0 } },
-    engine: {
-      torqueCurve: [[800, 160], [1800, 260], [2500, 350], [4500, 360], [6000, 320], [6800, 270], [7200, 230]],
-      idleRPM: 900, redlineRPM: 6800, limiterRPM: 7000, inertia: 0.14, cylinders: 4,
-      turbo: { maxBoost: 0.15, spoolRate: 2.5 },
-    },
-    transmission: { gearRatios: [3.4, 2.1, 1.5, 1.15, 0.95, 0.8], finalDrive: 3.9, clutchMaxTorque: 600, autoShiftUpRPM: 6500, autoShiftDownRPM: 3000 },
-    drivetrain: { layout: 'FWD', frontDiff: { type: 'lsd', preload: 40, powerLock: 0.3, coastLock: 0.1 } },
-    brakes: { maxTorque: 4800, bias: 0.66, handbrakeTorque: 2500 },
-    aero: { dragCoefficient: 0.31, frontalArea: 2.1, liftCoefFront: -0.05, liftCoefRear: -0.1 },
-  }),
-  makeVehicle({
-    name: 'Rally AWD', description: "Group A Subaru Impreza 555 (1993–96): 1230 kg, 2.0 L turbo flat-4 (34 mm restrictor) ~300 hp / 500 Nm, 5-speed, permanent AWD with three LSDs and a 50:50 centre diff. Long-travel gravel suspension.",
-    color: 0x1b3a8c, accent: 0xffd400, style: 'hatch',
-    body: { mass: 1230, cgHeight: 0.48, weightDistFront: 0.57, groundClearance: 0.2, dimensions: { width: 1.74, height: 1.41, length: 4.34 } },
-    geometry: { wheelbase: 2.52, trackFront: 1.5, trackRear: 1.5 },
-    suspension: {
-      front: { springRate: 38000, bumpDamping: 2800, reboundDamping: 4200, restLength: 0.42, travel: 0.26, antiRollBar: 14000, camber: -1, rollCenterHeight: 0.08 },
-      rear: { springRate: 34000, bumpDamping: 2600, reboundDamping: 4000, restLength: 0.42, travel: 0.26, antiRollBar: 12000, camber: -0.5, rollCenterHeight: 0.1 },
-    },
-    wheels: { front: { radius: 0.32, width: 0.215, inertia: 1.0 }, rear: { radius: 0.32, width: 0.215, inertia: 1.0 } },
-    tires: {
-      front: { peakFrictionX: 1.05, peakFrictionY: 1.0, peakSlipRatio: 0.13, peakSlipAngle: 9, shapeY: { C: 1.25, E: 0.2 }, relaxationLengthY: 0.45 },
-      rear: { peakFrictionX: 1.05, peakFrictionY: 0.98, peakSlipRatio: 0.13, peakSlipAngle: 9, shapeY: { C: 1.25, E: 0.2 }, relaxationLengthY: 0.45 },
-    },
-    engine: {
-      torqueCurve: [[1000, 110], [2000, 220], [2500, 290], [3000, 375], [3500, 425], [4000, 435], [4500, 410], [5000, 370], [5500, 340], [6000, 295], [6500, 250], [7000, 205]],
-      idleRPM: 1000, redlineRPM: 6800, limiterRPM: 7000, inertia: 0.13, cylinders: 4,
-      turbo: { maxBoost: 0.15, spoolRate: 3 },   // the curve is full boost: ~300 hp at 5500 rpm, 500 Nm at 4000
-    },
-    transmission: { gearRatios: [2.70, 1.93, 1.46, 1.16, 0.96], finalDrive: 4.44, shiftTime: 0.08, clutchMaxTorque: 800, autoShiftUpRPM: 6600 },
-    drivetrain: {
-      layout: 'AWD', centerSplitFront: 0.5,
-      frontDiff: { type: 'lsd', preload: 60, powerLock: 0.35, coastLock: 0.2 },
-      rearDiff: { type: 'lsd', preload: 80, powerLock: 0.5, coastLock: 0.3 },
-      centerDiff: { type: 'lsd', preload: 120, powerLock: 0.5, coastLock: 0.2 },
-    },
-    brakes: { maxTorque: 5000, bias: 0.6, handbrakeTorque: 3500 },
-    aero: { dragCoefficient: 0.40, frontalArea: 1.95, liftCoefFront: -0.1, liftCoefRear: -0.2 },
-  }),
-  makeVehicle({
     name: 'Muscle Car', description: 'Heavy V8 RWD with soft springs and a lazy LSD. Big torque, loves to slide.',
     color: 0xffaa00, style: 'coupe',
     body: { mass: 1720, cgHeight: 0.52, weightDistFront: 0.55, dimensions: { width: 1.95, height: 1.32, length: 4.8 }, inertiaScale: { y: 0.9 } },

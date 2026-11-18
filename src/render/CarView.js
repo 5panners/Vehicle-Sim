@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { lighting } from './lighting.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // glTF car models, loaded once per URL and cloned per build
@@ -22,6 +23,11 @@ export class CarView {
     this.blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
     this.blob.rotation.order = 'YXZ'; this.blob.rotation.x = -Math.PI / 2; this.blob.renderOrder = 2; this.blob.frustumCulled = false;
     scene.add(this.blob);
+    // headlight pool: one additive quad of light on the road ahead (no real lights, so it costs next to nothing)
+    this.pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false, color: 0xfff0cc, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 }));
+    this.pool.rotation.order = 'YXZ'; this.pool.rotation.x = -Math.PI / 2; this.pool.renderOrder = 3; this.pool.frustumCulled = false; this.pool.visible = false;
+    scene.add(this.pool);
+    this.headMats = [];            // the lamps' materials: they glow when the light goes
   }
 
   build(vehicle) {
@@ -29,6 +35,8 @@ export class CarView {
     this.group.clear();
     this.vehicle = vehicle;
     this.blob.scale.set(W * 1.3, L * 1.15, 1);
+    this.pool.scale.set(Math.max(7, W * 4.6), 38, 1);
+    this.headMats = [];
     const paint = new THREE.MeshStandardMaterial({ color: this.tint ?? cfg.color, metalness: 0.4, roughness: 0.35 });
     const dark = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.6 });
     const glass = new THREE.MeshStandardMaterial({ color: 0x1a2633, metalness: 0.6, roughness: 0.08 });
@@ -108,7 +116,7 @@ export class CarView {
     if (style === 'drift') this._driftKit(vehicle, body, { paint, dark, box, b0, lowH, top, hz, W, bodyW, cab });
     if (style === 'gt3') this._gt3Aero(vehicle, body, { paint, dark, box, b0, lowH, top, hz, W, cab });
     // lights (+Z forward, -X right)
-    const head = new THREE.MeshStandardMaterial({ color: 0xffffee, emissive: 0xffffcc, emissiveIntensity: 0.6 });
+    const head = new THREE.MeshStandardMaterial({ color: 0xffffee, emissive: 0xffffcc, emissiveIntensity: 0.6 }); head.userData.base = 0.6; this.headMats.push(head);
     for (const s of [-1, 1]) {
       box(0.38, 0.1, 0.06, head, s * W * 0.33, b0 + lowH * 0.55, hz - 0.02);
       box(0.4, 0.1, 0.06, this.brakeMat, s * W * 0.32, b0 + lowH * 0.78, -hz - 0.02);
@@ -197,6 +205,10 @@ export class CarView {
       if (this.tint !== undefined && /paint/i.test(o.material.name)) {
         if (!this._tintMat || this._tintMat.name !== o.material.name) { this._tintMat = o.material.clone(); this._tintMat.color.setHex(this.tint); }
         o.material = this._tintMat;
+      }
+      if (/headlight/i.test(o.material.name)) {                       // the model's lamp glass: its own copy per car, driven by the time of day
+        if (!this._headMat) { this._headMat = o.material.clone(); this._headMat.userData.base = o.material.emissiveIntensity ?? 0.4; this._headMat.emissive.set(0xfff2d0); }
+        o.material = this._headMat; if (!this.headMats.includes(this._headMat)) this.headMats.push(this._headMat);
       }
       if (brakeName && o.material.name === brakeName) {
         if (this.brakeMat?.name !== brakeName) this.brakeMat = o.material.clone();
@@ -579,6 +591,17 @@ export class CarView {
       this.blob.position.set(b.position.x, g + 0.03, b.position.z);
       const air = Math.max(0, b.position.y - g - vehicle.config.body.cgHeight);
       this.blob.material.opacity = Math.max(0.15, 0.9 - air * 0.15);
+      // headlights: lamps glow and a pool of light lies on the road ahead, once the light starts to go
+      const dark = lighting.dark;
+      for (const m of this.headMats) m.emissiveIntensity = m.userData.base + 3.2 * dark;
+      this.pool.visible = dark > 0.02 && this.group.visible;
+      if (this.pool.visible) {
+        const L = vehicle.config.body.dimensions.length, ahead = L / 2 + 19;
+        const px = b.position.x + f.x * ahead, pz = b.position.z + f.z * ahead;
+        this.pool.position.set(px, vehicle.world.heightAt(px, pz, false) + 0.05, pz);
+        this.pool.rotation.y = this.blob.rotation.y;
+        this.pool.material.opacity = 0.62 * dark;
+      }
     }
     vehicle.wheels.forEach((w, i) => {
       const g = this.wheelGroups[i];
@@ -597,6 +620,25 @@ export class CarView {
 }
 
 const _fwd = new THREE.Vector3();
+/** light on the road from two lamps: two lobes, bright and wide in the near field, fading out along the length */
+function poolTexture() {
+  const W = 128, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'), img = g.createImageData(W, H), d = img.data;
+  for (let j = 0; j < H; j++) {
+    const t = j / (H - 1);                                   // 0 at the far end of the beam, 1 at the car
+    const reach = Math.pow(t, 1.6) * smooth(0.0, 0.1, 1 - t);   // bright near the car, nothing right under the bumper
+    for (let i = 0; i < W; i++) {
+      const x = (i / (W - 1) - 0.5) * 2, spread = 0.30 + 0.22 * (1 - t);
+      const lobe = (c0) => Math.exp(-Math.pow((x - c0) / spread, 2));
+      const v = Math.min(1, (lobe(-0.30) + lobe(0.30)) * 0.62) * reach;
+      const k = (j * W + i) * 4; d[k] = d[k + 1] = d[k + 2] = 255; d[k + 3] = Math.round(255 * v);
+    }
+  }
+  g.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+}
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
 function blobTexture() {
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const g = c.getContext('2d'), grad = g.createRadialGradient(64, 64, 8, 64, 64, 62);

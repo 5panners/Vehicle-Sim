@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { smoothstep } from '../physics/math.js';
+import { lighting } from './lighting.js';
 
 /**
  * Graphics options: shadow distance, render scale, time of day and how fast time flows.
@@ -115,6 +116,7 @@ export class Graphics {
     }
     const a = ((s.hour - 6) / 12) * Math.PI, sn = Math.sin(a);                 // 06:00 sunrise, 12:00 noon, 18:00 sunset
     const f = smoothstep(-0.12, 0.35, sn);                                    // how 'day' the sky is
+    lighting.dark = smoothstep(0.40, 0.06, sn);                              // headlights come on as the light starts to go
     // sun by day, moon by night: one directional light, faded to nothing as it crosses the horizon
     const toSun = new THREE.Vector3(Math.cos(a) * 0.85, sn, 0.45).normalize();
     const light = sn >= 0 ? toSun : new THREE.Vector3(-toSun.x, -toSun.y, toSun.z);
