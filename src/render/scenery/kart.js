@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { rng } from '../../world/noise.js';
 import { lighting } from '../lighting.js';
+import { Workshops } from './workshop.js';
 import { broadleafTree, birchTree, pineTree, garageFacade, seatTexture, bannerTexture } from './lowpoly.js';
 
 /**
@@ -50,15 +51,33 @@ export function buildKartScenery(view) {
   const g0 = PIT.from + 8, g1 = PIT.to - 8, glat0 = hw(0) + 12.5, glat1 = glat0 + 6;
   const n = Math.round(span(g0, g1) / 7), len = span(g0, g1) / n;
   const facade = new THREE.MeshLambertMaterial({ map: garageFacade(1), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const shops = new Workshops();
   for (let k = 0; k < n; k++) {
     const d = g0 + 3 + (k + 0.5) * len, f = frame(d, (glat0 + glat1) / 2), base = Math.min(frame(d, glat0).y, frame(d, glat1).y) - 0.2;
     if (!free(f.x, f.z, 6) || !free(frame(d, glat0).x, frame(d, glat0).z, 3)) continue;
-    box(glat1 - glat0, 3.4, len - 0.4, mat.concrete, f.x, base, f.z, f.yaw);
-    box(glat1 - glat0 + 0.8, 0.3, len, mat.grey, f.x, base + 3.4, f.z, f.yaw);
-    const fx = f.x - f.t.rx * ((glat1 - glat0) / 2 + 0.05), fz = f.z - f.t.rz * ((glat1 - glat0) / 2 + 0.05);
-    panel(len - 0.4, 3.2, facade, fx, base, fz, Math.atan2(-f.t.rx, -f.t.rz), (len - 0.4) / 9);
-    solid(f.x, f.z, glat1 - glat0, len, f.yaw, 3.4);
+    const depth = glat1 - glat0;
+    let floorY = 0.2;
+    if (k % 2 === 0) {                                                       // a real workshop: back wall, side walls and roof around a lit room
+      const at = (lx, lz) => [f.x - f.t.rx * lx + f.t.tx * lz, f.z - f.t.rz * lx + f.t.tz * lz];       // lx towards the pit lane
+      let [x, z] = at(-depth / 2 - 0.15, 0); box(0.3, 3.4, len - 0.4, mat.concrete, x, base, z, f.yaw);
+      for (const sd of [-1, 1]) { [x, z] = at(0, sd * (len / 2 - 0.35)); box(depth, 3.4, 0.3, mat.concrete, x, base, z, f.yaw); }
+      box(depth + 0.8, 0.3, len, mat.grey, f.x, base + 3.4, f.z, f.yaw);
+      [x, z] = at(depth / 2 - 0.1, 0); box(0.3, 0.45, len - 0.4, mat.red, x, base + 3.0, z, f.yaw);       // fascia over the opening
+      let gmax = base;                                                                      // the terrain must not poke through the workshop floor
+      for (const lx of [-depth / 2, 0, depth / 2]) for (const lz of [-len / 2, 0, len / 2]) { const [qx, qz] = at(lx, lz); gmax = Math.max(gmax, world.heightAtGrid(qx, qz)); }
+      floorY = Math.min(0.45, Math.max(0.2, gmax - base + 0.04));
+      [x, z] = at(0, 0); box(depth, floorY, len - 0.4, mat.dark, x, base, z, f.yaw);
+      const [bx, bz] = at(depth / 2, 0);
+      shops.add('kart', bx, base + floorY, bz, Math.atan2(-f.t.rx, -f.t.rz), [0xff6d00, 0x00b0ff, 0xffd600, 0xc62828][(k / 2 | 0) % 4]);
+    } else {
+      box(depth, 3.4, len - 0.4, mat.concrete, f.x, base, f.z, f.yaw);
+      box(depth + 0.8, 0.3, len, mat.grey, f.x, base + 3.4, f.z, f.yaw);
+      const fx = f.x - f.t.rx * (depth / 2 + 0.05), fz = f.z - f.t.rz * (depth / 2 + 0.05);
+      panel(len - 0.4, 3.2, facade, fx, base, fz, Math.atan2(-f.t.rx, -f.t.rz), (len - 0.4) / 9);
+    }
+    solid(f.x, f.z, depth, len, f.yaw, 3.4);
   }
+  shops.build(group);
   {                                                                                      // race control tower at the start line
     const f = frame(18, glat1 + 5), y = frame(18, glat1 + 5).y;
     if (free(f.x, f.z, 8)) {

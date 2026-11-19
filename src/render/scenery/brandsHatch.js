@@ -4,6 +4,7 @@ import { labelSprite } from '../WorldView.js';
 import { broadleafTree, birchTree, bareTree, pineTree, farTree, garageFacade, garageFronts, officeFacade, seatTexture, bannerTexture } from './lowpoly.js';
 import { TreeTiles } from './treelod.js';
 import { lighting } from '../lighting.js';
+import { Workshops } from './workshop.js';
 
 /**
  * Brands Hatch surroundings (low-poly, modelled on reference photos):
@@ -64,13 +65,13 @@ export function buildBrandsScenery(view) {
   };
   /** structure following the track between d0..d1 at lateral lat0..lat1 (bends with the circuit);
    *  each segment sits on its own ground (stepping with the slope); pass `bases` to stack on another */
-  const along = (d0, d1, lat0, lat1, h, m, { y0 = 0, segLen = 18, collide = false, bases } = {}) => {
+  const along = (d0, d1, lat0, lat1, h, m, { y0 = 0, segLen = 18, collide = false, bases, hollow } = {}) => {
     if (d1 < d0) d1 += L;
     const n = Math.max(1, Math.round((d1 - d0) / segLen)), len = (d1 - d0) / n, segs = [];
     for (let k = 0; k < n; k++) {
       const da = d0 + k * len, f = frame(da + len / 2, (lat0 + lat1) / 2);
       const base = bases ? bases[k] : groundUnder(da, da + len, lat0, lat1);
-      box(Math.abs(lat1 - lat0), h, len + 0.6, m, f.x, base + y0, f.z, f.yaw);
+      if (!(hollow && hollow(k))) box(Math.abs(lat1 - lat0), h, len + 0.6, m, f.x, base + y0, f.z, f.yaw);
       if (collide) solid(f.x, f.z, Math.abs(lat1 - lat0), len + 0.6, f.yaw, y0 + h);
       segs.push({ ...f, len, base });
     }
@@ -104,16 +105,40 @@ export function buildBrandsScenery(view) {
 
   // ============================================================ pit garages
   const h0 = hw(0), gFrom = PIT.from + 30, gTo = PIT.to - 45;
-  const gar = along(gFrom, gTo, h0 + 21, h0 + 36, 7.8, mat.concrete, { collide: true });
+  const WORK = (k) => k % 3 === 1;                       // every third block of two bays is a real workshop you can see into
+  const gar = along(gFrom, gTo, h0 + 21, h0 + 36, 7.8, mat.concrete, { collide: true, hollow: WORK });
   const onGar = { bases: gar.bases };
   along(gFrom, gTo, h0 + 21, h0 + 36.3, 0.35, mat.grey, { y0: 7.8, ...onGar });             // flat grey roof
   along(gFrom, gTo, h0 + 20.4, h0 + 21.2, 1.1, mat.red, { y0: 7.4, ...onGar });              // red fascia band on the pit-lane edge
   along(gFrom, gTo, h0 + 26, h0 + 33, 1.6, mat.grey, { y0: 8.15, ...onGar });                // roof plant
   const facadeMats = garageFronts();
+  const shops = new Workshops(), shopCols = [0xc62828, 0x1d4f91, 0xf2b705, 0x2e7d32, 0xe8e8e8, 0xff7a1a, 0x7c4dff];
   gar.segs.forEach((s, i) => { // façade on the pit-lane face, one garage bay per ~9 m
+    if (WORK(i)) return;
     const fx = s.x - s.t.rx * 7.52, fz = s.z - s.t.rz * 7.52;
     panel(s.len + 0.6, 7.8, facadeMats[i % 2], fx, s.base, fz, Math.atan2(-s.t.rx, -s.t.rz), (s.len + 0.6) / 36);
   });
+  // workshops: the front of the block is opened up into two lit bays, with the glazed upper floor still over the top
+  gar.segs.forEach((s, i) => {
+    if (!WORK(i)) return;
+    const W = (lx, lz) => [s.x - s.t.rx * lx + s.t.tx * lz, s.z - s.t.rz * lx + s.t.tz * lz];     // lx towards the pit lane, lz along the track
+    const faceYaw = Math.atan2(-s.t.rx, -s.t.rz);
+    let [x, z] = W(-3, 0); box(9, 7.8, s.len + 0.6, mat.concrete, x, s.base, z, s.yaw);                // the solid rear of the block
+    [x, z] = W(4.5, 0); box(6, 3.8, s.len + 0.6, mat.concrete, x, s.base + 4.0, z, s.yaw);              // upper floor over the bays
+    let gmax = s.base;                                                                                  // the terrain must not poke through the workshop floor
+    for (const lx of [1.5, 4.5, 7.5]) for (const lz of [-9, -4.5, 0, 4.5, 9]) { const [qx, qz] = W(lx, lz); gmax = Math.max(gmax, world.heightAtGrid(qx, qz)); }
+    const floorY = Math.min(0.5, Math.max(0.2, gmax - s.base + 0.04));
+    [x, z] = W(4.5, 0); box(6, floorY, s.len + 0.6, mat.dark, x, s.base, z, s.yaw);                     // slab under the bays
+    for (const lz of [-9, 0, 9]) { [x, z] = W(4.5, lz); box(6, 4.0, 0.5, mat.concrete, x, s.base, z, s.yaw); }   // piers between the bays
+    for (let b = 0; b < 2; b++) {
+      const lz = b ? 4.5 : -4.5, [bx, bz] = W(7.5, lz), [px, pz] = W(7.52, lz);
+      const g = new THREE.PlaneGeometry(9, 3.8), uv = g.attributes.uv;                                  // upper part of the façade tile only
+      for (let k = 0; k < uv.count; k++) { uv.setX(k, uv.getX(k) * 0.25 + b * 0.25); uv.setY(k, 0.49 + uv.getY(k) * 0.51); }
+      const o = new THREE.Mesh(g, facadeMats[i % 2]); o.position.set(px, s.base + 4.0 + 1.9, pz); o.rotation.y = faceYaw; group.add(o);
+      shops.add('pit', bx, s.base + floorY, bz, faceYaw, shopCols[(i * 2 + b) % shopCols.length]);
+    }
+  });
+  shops.build(group);
   // race control tower (red drum top) near the pit exit
   {
     const f = frame(PIT.to - 25, h0 + 31), y = f.y;
