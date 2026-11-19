@@ -170,10 +170,10 @@ export function buildKartScenery(view) {
     }
     // real light: three shadow-casting spotlights follow the player, each hung on one of the nearest masts, so cars are lit
     // from above and throw shadows on the tarmac. They are always in the scene (intensity 0 by day) so no shader ever recompiles.
-    const K = Math.min(3, masts.length), spots = [];
+    const K = Math.min(6, masts.length), spots = [];                // six lights: the nearest three also cast shadows
     for (let k = 0; k < K; k++) {
-      const sp = new THREE.SpotLight(0xfff0d0, 0, 120, 1.3, 0.9, 2);
-      sp.castShadow = true; sp.shadow.mapSize.set(1024, 1024); sp.shadow.camera.near = 3; sp.shadow.camera.far = 120;
+      const sp = new THREE.SpotLight(0xfff0d0, 0, 200, 1.3, 0.9, 2);
+      sp.castShadow = k < 3; sp.shadow.mapSize.set(1024, 1024); sp.shadow.camera.near = 3; sp.shadow.camera.far = 200;
       sp.shadow.bias = -0.0004; sp.shadow.normalBias = 0.04; sp.shadow.radius = 3;
       scene.add(sp, sp.target); spots.push({ sp, mast: -1 });
     }
@@ -183,16 +183,15 @@ export function buildKartScenery(view) {
       lampMat.emissiveIntensity = 0.15 + 3.5 * dk;
       poolMat.opacity = 0.22 * dk;                                   // the painted pools now only add the soft glow on the ground
       for (const p of pools) p.visible = dk > 0.02;
-      // hand the nearest masts to the spotlights (a light keeps its mast until it is no longer one of the nearest)
+      // hand the nearest masts to the spotlights, nearest first
       const near = masts.map((m, i) => ({ i, d: Math.hypot(m.x - camera.position.x, m.z - camera.position.z) })).sort((a, b) => a.d - b.d).slice(0, K).map((o) => o.i);
-      for (const s of spots) if (s.mast >= 0 && !near.includes(s.mast)) s.mast = -1;
-      for (const i of near) if (!spots.some((s) => s.mast === i)) { const s = spots.find((q) => q.mast < 0); if (s) s.mast = i; }
+      spots.forEach((s, i) => { s.mast = i < near.length ? near[i] : -1; });   // the nearest mast gets the first light, and the first three cast shadows
       for (const s of spots) {
         const m = masts[s.mast]; s.sp.visible = true;
         if (!m || dk < 0.02) { s.sp.intensity = 0; s.sp.shadow.autoUpdate = false; continue; }
         s.sp.position.set(m.x, m.y, m.z); s.sp.target.position.set(m.tx, m.ty, m.tz); s.sp.target.updateMatrixWorld();
         const dist = Math.hypot(m.x - camera.position.x, m.z - camera.position.z);
-        s.sp.intensity = 1800 * dk * sm(100, 45, dist); s.sp.shadow.autoUpdate = true;
+        s.sp.intensity = 1800 * dk * sm(170, 80, dist); s.sp.shadow.autoUpdate = true;
       }
     });
   }
