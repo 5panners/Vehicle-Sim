@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { rng } from '../../world/noise.js';
+import { lighting } from '../lighting.js';
 import { broadleafTree, birchTree, pineTree, garageFacade, seatTexture, bannerTexture } from './lowpoly.js';
 
 /**
@@ -120,6 +121,40 @@ export function buildKartScenery(view) {
   for (let d = PIT.from; span(PIT.from, d) < span(PIT.from, 90); d += 38) {             // floodlight masts behind the stand side
     const f = frame(d, -(hw(d) + 4.4)); if (!free(f.x, f.z, 2)) continue; const m = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, 11, 7), mat.steel); m.position.set(f.x, f.y + 5.5, f.z); m.castShadow = true; group.add(m);
     box(2.4, 0.5, 0.7, mat.dark, f.x, f.y + 11, f.z, f.yaw + Math.PI / 2);
+  }
+
+  // ---- floodlights right round the lap: masts behind the outer barrier whose lamp heads glow after dusk and throw a soft pool of light on the track
+  {
+    const cx = T.reduce((a, s) => a + s.x, 0) / M, cz = T.reduce((a, s) => a + s.z, 0) / M;
+    const lampMat = new THREE.MeshStandardMaterial({ color: 0xfff6dc, emissive: 0xfff0c0, emissiveIntensity: 0.15 });
+    const pc = document.createElement('canvas'); pc.width = pc.height = 128;
+    const pg = pc.getContext('2d'), gr = pg.createRadialGradient(64, 64, 4, 64, 64, 62);
+    gr.addColorStop(0, 'rgba(255,240,200,0.85)'); gr.addColorStop(0.45, 'rgba(255,230,170,0.35)'); gr.addColorStop(1, 'rgba(255,220,150,0)');
+    pg.fillStyle = gr; pg.fillRect(0, 0, 128, 128);
+    const poolTex = new THREE.CanvasTexture(pc); poolTex.colorSpace = THREE.SRGBColorSpace;
+    const poolMat = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    const pools = [];
+    for (let d = 8; d < L; d += 44) {
+      const here = frame(d), w = hw(d);
+      // the outer side: whichever side of the track is further from the middle of the site
+      let side = 1, best = -1;
+      for (const sd of [-1, 1]) { const q = frame(d, sd * (w + 4.4)); const r = Math.hypot(q.x - cx, q.z - cz); if (r > best) { best = r; side = sd; } }
+      const f = frame(d, side * (w + 4.4));
+      if (!free(f.x, f.z, 2.2) || keepOut.some((k) => (k.x - f.x) ** 2 + (k.z - f.z) ** 2 < (k.r + 1) ** 2)) continue;
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.22, 10.5, 7), mat.steel); mast.position.set(f.x, f.y + 5.25, f.z); mast.castShadow = true; group.add(mast);
+      const face = Math.atan2(-side * f.t.rx, -side * f.t.rz);                    // lamp heads look across the track
+      box(2.0, 0.4, 0.5, mat.dark, f.x, f.y + 10.3, f.z, face);
+      const bar = new THREE.Mesh(BOX, lampMat); bar.scale.set(1.8, 0.28, 0.06); bar.position.set(f.x - side * f.t.rx * 0.27, f.y + 10.34, f.z - side * f.t.rz * 0.27); bar.rotation.y = face; group.add(bar);
+      const pool = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), poolMat);
+      const pc2 = frame(d, side * (w * 0.15)); pool.position.set(pc2.x, here.y + 0.06, pc2.z); pool.rotation.x = -Math.PI / 2; pool.renderOrder = 4; group.add(pool);
+      pools.push(pool);
+    }
+    view.updaters?.push(() => {
+      const dk = lighting.dark;
+      lampMat.emissiveIntensity = 0.15 + 3.5 * dk;
+      poolMat.opacity = 0.5 * dk;
+      for (const p of pools) p.visible = dk > 0.02;
+    });
   }
 
   // ---- paddock: tents and a few parked vans behind the garages
