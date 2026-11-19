@@ -68,11 +68,47 @@ export const makeVehicle = (over) => deepMerge(BASE, over);
 
 export const PRESETS = [
   makeVehicle({
-    name: 'Ginetta G55', description: 'GT4-style front-engine RWD coupe: ~450 hp, clutch-type LSD, a big rear wing and slick-looking tyres. Balanced, drifts on demand.',
-    color: 0xe8e8e6, accent: 0xff7a1a,
-    // glTF body built in Blender (tools/blender/build_g55.py)
-    model: { url: 'assets/models/g55.glb', prefix: 'G55_', brakeMaterial: 'G55_Taillight' },
-    view: { hood: [0.98, -0.1] },
+    name: 'Nissan Skyline GT-R', description: 'R34 Skyline GT-R V-spec: 2.6 L twin-turbo straight-six (280 PS claimed, ~300 hp real), 6-speed, ATTESA E-TS rear-biased AWD with an active rear LSD, 1,560 kg. Huge traction out of corners; understeers if you rush the entry.',
+    color: 0x1a5fd0, accent: 0xd01020,
+    // real figures: 4,600 x 1,785 x 1,360 mm, wheelbase 2,665 mm, track 1,480 / 1,490 mm, 245/40 R18, Cd ~0.34
+    // glTF body built in Blender (tools/blender/build_skyline.py)
+    model: { url: 'assets/models/skyline.glb', prefix: 'SKY_', brakeMaterial: 'SKY_Taillight' },
+    view: { hood: [1.1, -0.15] },
+    body: {
+      mass: 1560, cgHeight: 0.5, weightDistFront: 0.54, groundClearance: 0.13,
+      dimensions: { width: 1.785, height: 1.36, length: 4.6 },
+      inertiaScale: { x: 0.9, y: 0.88, z: 0.9 }, bodyFriction: 0.45,
+    },
+    geometry: { wheelbase: 2.665, trackFront: 1.48, trackRear: 1.49 },
+    suspension: {
+      front: { springRate: 62000, bumpDamping: 3400, reboundDamping: 5400, restLength: 0.30, travel: 0.15, antiRollBar: 30000, camber: -1.5, camberGain: 10, toe: 0.05, caster: 6.5, rollCenterHeight: 0.06 },
+      rear: { springRate: 54000, bumpDamping: 3200, reboundDamping: 5200, restLength: 0.30, travel: 0.15, antiRollBar: 24000, camber: -1.3, camberGain: 8, toe: 0.15, rollCenterHeight: 0.09 },
+      antiDive: 0.22, antiSquat: 0.3,
+    },
+    wheels: { front: { radius: 0.3266, width: 0.245, inertia: 1.2 }, rear: { radius: 0.3266, width: 0.245, inertia: 1.2 } },
+    tires: {
+      front: { ...TIRE_STREET, peakFrictionX: 1.14, peakFrictionY: 1.12, peakSlipAngle: 7 },
+      rear: { ...TIRE_STREET, peakFrictionX: 1.14, peakFrictionY: 1.1, peakSlipAngle: 7.5 },
+    },
+    // RB26DETT: 2,568 cc, 392 Nm at 4,400 rpm, ~280 PS claimed; curve below includes the turbos (the boost multiplier adds lag only)
+    engine: {
+      torqueCurve: [[1000, 165], [2000, 270], [3000, 358], [4000, 402], [4400, 407], [5500, 387], [6500, 343], [7200, 297], [8000, 226], [8500, 176]],
+      idleRPM: 800, redlineRPM: 8000, limiterRPM: 8400, limiterCutTime: 0.06,
+      inertia: 0.2, engineBrakingTorque: 65, throttleResponse: 13, cylinders: 6,
+      turbo: { maxBoost: 0.08, spoolRate: 2.6 },
+    },
+    // Getrag 6-speed
+    transmission: { gearRatios: [3.827, 2.36, 1.685, 1.312, 1.0, 0.793], reverseRatio: -3.438, finalDrive: 3.545, shiftTime: 0.18, clutchMaxTorque: 850, efficiency: 0.9, autoShiftUpRPM: 7400, autoShiftDownRPM: 3800 },
+    // ATTESA E-TS Pro: rear-biased with up to ~50 % to the front, plus an active rear limited-slip
+    drivetrain: {
+      layout: 'AWD', centerSplitFront: 0.32,
+      frontDiff: { type: 'open', preload: 0, powerLock: 0, coastLock: 0 },
+      rearDiff: { type: 'lsd', preload: 100, powerLock: 0.5, coastLock: 0.3 },
+      centerDiff: { type: 'lsd', preload: 150, powerLock: 0.55, coastLock: 0.25 },
+    },
+    brakes: { maxTorque: 6400, bias: 0.63, handbrakeTorque: 3000 },
+    steering: { maxAngle: 33, ackermann: 0.6, steerSpeed: 4.0, speedSensitivity: 0.9, countersteerAssist: 0.25 },
+    aero: { dragCoefficient: 0.34, frontalArea: 1.95, liftCoefFront: -0.06, liftCoefRear: -0.2, angularDrag: 0.3 },
   }),
   makeVehicle({
     name: 'Track Prototype', description: 'Light, stiff, high-downforce racer with slick tyres. Grip rises with speed.',

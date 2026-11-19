@@ -2,7 +2,7 @@
 export const BOT_CALIBRATION = {
   "brands": {
     "Track Prototype": 0.95,
-    "Ginetta G55": 0.95,
+    "Nissan Skyline GT-R": 0.95,
     "'67 Lotus GP": 0.651,
     "Caterham 620R": 0.8,
     "Formula 1": 0.929,
@@ -12,7 +12,7 @@ export const BOT_CALIBRATION = {
   },
   "test": {
     "Track Prototype": 0.95,
-    "Ginetta G55": 0.95,
+    "Nissan Skyline GT-R": 0.95,
     "'67 Lotus GP": 0.651,
     "Caterham 620R": 0.8,
     "Formula 1": 0.95,
@@ -22,7 +22,7 @@ export const BOT_CALIBRATION = {
   },
   "spa": {
     "Track Prototype": 0.95,
-    "Ginetta G55": 0.704,
+    "Nissan Skyline GT-R": 0.704,
     "'67 Lotus GP": 0.499,
     "Caterham 620R": 0.8,
     "Formula 1": 0.95,
@@ -31,7 +31,7 @@ export const BOT_CALIBRATION = {
     "KZ Shifter Kart": 0.815
   },
   "kart": {
-    "Ginetta G55": 0.95,
+    "Nissan Skyline GT-R": 0.95,
     "Track Prototype": 0.95,
     "'67 Lotus GP": 0.809,
     "Caterham 620R": 0.8,
