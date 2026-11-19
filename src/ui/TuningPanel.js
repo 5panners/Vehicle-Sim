@@ -57,6 +57,7 @@ const SECTIONS = [
     ['Speed sensitivity', 'steering.speedSensitivity', 0, 1, 0.05],
     ['Countersteer assist', 'steering.countersteerAssist', 0, 1, 0.05],
     ['Ackermann', 'steering.ackermann', 0, 1, 0.05],
+    ['Steering sensitivity (this car)', '_steerSens', 0.2, 4, 0.05],
   ]],
   ['Aero', [
     ['Downforce F (Cl)', 'aero.liftCoefFront', -3, 0.3, 0.05],
@@ -113,8 +114,9 @@ export class TuningPanel {
       sec.append(hd);
       if (this.open.has(name)) for (const [label, path, min, max, step] of items) {
         const paths = Array.isArray(path) ? path : [path];
-        const cur = path === '_torqueScale' ? (app.torqueScale ?? 1) : get(cfg, paths[0]);
-        const baseVal = path === '_torqueScale' ? 1 : get(base, paths[0]);
+        const gl = app.input.data.global;
+        const cur = path === '_torqueScale' ? (app.torqueScale ?? 1) : path === '_steerSens' ? (gl.carSteerSensitivity?.[cfg.name] ?? gl.steerSensitivity) : get(cfg, paths[0]);
+        const baseVal = path === '_torqueScale' ? 1 : path === '_steerSens' ? gl.steerSensitivity : get(base, paths[0]);
         const r = document.createElement('input'); r.type = 'range'; r.min = min; r.max = max; r.step = step; r.value = cur;
         const out = document.createElement('span'); out.className = 'val';
         const fmt = (x) => (Math.abs(x) >= 100 ? x.toFixed(0) : x.toFixed(step < 0.01 ? 3 : 2));
@@ -122,6 +124,9 @@ export class TuningPanel {
         mark();
         r.oninput = () => {
           mark();
+          if (path === '_steerSens') {                  // saved per car, not part of the car's config
+            (gl.carSteerSensitivity ||= {})[app.vehicle.config.name] = +r.value; app.input.save(); app.applySteeringMode(); return;
+          }
           const c = structuredClone(app.vehicle.config);
           if (path === '_torqueScale') {
             app.torqueScale = +r.value;

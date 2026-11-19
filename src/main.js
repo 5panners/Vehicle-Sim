@@ -127,7 +127,7 @@ class App {
   applySteeringMode() {
     const g = this.input.data.global;
     this.vehicle.directSteer = g.steeringMode === 'wheel';
-    this.vehicle.steerSensitivity = g.steerSensitivity;
+    this.vehicle.steerSensitivity = g.carSteerSensitivity?.[this.vehicle.config.name] ?? g.steerSensitivity;   // each car can keep its own value; the Controls slider is the default
   }
 
   get playerName() { try { return localStorage.getItem('vehicleSim.name') || 'Player'; } catch { return 'Player'; } }

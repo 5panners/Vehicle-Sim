@@ -69,7 +69,7 @@ export class ControllerSetup {
     panel.append(h('div', { class: 'grid2' },
       h('div', {},
         h('div', { class: 'row' }, h('label', {}, 'Steering mode'), modeSel),
-        slider('Steering sensitivity', g.steerSensitivity, 0.2, 1.5, 0.05, (v) => { g.steerSensitivity = v; inp.save(); this.onSettingsChanged?.(); }),
+        slider('Steering sensitivity', g.steerSensitivity, 0.2, 4, 0.05, (v) => { g.steerSensitivity = v; inp.save(); this.onSettingsChanged?.(); }),
         slider('Rumble strength', g.rumble, 0, 1, 0.05, (v) => { g.rumble = v; inp.save(); }),
         h('div', { class: 'row' }, h('label', {}, ''),
           h('button', { class: 'btn', onclick: () => { inp._lastRumble = 0; inp.rumble(1, 1, 400); } }, 'Test rumble'),

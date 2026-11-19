@@ -283,12 +283,13 @@ export class Menu {
     const grid = h('div', { class: 'cars' });
     PRESETS.forEach((cfg, i) => {
       if (cfg.name === 'Base') return;
-      const card = h('button', { class: 'car' + (i === app.presetIndex ? ' active' : ''), onclick: () => { app.loadPreset(i); this.show('vehicle'); } },
-        h('b', {}, cfg.name),
+      const card = h('div', { class: 'car' + (i === app.presetIndex ? ' active' : ''), role: 'button', tabindex: '0', onclick: () => { app.loadPreset(i); this.show('vehicle'); } },
+        h('div', { class: 'carhead' }, h('b', {}, cfg.name),
+          h('button', { class: 'btn small edit', title: `Open ${cfg.name}'s settings`, onclick: (e) => { e.stopPropagation(); app.loadPreset(i); this.close(); if (!app.tuning.isOpen) app.tuning.toggle(); else app.tuning.render(); } }, 'Edit')),
         h('span', { class: 'spec' }, `${cfg.body.mass} kg · ~${peakHp(cfg)} hp · ${cfg.drivetrain.layout}`),
         h('span', { class: 'desc' }, cfg.description || ''));
       grid.append(card);
     });
-    return h('div', {}, h('p', { class: 'hint' }, 'Pick a car. Opponents in a race drive the same car. Tab opens the tuning panel for the current car.'), grid);
+    return h('div', {}, h('p', { class: 'hint' }, 'Pick a car. Opponents in a race drive the same car. Edit opens that car\'s settings (Tab does the same for the current car).'), grid);
   }
 }
