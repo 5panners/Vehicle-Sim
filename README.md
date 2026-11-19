@@ -339,7 +339,7 @@ Reference numbers from `npm run test:physics` (flat asphalt):
 
 | Car | 0–100 km/h | Braking | Lateral |
 |---|---|---|---|
-| GT Coupe | 6.0 s | 1.0 g | 0.96 g |
+| Ginetta G55 (was GT Coupe) | 6.0 s | 1.0 g | 0.96 g |
 | Track Prototype | 3.3 s | 1.8 g (downforce) | 1.7 g |
 | '67 Lotus GP | 4.2 s (297 km/h top speed) | ~1.0–1.2 g (no ABS) | 1.0 g; four-wheel drifts when provoked |
 | Drift Car | 6.4 s (wheelspin-limited, TC off) | 1.0 g | holds 30° drifts; see below |

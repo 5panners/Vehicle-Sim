@@ -68,7 +68,11 @@ export const makeVehicle = (over) => deepMerge(BASE, over);
 
 export const PRESETS = [
   makeVehicle({
-    name: 'GT Coupe', description: 'Front-engine RWD sports car, ~450 hp, clutch-type LSD. Balanced, drifts on demand.',
+    name: 'Ginetta G55', description: 'GT4-style front-engine RWD coupe: ~450 hp, clutch-type LSD, a big rear wing and slick-looking tyres. Balanced, drifts on demand.',
+    color: 0xe8e8e6, accent: 0xff7a1a,
+    // glTF body built in Blender (tools/blender/build_g55.py)
+    model: { url: 'assets/models/g55.glb', prefix: 'G55_', brakeMaterial: 'G55_Taillight' },
+    view: { hood: [0.98, -0.1] },
   }),
   makeVehicle({
     name: 'Muscle Car', description: 'Heavy V8 RWD with soft springs and a lazy LSD. Big torque, loves to slide.',
