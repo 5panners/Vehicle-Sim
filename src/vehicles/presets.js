@@ -75,22 +75,6 @@ export const PRESETS = [
     view: { hood: [0.98, -0.1] },
   }),
   makeVehicle({
-    name: 'Muscle Car', description: 'Heavy V8 RWD with soft springs and a lazy LSD. Big torque, loves to slide.',
-    color: 0xffaa00, style: 'coupe',
-    body: { mass: 1720, cgHeight: 0.52, weightDistFront: 0.55, dimensions: { width: 1.95, height: 1.32, length: 4.8 }, inertiaScale: { y: 0.9 } },
-    geometry: { wheelbase: 2.85, trackFront: 1.6, trackRear: 1.62 },
-    suspension: { front: { springRate: 45000, antiRollBar: 26000, bumpDamping: 2800, reboundDamping: 4200 }, rear: { springRate: 40000, antiRollBar: 10000, bumpDamping: 2800, reboundDamping: 4200, camber: -0.5 } },
-    tires: { front: { peakFrictionY: 0.98 }, rear: { peakFrictionX: 1.05, peakFrictionY: 1.0 } },
-    engine: {
-      torqueCurve: [[700, 420], [2000, 600], [3500, 680], [4800, 660], [5800, 590], [6400, 520], [6800, 470]],
-      idleRPM: 700, redlineRPM: 6400, limiterRPM: 6600, inertia: 0.26, engineBrakingTorque: 80, cylinders: 8,
-    },
-    transmission: { gearRatios: [2.66, 1.78, 1.3, 1.0, 0.8, 0.63], finalDrive: 3.73, clutchMaxTorque: 1100, autoShiftUpRPM: 6100, autoShiftDownRPM: 2800 },
-    drivetrain: { rearDiff: { type: 'lsd', preload: 50, powerLock: 0.25, coastLock: 0.1 } },
-    brakes: { maxTorque: 6200, bias: 0.6 },
-    aero: { dragCoefficient: 0.38, frontalArea: 2.2, liftCoefFront: 0.05, liftCoefRear: 0.05 },
-  }),
-  makeVehicle({
     name: 'Track Prototype', description: 'Light, stiff, high-downforce racer with slick tyres. Grip rises with speed.',
     color: 0xe8e8e6, accent: 0xe85d04, style: 'proto',
     // glTF body built in Blender (tools/blender/build_sp300r.py): a Caterham SP/300.R-style Le Mans roadster
@@ -288,43 +272,7 @@ export const PRESETS = [
     aero: { dragCoefficient: 0.85, frontalArea: 1.5, liftCoefFront: -1.35, liftCoefRear: -1.85, angularDrag: 0.4 },
   }),
   makeVehicle({
-    name: 'Kart', description: '125cc two-stroke race kart: 165 kg with driver, ~30 hp, direct drive, solid rear axle, rear-only brakes and no suspension. Tiny, twitchy and brutally direct.',
-    color: 0x00b0ff, accent: 0xff6d00, style: 'kart',
-    view: { hood: [0.62, -0.12] }, // driver's eye
-    body: {
-      mass: 165, cgHeight: 0.25, weightDistFront: 0.42, groundClearance: 0.03,
-      dimensions: { width: 1.4, height: 0.95, length: 1.85 },
-      inertiaScale: { x: 0.6, y: 0.6, z: 0.7 }, bodyFriction: 0.4,
-    },
-    geometry: { wheelbase: 1.04, trackFront: 1.15, trackRear: 1.4 },
-    // No real suspension: a stiff spring/damper stands in for chassis + tyre flex,
-    // and the "anti-roll bars" represent the frame's torsional stiffness.
-    suspension: {
-      front: { springRate: 60000, bumpDamping: 900, reboundDamping: 1200, fastBumpThreshold: 0.1, fastBumpFactor: 0.5, restLength: 0.03, travel: 0.02, bumpStopRate: 250000, antiRollBar: 9000, camber: -0.5, camberGain: 0, toe: 0, caster: 14, steerJacking: 0.04, rollCenterHeight: 0.05 },
-      rear: { springRate: 55000, bumpDamping: 900, reboundDamping: 1200, fastBumpThreshold: 0.1, fastBumpFactor: 0.5, restLength: 0.03, travel: 0.02, bumpStopRate: 250000, antiRollBar: 6000, camber: 0, camberGain: 0, toe: 0, rollCenterHeight: 0.07 },
-      antiDive: 0, antiSquat: 0,
-    },
-    wheels: { front: { radius: 0.14, width: 0.12, inertia: 0.03 }, rear: { radius: 0.143, width: 0.18, inertia: 0.05 } },
-    tires: {
-      front: { peakFrictionX: 1.7, peakFrictionY: 1.8, peakSlipRatio: 0.09, peakSlipAngle: 4.5, shapeY: { C: 1.45, E: -0.2 }, loadSensitivity: 0.12, nominalLoad: 400, relaxationLengthX: 0.1, relaxationLengthY: 0.15, optimalTemp: 60, tempWindow: 25, heatRate: 6, coolRate: 0.03 },
-      rear: { peakFrictionX: 1.7, peakFrictionY: 1.75, peakSlipRatio: 0.09, peakSlipAngle: 4.5, shapeY: { C: 1.45, E: -0.2 }, loadSensitivity: 0.12, nominalLoad: 450, relaxationLengthX: 0.1, relaxationLengthY: 0.15, optimalTemp: 60, tempWindow: 25, heatRate: 6, coolRate: 0.03 },
-    },
-    engine: {
-      // 125cc single-cylinder two-stroke (fires every revolution -> audio "cylinders: 2")
-      torqueCurve: [[2500, 6], [5000, 10], [7000, 14], [9000, 19], [10500, 21], [11500, 20], [12500, 17], [13500, 13], [14000, 10]],
-      idleRPM: 2600, redlineRPM: 13500, limiterRPM: 14000, limiterCutTime: 0.04,
-      inertia: 0.012, engineBrakingTorque: 4, throttleResponse: 20, cylinders: 2,
-    },
-    // Direct drive (12:80 chain) through a centrifugal clutch. Karts have no reverse;
-    // it's kept here only so the sandbox can back out of a wall.
-    transmission: { gearRatios: [1.0], reverseRatio: -1.0, finalDrive: 6.67, shiftTime: 0.05, clutchMaxTorque: 60, clutchEngageRPM: 5500, clutchFullRPM: 7500, efficiency: 0.95, autoShiftUpRPM: 13500, autoShiftDownRPM: 0 },
-    drivetrain: { layout: 'RWD', rearDiff: { type: 'locked' } }, // solid rear axle
-    brakes: { maxTorque: 320, bias: 0.0, handbrakeTorque: 160 }, // rear-axle disc only
-    steering: { maxAngle: 28, ackermann: 1.0, steerSpeed: 6.0, speedSensitivity: 0.85, countersteerAssist: 0.15 },
-    aero: { dragCoefficient: 0.8, frontalArea: 0.55, liftCoefFront: 0, liftCoefRear: 0, angularDrag: 0.3 },
-  }),
-  makeVehicle({
-    name: 'KZ Shifter Kart', description: '125cc two-stroke gearbox (KZ/KZ2) kart: 175 kg with driver, ~55 hp at 12,500 rpm, 6-speed sequential box (G for manual, shift keys/paddles), front and rear brakes, standing starts. 0-60 mph in about 3.9 s, ~105 mph flat out. Same chassis as the direct-drive Kart.',
+    name: 'KZ Shifter Kart', description: '125cc two-stroke gearbox (KZ/KZ2) kart: 175 kg with driver, ~55 hp at 12,500 rpm, 6-speed sequential box (G for manual, shift keys/paddles), front and rear brakes, standing starts. 0-60 mph in about 3.9 s, ~105 mph flat out.',
     color: 0xffd600, accent: 0x111111, style: 'kart',
     view: { hood: [0.62, -0.12] },
     body: {
@@ -357,32 +305,5 @@ export const PRESETS = [
     steering: { maxAngle: 28, ackermann: 1.0, steerSpeed: 6.0, speedSensitivity: 0.85, countersteerAssist: 0.15 },
     aero: { dragCoefficient: 0.7, frontalArea: 0.55, liftCoefFront: 0, liftCoefRear: 0, angularDrag: 0.3 },
     assists: { abs: false, tcs: false, stability: false },
-  }),
-  makeVehicle({
-    name: 'Off-road Truck', description: 'Heavy 4x4 pickup. Huge travel, high CG, locked rear diff. For jumps and dirt.',
-    color: 0x445566, style: 'truck',
-    body: { mass: 2200, cgHeight: 0.85, weightDistFront: 0.55, groundClearance: 0.3, dimensions: { width: 2.05, height: 1.75, length: 5.3 }, bodyFriction: 0.5 },
-    geometry: { wheelbase: 3.3, trackFront: 1.8, trackRear: 1.8 },
-    suspension: {
-      front: { springRate: 45000, bumpDamping: 4500, reboundDamping: 6500, restLength: 0.6, travel: 0.4, antiRollBar: 15000, camber: 0, camberGain: 2, rollCenterHeight: 0.2, fastBumpFactor: 0.3 },
-      rear: { springRate: 50000, bumpDamping: 4500, reboundDamping: 6500, restLength: 0.6, travel: 0.4, antiRollBar: 8000, camber: 0, camberGain: 2, rollCenterHeight: 0.25, fastBumpFactor: 0.3 },
-    },
-    wheels: { front: { radius: 0.45, width: 0.31, inertia: 3.0 }, rear: { radius: 0.45, width: 0.31, inertia: 3.0 } },
-    tires: {
-      front: { peakFrictionX: 0.95, peakFrictionY: 0.9, peakSlipRatio: 0.14, peakSlipAngle: 10, nominalLoad: 6000, shapeY: { C: 1.2, E: 0.3 } },
-      rear: { peakFrictionX: 0.95, peakFrictionY: 0.9, peakSlipRatio: 0.14, peakSlipAngle: 10, nominalLoad: 6000, shapeY: { C: 1.2, E: 0.3 } },
-    },
-    engine: {
-      torqueCurve: [[700, 500], [1800, 700], [3000, 760], [4200, 700], [5200, 600], [5800, 520]],
-      idleRPM: 700, redlineRPM: 5600, limiterRPM: 5800, inertia: 0.35, engineBrakingTorque: 90, cylinders: 8,
-    },
-    transmission: { gearRatios: [4.0, 2.5, 1.6, 1.2, 1.0, 0.8], reverseRatio: -3.5, finalDrive: 3.9, clutchMaxTorque: 1300, autoShiftUpRPM: 5300, autoShiftDownRPM: 2400 },
-    drivetrain: {
-      layout: 'AWD', centerSplitFront: 0.4,
-      frontDiff: { type: 'open' }, rearDiff: { type: 'locked' }, centerDiff: { type: 'lsd', preload: 200, powerLock: 0.6, coastLock: 0.4 },
-    },
-    brakes: { maxTorque: 9000, bias: 0.62, handbrakeTorque: 4000 },
-    steering: { maxAngle: 36, steerSpeed: 3.0 },
-    aero: { dragCoefficient: 0.45, frontalArea: 3.2, liftCoefFront: 0.05, liftCoefRear: 0.05, angularDrag: 0.4 },
   }),
 ];

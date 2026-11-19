@@ -5,12 +5,9 @@ export const BOT_CALIBRATION = {
     "Ginetta G55": 0.95,
     "'67 Lotus GP": 0.651,
     "Caterham 620R": 0.8,
-    "Muscle Car": 0.761,
     "Formula 1": 0.929,
     "GT3": 0.95,
     "Drift Car": 0.805,
-    "Kart": 0.95,
-    "Off-road Truck": 0.769,
     "KZ Shifter Kart": 0.94
   },
   "test": {
@@ -18,12 +15,9 @@ export const BOT_CALIBRATION = {
     "Ginetta G55": 0.95,
     "'67 Lotus GP": 0.651,
     "Caterham 620R": 0.8,
-    "Muscle Car": 0.931,
     "Formula 1": 0.95,
     "Drift Car": 0.95,
     "GT3": 0.95,
-    "Kart": 0.95,
-    "Off-road Truck": 0.911,
     "KZ Shifter Kart": 0.95
   },
   "spa": {
@@ -31,25 +25,19 @@ export const BOT_CALIBRATION = {
     "Ginetta G55": 0.704,
     "'67 Lotus GP": 0.499,
     "Caterham 620R": 0.8,
-    "Muscle Car": 0.661,
     "Formula 1": 0.95,
     "Drift Car": 0.661,
     "GT3": 0.95,
-    "Kart": 0.95,
-    "Off-road Truck": 0.641,
     "KZ Shifter Kart": 0.815
   },
   "kart": {
     "Ginetta G55": 0.95,
-    "Muscle Car": 0.95,
     "Track Prototype": 0.95,
     "'67 Lotus GP": 0.809,
     "Caterham 620R": 0.8,
     "Drift Car": 0.894,
     "GT3": 0.95,
     "Formula 1": 0.95,
-    "Kart": 0.922,
-    "Off-road Truck": 0.94,
     "KZ Shifter Kart": 0.863
   }
 };
