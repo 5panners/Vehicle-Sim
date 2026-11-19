@@ -152,7 +152,7 @@ export function buildKartScenery(view) {
     pg.fillStyle = gr; pg.fillRect(0, 0, 128, 128);
     const poolTex = new THREE.CanvasTexture(pc); poolTex.colorSpace = THREE.SRGBColorSpace;
     const poolMat = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
-    const pools = [];
+    const pools = [], masts = [];
     for (let d = 8; d < L; d += 44) {
       const here = frame(d), w = hw(d);
       // the outer side: whichever side of the track is further from the middle of the site
@@ -166,13 +166,34 @@ export function buildKartScenery(view) {
       const bar = new THREE.Mesh(BOX, lampMat); bar.scale.set(1.8, 0.28, 0.06); bar.position.set(f.x - side * f.t.rx * 0.27, f.y + 10.34, f.z - side * f.t.rz * 0.27); bar.rotation.y = face; group.add(bar);
       const pool = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), poolMat);
       const pc2 = frame(d, side * (w * 0.15)); pool.position.set(pc2.x, here.y + 0.06, pc2.z); pool.rotation.x = -Math.PI / 2; pool.renderOrder = 4; group.add(pool);
-      pools.push(pool);
+      pools.push(pool); masts.push({ x: f.x - side * f.t.rx * 0.3, y: f.y + 10.2, z: f.z - side * f.t.rz * 0.3, tx: pc2.x, ty: here.y, tz: pc2.z });
     }
-    view.updaters?.push(() => {
+    // real light: three shadow-casting spotlights follow the player, each hung on one of the nearest masts, so cars are lit
+    // from above and throw shadows on the tarmac. They are always in the scene (intensity 0 by day) so no shader ever recompiles.
+    const K = Math.min(3, masts.length), spots = [];
+    for (let k = 0; k < K; k++) {
+      const sp = new THREE.SpotLight(0xfff0d0, 0, 120, 1.3, 0.9, 2);
+      sp.castShadow = true; sp.shadow.mapSize.set(1024, 1024); sp.shadow.camera.near = 3; sp.shadow.camera.far = 120;
+      sp.shadow.bias = -0.0004; sp.shadow.normalBias = 0.04; sp.shadow.radius = 3;
+      scene.add(sp, sp.target); spots.push({ sp, mast: -1 });
+    }
+    const sm = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+    view.updaters?.push((camera) => {
       const dk = lighting.dark;
       lampMat.emissiveIntensity = 0.15 + 3.5 * dk;
-      poolMat.opacity = 0.5 * dk;
+      poolMat.opacity = 0.22 * dk;                                   // the painted pools now only add the soft glow on the ground
       for (const p of pools) p.visible = dk > 0.02;
+      // hand the nearest masts to the spotlights (a light keeps its mast until it is no longer one of the nearest)
+      const near = masts.map((m, i) => ({ i, d: Math.hypot(m.x - camera.position.x, m.z - camera.position.z) })).sort((a, b) => a.d - b.d).slice(0, K).map((o) => o.i);
+      for (const s of spots) if (s.mast >= 0 && !near.includes(s.mast)) s.mast = -1;
+      for (const i of near) if (!spots.some((s) => s.mast === i)) { const s = spots.find((q) => q.mast < 0); if (s) s.mast = i; }
+      for (const s of spots) {
+        const m = masts[s.mast]; s.sp.visible = true;
+        if (!m || dk < 0.02) { s.sp.intensity = 0; s.sp.shadow.autoUpdate = false; continue; }
+        s.sp.position.set(m.x, m.y, m.z); s.sp.target.position.set(m.tx, m.ty, m.tz); s.sp.target.updateMatrixWorld();
+        const dist = Math.hypot(m.x - camera.position.x, m.z - camera.position.z);
+        s.sp.intensity = 1800 * dk * sm(100, 45, dist); s.sp.shadow.autoUpdate = true;
+      }
     });
   }
 

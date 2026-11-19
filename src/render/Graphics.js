@@ -93,6 +93,7 @@ export class Graphics {
 
   /** shadow distance = half-width of the area around the car that gets shadows (0 turns them off) */
   applyShadows() {
+    if (this.app.shadows) { this.app.shadows.setDistance(this.s.shadowDistance); return; }
     const sun = this.app.sun, d = this.s.shadowDistance;
     sun.castShadow = d > 0;
     if (d <= 0) return;

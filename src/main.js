@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { World } from './world/World.js';
+import { Shadows } from './render/Shadows.js';
 import { MAPS, DEFAULT_MAP } from './world/maps/index.js';
 import { LapTimer } from './game/LapTimer.js';
 import { BOT_SKILLS } from './game/BotDriver.js';
@@ -56,7 +57,8 @@ class App {
     Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 400 });
     sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
     scene.add(sun, sun.target);
-    addEventListener('resize', () => { this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+    this.shadows = new Shadows(this);                       // cascaded shadow maps (the sun above just owns colour and intensity)
+    addEventListener('resize', () => { this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); this.shadows.resize(); });
 
     // ---- simulation
     this.world = new World(MAPS[this.mapId]);
@@ -68,7 +70,8 @@ class App {
     this.worldView = new WorldView(this.world, scene);
     this.gfx = new Graphics(this);   // shadow distance, render scale, time of day
     this.lights = new StartLights();
-    this.presetIndex = Math.max(0, PRESETS.findIndex((p) => p.name === DEFAULT_CAR));   // opens in the GT3
+    const startCar = this.world.map.defaultCar || DEFAULT_CAR;                          // a map can pick its own starting car (the kart circuit: a kart)
+    this.presetIndex = Math.max(0, PRESETS.findIndex((p) => p.name === startCar));   // otherwise opens in the GT3
     this.vehicle = new Vehicle(structuredClone(PRESETS[this.presetIndex]), this.world);
     this.carView = new CarView(scene);
     this.carView.build(this.vehicle);
@@ -341,7 +344,8 @@ class App {
     this.renderer.toneMappingExposure = bl.exposure * (1 + (1 - tl) * 0.55);
     const sd = this.gfx.sunDir, reach = 130;
     this.sun.position.set(p.x + sd.x * reach, p.y + sd.y * reach, p.z + sd.z * reach); this.sun.target.position.set(p.x, p.y, p.z);
-    this.hud.update(dt, v, inp, { physicsHz: PHYSICS_HZ, camera: this.rig.modeName, slowmo: this.slowmo, lap: this.lapTimer });
+    this.shadows.update();
+    this.hud.update(dt, v, inp, { physicsHz: PHYSICS_HZ, camera: this.rig.modeName, slowmo: this.slowmo, lap: this.lapTimer, clock: this.gfx.hourText, night: this.gfx.s.hour < 6 || this.gfx.s.hour >= 18 });
     if (!paused) {
       this.audio.update(v);
       // feedback
