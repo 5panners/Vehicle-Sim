@@ -335,9 +335,10 @@ export const PRESETS = [
       antiDive: 0, antiSquat: 0,
     },
     wheels: { front: { radius: 0.14, width: 0.12, inertia: 0.03 }, rear: { radius: 0.143, width: 0.18, inertia: 0.05 } },
+    // the rear has a touch less lateral grip and a slide that builds progressively: the tail steps out on power or a handbrake tap, and can be held
     tires: {
       front: { peakFrictionX: 1.7, peakFrictionY: 1.8, peakSlipRatio: 0.09, peakSlipAngle: 4.5, shapeY: { C: 1.45, E: -0.2 }, loadSensitivity: 0.12, nominalLoad: 400, relaxationLengthX: 0.1, relaxationLengthY: 0.15, optimalTemp: 60, tempWindow: 25, heatRate: 6, coolRate: 0.03 },
-      rear: { peakFrictionX: 1.7, peakFrictionY: 1.75, peakSlipRatio: 0.09, peakSlipAngle: 4.5, shapeY: { C: 1.45, E: -0.2 }, loadSensitivity: 0.12, nominalLoad: 450, relaxationLengthX: 0.1, relaxationLengthY: 0.15, optimalTemp: 60, tempWindow: 25, heatRate: 6, coolRate: 0.03 },
+      rear: { peakFrictionX: 1.7, peakFrictionY: 1.62, peakSlipRatio: 0.09, peakSlipAngle: 5.5, shapeY: { C: 1.35, E: 0.1 }, loadSensitivity: 0.12, nominalLoad: 450, relaxationLengthX: 0.1, relaxationLengthY: 0.15, optimalTemp: 60, tempWindow: 25, heatRate: 6, coolRate: 0.03 },
     },
     engine: {
       // 125cc water-cooled reed-valve two-stroke: narrow, peaky power band (~55 hp at 12,500 rpm, tuned a little hot to match real-world launches)
@@ -348,7 +349,7 @@ export const PRESETS = [
     // six close ratios on a ~4.3 final drive; wet clutch that bites at ~9500 rpm (launch at high revs) so it can launch off the line
     transmission: { gearRatios: [3.04, 2.25, 1.8, 1.53, 1.26, 1.0], reverseRatio: -3.0, finalDrive: 4.3, shiftTime: 0.04, clutchMaxTorque: 90, clutchEngageRPM: 9500, clutchFullRPM: 12500, efficiency: 0.93, autoShiftUpRPM: 14500, autoShiftDownRPM: 9500 },
     drivetrain: { layout: 'RWD', rearDiff: { type: 'locked' } },
-    brakes: { maxTorque: 420, bias: 0.35, handbrakeTorque: 160 },   // front and rear discs, ~35% front
+    brakes: { maxTorque: 420, bias: 0.35, handbrakeTorque: 450 },   // front and rear discs, ~35% front; a firm rear-brake tap sets the tail sliding
     steering: { maxAngle: 28, ackermann: 1.0, steerSpeed: 6.0, speedSensitivity: 0.85, countersteerAssist: 0.15 },
     aero: { dragCoefficient: 0.7, frontalArea: 0.55, liftCoefFront: 0, liftCoefRear: 0, angularDrag: 0.3 },
     assists: { abs: false, tcs: false, stability: false },

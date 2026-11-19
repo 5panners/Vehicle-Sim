@@ -137,9 +137,10 @@ export function buildKartScenery(view) {
       box(0.08, 2.1, 0.08, mat.steel, f.x, f.y, f.z, f.yaw);
     }
   }
+  const pitMasts = [];                                                                    // the pit-straight masts: lit by the floodlight block below
   for (let d = PIT.from; span(PIT.from, d) < span(PIT.from, 90); d += 38) {             // floodlight masts behind the stand side
     const f = frame(d, -(hw(d) + 4.4)); if (!free(f.x, f.z, 2)) continue; const m = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, 11, 7), mat.steel); m.position.set(f.x, f.y + 5.5, f.z); m.castShadow = true; group.add(m);
-    box(2.4, 0.5, 0.7, mat.dark, f.x, f.y + 11, f.z, f.yaw + Math.PI / 2);
+    box(2.4, 0.5, 0.7, mat.dark, f.x, f.y + 11, f.z, f.yaw + Math.PI / 2); pitMasts.push({ f, d });
   }
 
   // ---- floodlights right round the lap: masts behind the outer barrier whose lamp heads glow after dusk and throw a soft pool of light on the track
@@ -153,6 +154,14 @@ export function buildKartScenery(view) {
     const poolTex = new THREE.CanvasTexture(pc); poolTex.colorSpace = THREE.SRGBColorSpace;
     const poolMat = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
     const pools = [], masts = [];
+    // a glowing lamp bar, its pool of light on the track and its place in the list of masts the spotlights can use
+    const lamp = (f, side, d, w, yBar) => {
+      const face = Math.atan2(-side * f.t.rx, -side * f.t.rz);                    // lamp heads look across the track
+      const bar = new THREE.Mesh(BOX, lampMat); bar.scale.set(1.8, 0.28, 0.06); bar.position.set(f.x - side * f.t.rx * 0.27, f.y + yBar, f.z - side * f.t.rz * 0.27); bar.rotation.y = face; group.add(bar);
+      const pool = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), poolMat), here = frame(d);
+      const pc2 = frame(d, side * (w * 0.15)); pool.position.set(pc2.x, here.y + 0.06, pc2.z); pool.rotation.x = -Math.PI / 2; pool.renderOrder = 4; group.add(pool);
+      pools.push(pool); masts.push({ x: f.x - side * f.t.rx * 0.3, y: f.y + yBar - 0.14, z: f.z - side * f.t.rz * 0.3, tx: pc2.x, ty: here.y, tz: pc2.z });
+    };
     for (let d = 8; d < L; d += 44) {
       const here = frame(d), w = hw(d);
       // the outer side: whichever side of the track is further from the middle of the site
@@ -161,13 +170,11 @@ export function buildKartScenery(view) {
       const f = frame(d, side * (w + 4.4));
       if (!free(f.x, f.z, 2.2) || keepOut.some((k) => (k.x - f.x) ** 2 + (k.z - f.z) ** 2 < (k.r + 1) ** 2)) continue;
       const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.22, 10.5, 7), mat.steel); mast.position.set(f.x, f.y + 5.25, f.z); mast.castShadow = true; group.add(mast);
-      const face = Math.atan2(-side * f.t.rx, -side * f.t.rz);                    // lamp heads look across the track
-      box(2.0, 0.4, 0.5, mat.dark, f.x, f.y + 10.3, f.z, face);
-      const bar = new THREE.Mesh(BOX, lampMat); bar.scale.set(1.8, 0.28, 0.06); bar.position.set(f.x - side * f.t.rx * 0.27, f.y + 10.34, f.z - side * f.t.rz * 0.27); bar.rotation.y = face; group.add(bar);
-      const pool = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), poolMat);
-      const pc2 = frame(d, side * (w * 0.15)); pool.position.set(pc2.x, here.y + 0.06, pc2.z); pool.rotation.x = -Math.PI / 2; pool.renderOrder = 4; group.add(pool);
-      pools.push(pool); masts.push({ x: f.x - side * f.t.rx * 0.3, y: f.y + 10.2, z: f.z - side * f.t.rz * 0.3, tx: pc2.x, ty: here.y, tz: pc2.z });
+      box(2.0, 0.4, 0.5, mat.dark, f.x, f.y + 10.3, f.z, Math.atan2(-side * f.t.rx, -side * f.t.rz));
+      lamp(f, side, d, w, 10.34);
     }
+    for (const o of pitMasts) lamp(o.f, -1, o.d, hw(o.d), 11.3);      // the older pit-straight masts get lights too
+
     // real light: three shadow-casting spotlights follow the player, each hung on one of the nearest masts, so cars are lit
     // from above and throw shadows on the tarmac. They are always in the scene (intensity 0 by day) so no shader ever recompiles.
     const K = Math.min(6, masts.length), spots = [];                // six lights: the nearest three also cast shadows
