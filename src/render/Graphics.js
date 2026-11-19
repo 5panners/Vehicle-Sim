@@ -11,7 +11,7 @@ import { lighting } from './lighting.js';
  */
 const KEY = 'vehicleSim.graphics';
 export const FLOW_OPTIONS = [[0, 'Frozen'], [1, 'Real time'], [10, '10×'], [60, '60× (a day in 24 min)'], [300, '300× (a day in 5 min)'], [1200, '1200× (a day in 72 s)']];
-const DEFAULTS = { shadowDistance: 45, renderScale: 1, hour: 11, flow: 0, sunIntensity: 1, sunColor: '#fff5e0', moonIntensity: 1, moonColor: '#8ca8ff' };
+const DEFAULTS = { shadowDistance: 45, renderScale: 1, hour: 11.03, flow: 0, sunIntensity: 2.05, sunColor: '#fff5e0', moonIntensity: 7.5, moonColor: '#8ca8ff' };
 const NIGHT_TOP = new THREE.Color(0.012, 0.02, 0.06), NIGHT_BOTTOM = new THREE.Color(0.03, 0.04, 0.09);
 const DUSK = new THREE.Color(0.95, 0.45, 0.2);
 const LOW_TINT = new THREE.Color(1.0, 0.6, 0.38);   // a low sun is warmer than the colour picked for noon
