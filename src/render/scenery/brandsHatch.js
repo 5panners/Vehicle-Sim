@@ -3,6 +3,7 @@ import { rng } from '../../world/noise.js';
 import { labelSprite } from '../WorldView.js';
 import { broadleafTree, birchTree, bareTree, pineTree, farTree, garageFacade, garageFronts, officeFacade, seatTexture, bannerTexture } from './lowpoly.js';
 import { TreeTiles } from './treelod.js';
+import { lighting } from '../lighting.js';
 
 /**
  * Brands Hatch surroundings (low-poly, modelled on reference photos):
@@ -243,12 +244,31 @@ export function buildBrandsScenery(view) {
   bridge(C["Sheene's"] + 110);
 
   // ============================================================ floodlights, ad boards, marshal posts, brake boards
+  // the masts light up after dusk: glowing heads, and a soft pool of light on the tarmac under each (painted, so it costs nothing)
   const lampHead = lam(0xf5f3e6, { emissive: 0x333322 });
+  const lampGlow = new THREE.MeshBasicMaterial({ color: 0xfff2cc, toneMapped: false });
+  const lampCan = document.createElement('canvas'); lampCan.width = lampCan.height = 128;
+  { const g = lampCan.getContext('2d'), gr = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+    gr.addColorStop(0, 'rgba(255,240,200,0.85)'); gr.addColorStop(0.45, 'rgba(255,230,170,0.35)'); gr.addColorStop(1, 'rgba(255,220,150,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); }
+  const poolTex = new THREE.CanvasTexture(lampCan); poolTex.colorSpace = THREE.SRGBColorSpace;
+  const poolMat = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+  const poolGeo = new THREE.PlaneGeometry(1, 1), pools = [], glows = [];
   for (let d = 3600; d < 3906 + 200; d += 70) for (const s of [-1, 1]) {
     const f = frame(d, s * (hw(d) + (s > 0 ? 40 : 10)));
     if (!free(f.x, f.z, 1)) continue;
     box(0.35, 22, 0.35, mat.steel, f.x, f.y, f.z, f.yaw); box(2.4, 1.2, 0.5, lampHead, f.x, f.y + 22, f.z, f.yaw);
+    // glowing lamp panel on the face that looks at the track
+    const g = new THREE.Mesh(poolGeo, lampGlow); g.scale.set(2.2, 1.0, 1); g.position.set(f.x - s * f.t.rx * 0.27, f.y + 22.6, f.z - s * f.t.rz * 0.27);
+    g.rotation.y = Math.atan2(-s * f.t.rx, -s * f.t.rz); g.visible = false; scene.add(g); glows.push(g);
+    const mid = frame(d, s > 0 ? s * (hw(d) + 20) : 0), pool = new THREE.Mesh(poolGeo, poolMat);
+    pool.scale.set(54, 54, 1); pool.position.set(mid.x, mid.y + 0.07, mid.z); pool.rotation.x = -Math.PI / 2; pool.renderOrder = 4; pool.visible = false; scene.add(pool); pools.push(pool);
   }
+  view.updaters.push(() => {
+    const dk = lighting.dark; poolMat.opacity = 0.55 * dk;
+    lampHead.emissive.setRGB(0.2 + 0.8 * dk, 0.2 + 0.78 * dk, 0.13 + 0.6 * dk);
+    for (const p of pools) p.visible = dk > 0.02;
+    for (const g of glows) g.visible = dk > 0.02;
+  });
   const ads = ['MOTORSPORT TV', 'RACE DAY', 'RADIO BRANDS 87.7', 'BRANDS HATCH', 'THE MOST POWERFUL LAP IN KENT'];
   const adMats = ads.map((t) => new THREE.MeshLambertMaterial({ map: bannerTexture(t) }));
   const boardTex = {};
