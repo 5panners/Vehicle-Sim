@@ -1,0 +1,56 @@
+:root { --ink:#f6f3ea; --glass:rgba(12,16,30,.55); --line:rgba(255,255,255,.18); --acc:#ffcf6b; }
+* { box-sizing:border-box; }
+html,body { margin:0; height:100%; overflow:hidden; background:#0b1022; color:var(--ink); font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif; }
+canvas#c { position:fixed; inset:0; width:100%; height:100%; display:block; }
+.hidden { display:none !important; }
+#loading { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; background:radial-gradient(circle at 50% 40%,#25356a,#0a0f22 70%); z-index:50; }
+.ld-title { font-size:64px; letter-spacing:.35em; font-weight:800; text-indent:.35em; background:linear-gradient(#fff,#ffcf6b); -webkit-background-clip:text; color:transparent; }
+.ld-bar { width:min(360px,70vw); height:6px; border-radius:6px; background:rgba(255,255,255,.12); overflow:hidden; }
+.ld-bar i { display:block; height:100%; width:0; background:linear-gradient(90deg,#ffcf6b,#ff7aa8); transition:width .2s; }
+#ldtxt { opacity:.7; font-size:14px; letter-spacing:.08em; }
+#menu { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:40; background:linear-gradient(180deg,rgba(6,10,26,.15),rgba(6,10,26,.55)); backdrop-filter:blur(2px); }
+.card { width:min(440px,92vw); padding:28px 30px 22px; border-radius:22px; background:var(--glass); border:1px solid var(--line); backdrop-filter:blur(18px) saturate(1.3); box-shadow:0 24px 80px rgba(0,0,0,.45); }
+.card h1 { margin:0; text-align:center; font-size:52px; letter-spacing:.32em; text-indent:.32em; font-weight:800; background:linear-gradient(#fff,#ffcf6b 85%); -webkit-background-clip:text; color:transparent; }
+.tag { text-align:center; margin:2px 0 18px; opacity:.75; font-size:14px; letter-spacing:.06em; }
+label { display:block; font-size:12px; text-transform:uppercase; letter-spacing:.1em; opacity:.95; margin-bottom:12px; }
+label small { text-transform:none; letter-spacing:0; opacity:.6; }
+input { display:block; width:100%; margin-top:5px; padding:11px 13px; border-radius:11px; border:1px solid var(--line); background:rgba(0,0,0,.28); color:var(--ink); font-size:15px; outline:none; }
+input:focus { border-color:var(--acc); box-shadow:0 0 0 3px rgba(255,207,107,.18); }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.swatches { display:flex; gap:9px; justify-content:center; margin:2px 0 16px; }
+.swatches i { width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; box-shadow:0 2px 8px rgba(0,0,0,.4); }
+.swatches i.on { border-color:#fff; transform:scale(1.15); }
+.row { display:flex; gap:10px; margin-top:4px; }
+button { flex:1; padding:13px; border-radius:12px; border:0; font-size:15px; font-weight:700; letter-spacing:.04em; cursor:pointer; color:#1a1405; transition:transform .12s, filter .12s; }
+button:hover { transform:translateY(-1px); filter:brightness(1.08); }
+button:disabled { opacity:.5; cursor:wait; }
+.primary { background:linear-gradient(135deg,#ffe08a,#ffb347); }
+.accent { background:linear-gradient(135deg,#8be8ff,#b48cff); }
+.sep { display:flex; align-items:center; gap:12px; margin:18px 0 14px; font-size:12px; opacity:.6; letter-spacing:.1em; text-transform:uppercase; }
+.sep::before,.sep::after { content:""; flex:1; height:1px; background:var(--line); }
+#err { min-height:18px; margin-top:10px; font-size:13px; color:#ff9a9a; text-align:center; }
+.keys { margin-top:10px; font-size:11.5px; opacity:.65; text-align:center; line-height:1.7; }
+.keys b { color:var(--acc); font-weight:700; }
+#hud { position:fixed; inset:0; pointer-events:none; z-index:20; text-shadow:0 2px 10px rgba(0,0,0,.55); }
+#alt { position:absolute; top:22px; left:26px; font-size:46px; font-weight:800; letter-spacing:.02em; line-height:1; }
+#alt small { font-size:20px; opacity:.7; margin-left:4px; }
+#best { font-size:13px; opacity:.65; font-weight:500; margin-top:6px; letter-spacing:.06em; }
+#lvlname { position:absolute; top:26px; right:76px; font-size:15px; letter-spacing:.14em; text-transform:uppercase; opacity:.85; text-align:right; }
+#meter { position:absolute; top:70px; right:34px; bottom:70px; width:5px; border-radius:5px; background:rgba(255,255,255,.18); }
+#meterfill { position:absolute; left:0; right:0; bottom:0; border-radius:5px; background:linear-gradient(0deg,#9dff7a,#ffcf6b,#ff7aa8,#9ae6ff); height:0; }
+#meterdots i { position:absolute; left:-4px; width:13px; height:13px; border-radius:50%; border:2px solid #fff; transform:translateY(6px); }
+#meterdots i.me { width:17px; height:17px; left:-6px; transform:translateY(8px); box-shadow:0 0 12px #fff; }
+#players { position:absolute; left:26px; bottom:26px; font-size:13px; line-height:1.7; }
+#players i { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:8px; }
+#chatlog { position:absolute; left:26px; bottom:120px; width:min(420px,70vw); font-size:14px; line-height:1.45; }
+#chatlog div { margin-top:4px; padding:5px 10px; border-radius:10px; background:rgba(8,12,24,.45); width:fit-content; max-width:100%; }
+#chatin { position:absolute; left:26px; bottom:84px; width:min(420px,70vw); pointer-events:auto; }
+#toast { position:absolute; top:110px; left:50%; transform:translateX(-50%); padding:9px 20px; border-radius:20px; background:var(--glass); border:1px solid var(--line); opacity:0; transition:opacity .35s; font-size:15px; backdrop-filter:blur(10px); }
+#toast.on { opacity:1; }
+#banner { position:absolute; top:26%; left:0; right:0; text-align:center; opacity:0; transition:opacity 1.2s; }
+#banner.on { opacity:1; transition:opacity .6s; }
+#bt { font-size:clamp(34px,6vw,72px); font-weight:800; letter-spacing:.22em; text-indent:.22em; text-transform:uppercase; }
+#bs { font-size:clamp(14px,2vw,22px); letter-spacing:.3em; text-transform:uppercase; opacity:.85; margin-top:6px; }
+#net { position:absolute; bottom:26px; right:26px; font-size:12px; opacity:.6; }
+#hint { position:absolute; bottom:56px; left:50%; transform:translateX(-50%); font-size:13px; opacity:.75; padding:6px 14px; border-radius:16px; background:var(--glass); }
+@media (max-width:640px){ #alt{font-size:34px;} #lvlname{display:none;} }

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASCENT — Only Up</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="loading"><div class="ld-title">ASCENT</div><div class="ld-bar"><i id="ldbar"></i></div><div id="ldtxt">Forging the tower…</div></div>
+
+<div id="menu" class="hidden">
+  <div class="card">
+    <h1>ASCENT</h1>
+    <p class="tag">Eight worlds. One tower. Only up.</p>
+    <label>Climber name<input id="name" maxlength="16" placeholder="Wanderer" autocomplete="off"></label>
+    <div class="swatches" id="swatches"></div>
+    <div class="row">
+      <button id="solo" class="primary">Climb solo</button>
+    </div>
+    <div class="sep"><span>or climb together</span></div>
+    <div class="grid2">
+      <label>Room<input id="room" maxlength="24" placeholder="my-room" autocomplete="off"></label>
+      <label>Password<input id="pass" type="password" maxlength="64" placeholder="••••" autocomplete="off"></label>
+    </div>
+    <label>Relay <small>(leave blank for this server)</small><input id="relay" placeholder="wss://your-relay.example.com" autocomplete="off"></label>
+    <div class="row"><button id="join" class="accent">Create / join room</button></div>
+    <div id="err"></div>
+    <div class="keys"><b>WASD</b> move · <b>Space</b> jump · <b>Shift</b> sprint · <b>Mouse</b> look · <b>R</b> last checkpoint · <b>Enter</b> chat · <b>M</b> mute</div>
+  </div>
+</div>
+
+<div id="hud" class="hidden">
+  <div id="alt"><span id="altv">0</span><small>m</small><div id="best">best 0 m</div></div>
+  <div id="lvlname"></div>
+  <div id="meter"><div id="meterfill"></div><div id="meterdots"></div></div>
+  <div id="players"></div>
+  <div id="chatlog"></div>
+  <input id="chatin" class="hidden" maxlength="140" placeholder="Say something…" autocomplete="off">
+  <div id="toast"></div>
+  <div id="banner"><div id="bt"></div><div id="bs"></div></div>
+  <div id="net"></div>
+  <div id="hint">Click to capture the mouse · <b>Esc</b> to release</div>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

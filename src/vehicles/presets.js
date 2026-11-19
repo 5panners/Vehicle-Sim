@@ -88,7 +88,10 @@ export const PRESETS = [
   }),
   makeVehicle({
     name: 'Track Prototype', description: 'Light, stiff, high-downforce racer with slick tyres. Grip rises with speed.',
-    color: 0x22cc66, style: 'proto',
+    color: 0xe8e8e6, accent: 0xe85d04, style: 'proto',
+    // glTF body built in Blender (tools/blender/build_sp300r.py): a Caterham SP/300.R-style Le Mans roadster
+    model: { url: 'assets/models/sp300r.glb', prefix: 'SP_', brakeMaterial: 'SP_Taillight' },
+    view: { hood: [0.84, -0.3] },
     body: { mass: 980, cgHeight: 0.32, weightDistFront: 0.44, groundClearance: 0.06, dimensions: { width: 1.95, height: 1.0, length: 4.6 }, inertiaScale: { y: 0.75 } },
     geometry: { wheelbase: 2.75, trackFront: 1.65, trackRear: 1.6 },
     suspension: {

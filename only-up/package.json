@@ -1,0 +1,9 @@
+{
+  "name": "ascent-only-up",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ASCENT - a vertical climbing game with password-protected multiplayer rooms via a WebSocket relay",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "ws": "^8.18.0" }
+}
