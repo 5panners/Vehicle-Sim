@@ -7,6 +7,7 @@ import { smoothstep } from '../physics/math.js';
 import { buildBrandsScenery } from './scenery/brandsHatch.js';
 import { buildKartScenery } from './scenery/kart.js';
 import { buildCityScenery } from './scenery/city.js';
+import { buildRockyScenery } from './scenery/rocky.js';
 import { buildSpaScenery } from './scenery/spa.js';
 
 export function noiseTexture(size = 256, contrast = 0.25, base = 0.85) {
@@ -54,6 +55,7 @@ export class WorldView {
     else if (scenery === 'spa') buildSpaScenery(this);
     else if (scenery === 'kart') buildKartScenery(this);
     else if (scenery === 'city') buildCityScenery(this);
+    else if (scenery === 'rocky') buildRockyScenery(this);
   }
 
   // Barriers: street concrete (red/white blocks), concrete pit wall, Armco (two steel rails on
@@ -121,6 +123,7 @@ export class WorldView {
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
       const x = i * step - half, z = j * step - half, k = j * n + i;
       let y = w.heightAtGrid(x, z);
+      if (w.map.visualHeight) y = w.map.visualHeight(x, z, y, w);   // e.g. the ground under a bridge deck, which is solid for the physics
       // with a coarse mesh the terrain triangles cut corners and poke up through the road, kerb and run-off strips
       // (which follow the exact 1 m heights), so press the mesh down under the whole paved corridor and ease it back up beyond
       let sink = 0;
@@ -142,7 +145,7 @@ export class WorldView {
         const ti = w.trackInfo(x, z);
         if (ti.index >= 0 && ti.dist > w.track[ti.index].w / 2 + 1.3) sid = SURF.Grass;
       }
-      const s = { color: (w.map.surfaceColor && w.map.surfaceColor(sid)) || SURFACES[sid].color };
+      const s = { color: (w.map.colorAt && w.map.colorAt(x, z, sid, y, w)) || (w.map.surfaceColor && w.map.surfaceColor(sid)) || SURFACES[sid].color };
       const v = (0.9 + fbm(x * 0.05, z * 0.05, 2) * 0.15) * (w.map.groundTint ? w.map.groundTint(x, z, w, sid) : 1);
       col[k * 3] = s.color[0] * v; col[k * 3 + 1] = s.color[1] * v; col[k * 3 + 2] = s.color[2] * v;
       uv[k * 2] = x / 8; uv[k * 2 + 1] = z / 8;

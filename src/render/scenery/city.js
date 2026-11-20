@@ -288,21 +288,41 @@ export function buildCityScenery(view) {
     const poolTex = new THREE.CanvasTexture(pc); poolTex.colorSpace = THREE.SRGBColorSpace;
     const poolMat = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
     const pools = [], masts = [];
+    const mk = (f, side, d, w, ph, bars = 1) => {
+      const here = frame(d), face = Math.atan2(-side * f.t.rx, -side * f.t.rz);
+      box(0.18, ph, 0.18, mat.iron, f.x, f.y, f.z);
+      box(0.12, 0.12, 2.2, mat.iron, f.x - side * f.t.rx * 1.0, f.y + ph, f.z - side * f.t.rz * 1.0, face);
+      const bx = f.x - side * f.t.rx * 2.0, bz = f.z - side * f.t.rz * 2.0;
+      for (let k = 0; k < bars; k++) {
+        const along = (k - (bars - 1) / 2) * 1.1;
+        const bar = new THREE.Mesh(BOX, lampMat); bar.scale.set(0.5, 0.14, 0.9); bar.position.set(bx + f.t.tx * along, f.y + ph - 0.05, bz + f.t.tz * along); bar.rotation.y = face; group.add(bar);
+      }
+      const pool = new THREE.Mesh(new THREE.PlaneGeometry(26, 26), poolMat), pc2 = frame(d, side * (w * 0.1));
+      pool.position.set(pc2.x, here.y + 0.06, pc2.z); pool.rotation.x = -Math.PI / 2; pool.renderOrder = 4; group.add(pool); pools.push(pool);
+      masts.push({ x: bx, y: f.y + ph - 0.15, z: bz, tx: pc2.x, ty: here.y, tz: pc2.z });
+    };
     let alt = 1;
     for (let d = 6; d < L; d += 36) {
       alt = -alt;
       let side = alt; if (side > 0 && (d > PIT.from - 4 || d < PIT.to + 4)) side = -1;
-      const w = hw(d), f = frame(d, side * (w + 3.2)), here = frame(d);
+      const f = frame(d, side * (hw(d) + 3.2));
       const onBridge = Math.abs(f.x) < CANAL.wall + 3 && Math.abs(f.z - B.z) < 16, inGap = Math.abs(f.x) < CANAL.wall + 6 && Math.abs(f.z - G.z) < 16;
       if (onBridge || inGap || !free(f.x, f.z, 1.6) || keepOut.some((k) => (k.x - f.x) ** 2 + (k.z - f.z) ** 2 < (k.r + 0.5) ** 2)) continue;
-      const face = Math.atan2(-side * f.t.rx, -side * f.t.rz), ph = 8.2;
-      box(0.18, ph, 0.18, mat.iron, f.x, f.y, f.z);
-      const arm = box(0.12, 0.12, 2.2, mat.iron, f.x - side * f.t.rx * 1.0, f.y + ph, f.z - side * f.t.rz * 1.0, face);
-      void arm;
-      const bar = new THREE.Mesh(BOX, lampMat); bar.scale.set(0.5, 0.14, 0.9); bar.position.set(f.x - side * f.t.rx * 2.0, f.y + ph - 0.05, f.z - side * f.t.rz * 2.0); bar.rotation.y = face; group.add(bar);
-      const pool = new THREE.Mesh(new THREE.PlaneGeometry(26, 26), poolMat), pc2 = frame(d, side * (w * 0.1));
-      pool.position.set(pc2.x, here.y + 0.06, pc2.z); pool.rotation.x = -Math.PI / 2; pool.renderOrder = 4; group.add(pool); pools.push(pool);
-      masts.push({ x: bar.position.x, y: bar.position.y - 0.1, z: bar.position.z, tx: pc2.x, ty: here.y, tz: pc2.z });
+      if (side < 0 && d > PIT.from + 8 && d < 118) continue;                            // the stand has its own floodlights
+      if (side > 0 && (d > PIT.from - 4 || d < PIT.to + 4)) continue;                      // so do the pits
+      mk(f, side, d, hw(d), 8.2);
+    }
+    // floodlights on the main stand: a row of towers at the back of the seating, each with a bank of three lamps
+    for (let d = PIT.from + 18; span(PIT.from, d) < span(PIT.from, 105); d += 24) {
+      const f = frame(d, -(hw(d) + 5.5 + 7 * 0.9 + 2.2));
+      if (!free(f.x, f.z, 1.6)) continue;
+      mk(f, -1, d, hw(d), 14.5, 3);
+    }
+    // floodlights over the pit lane, hung from posts at the front of the garages, lighting the lane and the pit wall
+    for (let d = PIT.from + 6; span(PIT.from, d) < span(PIT.from, PIT.to - 4); d += 24) {
+      const f = frame(d, hw(d) + 9.2);
+      if (!free(f.x, f.z, 1.2)) continue;
+      mk(f, 1, d, hw(d) + 8, 9.2, 2);
     }
     const K = Math.min(6, masts.length), spots = [];
     for (let k = 0; k < K; k++) {
