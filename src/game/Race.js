@@ -91,21 +91,14 @@ export class Race {
     this.app.lights.begin(this.hold ?? undefined);
   }
 
-  /** network states -> remote cars: dead reckoning from the last update, eased so corrections don't snap */
-  applyRemote(states, now, dt) {
-    const k = 1 - Math.exp(-14 * dt);
+  /** network states -> remote cars: each plays back its updates a short, adaptive time late along a smooth curve (RemoteTrack) */
+  applyRemote(tracks, now, dt) {
     for (const r of this.remotes) {
-      const s = states.get(r.key); if (!s) continue;
-      const b = r.vehicle.body, age = Math.min(0.3, now - s.at);
-      const tx = s.p[0] + s.v[0] * age, ty = s.p[1] + s.v[1] * age, tz = s.p[2] + s.v[2] * age;
-      if (!r.seen || (b.position.x - tx) ** 2 + (b.position.z - tz) ** 2 > 400) { b.position.x = tx; b.position.y = ty; b.position.z = tz; Object.assign(b.orientation, { x: s.q[0], y: s.q[1], z: s.q[2], w: s.q[3] }); r.seen = true; r.view.group.visible = r.view.blob.visible = true; }
-      else {
-        b.position.x += (tx - b.position.x) * k; b.position.y += (ty - b.position.y) * k; b.position.z += (tz - b.position.z) * k;
-        const o = b.orientation; let [qx, qy, qz, qw] = s.q;
-        if (o.x * qx + o.y * qy + o.z * qz + o.w * qw < 0) { qx = -qx; qy = -qy; qz = -qz; qw = -qw; }
-        o.x += (qx - o.x) * k; o.y += (qy - o.y) * k; o.z += (qz - o.z) * k; o.w += (qw - o.w) * k;
-        const l = Math.hypot(o.x, o.y, o.z, o.w) || 1; o.x /= l; o.y /= l; o.z /= l; o.w /= l;
-      }
+      const tr = tracks.get(r.key), s = tr?.sample(now); if (!s) continue;
+      const b = r.vehicle.body;
+      b.position.x = s.p[0]; b.position.y = s.p[1]; b.position.z = s.p[2];
+      Object.assign(b.orientation, { x: s.q[0], y: s.q[1], z: s.q[2], w: s.q[3] });
+      if (!r.seen) { r.seen = true; r.view.group.visible = r.view.blob.visible = true; }
       b.velocity.x = s.v[0]; b.velocity.y = s.v[1]; b.velocity.z = s.v[2];
       const v = r.vehicle, sp = Math.hypot(s.v[0], s.v[2]);
       v.drivetrain.engine.omega = s.rpm * Math.PI / 30; v.input.throttle = s.th; v.input.brake = s.br;

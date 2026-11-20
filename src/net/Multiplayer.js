@@ -4,8 +4,8 @@ import { PRESETS } from '../vehicles/presets.js';
 /**
  * Online races through the relay. One player hosts: they own the lobby (track, laps, bot skill,
  * car and the grid slots), run the AI opponents and the start lights. Everyone drives their own
- * car locally and broadcasts its state ~15 times a second; the host also broadcasts the bots.
- * Other cars are drawn as "remote" cars that follow those updates (dead reckoning + smoothing).
+ * car locally and broadcasts its state 20 times a second; the host also broadcasts the bots.
+ * Other cars are drawn as "remote" cars that play those updates back a moment late, interpolated (see RemoteTrack).
  *
  * Grid slots (in grid order, P1 first): 'you'/'human' (a player), 'bot', 'open' (waiting for a
  * player to join), 'na' (empty). Players who join take the first open slot.
@@ -13,9 +13,60 @@ import { PRESETS } from '../vehicles/presets.js';
 export const MAX_SLOTS = 8;
 export const SLOT_KINDS = [['bot', 'Bot'], ['open', 'Player'], ['na', 'NA']];
 export const HUMAN_COLORS = ['#ffd54f', '#ef5350', '#26c6da', '#ab47bc', '#66bb6a', '#ff7043', '#5c6bc0', '#ec407a'];
-const STATE_HZ = 15, LOBBY_EVERY = 1.0, TIMEOUT = 8;
+const STATE_HZ = 20, LOBBY_EVERY = 1.0, TIMEOUT = 8;
 
 const r3 = (n) => Math.round(n * 1000) / 1000;
+const clock = () => performance.now() / 1000;
+
+/**
+ * Smooth playback of another car's updates. The relay is a public broker on the internet, so updates arrive unevenly (late,
+ * in bunches) even on a fast connection. Instead of jumping to each update, the car is drawn a short, adaptive time in the past
+ * and glides along a curve through the last updates (position and velocity), so jitter in arrival times disappears. The delay
+ * is the arrival jitter measured so far plus a margin; only if the data runs dry does the car extrapolate briefly.
+ */
+export class RemoteTrack {
+  constructor() { this.snaps = []; this.off = null; this.jit = 0.015; }
+
+  /** ts: the sender's clock when the state was taken; recv: our clock now */
+  add(ts, st, recv) {
+    const o = recv - ts;
+    if (this.off === null) this.off = o;
+    else { this.jit += (Math.abs(o - this.off) - this.jit) * 0.04; this.off += (o - this.off) * 0.02; }
+    const last = this.snaps[this.snaps.length - 1];
+    if (last && ts <= last.ts) return;                                               // late, out of order
+    if (last && Math.hypot(st.p[0] - last.p[0], st.p[2] - last.p[2]) > 25) this.snaps.length = 0;   // a respawn: do not glide across the map
+    this.snaps.push({ ts, ...st });
+    if (this.snaps.length > 40) this.snaps.shift();
+  }
+
+  get delay() { return Math.min(0.4, Math.max(0.1, 0.06 + 1.5 / STATE_HZ + 3.5 * this.jit)); }
+
+  /** the state to draw at our clock `now`, or null before the first update */
+  sample(now) {
+    const S = this.snaps, n = S.length; if (!n) return null;
+    // our own playback clock: it runs at the real rate and only drifts gently towards the ideal time, so late or early
+    // updates and a changing delay never make the car jump
+    const ideal = now - this.off - this.delay;
+    if (this.rt === undefined || Math.abs(ideal - this.rt) > 1.5) this.rt = ideal;
+    else { const dtr = Math.min(0.1, now - this.lastNow); this.rt += dtr + Math.max(-0.08 * dtr, Math.min(0.08 * dtr, ideal - this.rt - dtr)); }
+    this.lastNow = now;
+    const t = this.rt;
+    if (t <= S[0].ts) return { ...S[0], p: S[0].p, q: S[0].q };
+    const L = S[n - 1];
+    if (t >= L.ts) {                                                                  // out of data: carry on at the last velocity, fading out
+      const a = Math.min(0.25, t - L.ts), f = a * (1 - a * 2);
+      return { ...L, p: [L.p[0] + L.v[0] * f, L.p[1] + L.v[1] * f, L.p[2] + L.v[2] * f] };
+    }
+    let i = n - 2; while (i > 0 && S[i].ts > t) i--;
+    const A = S[i], B = S[i + 1], h = B.ts - A.ts, u = (t - A.ts) / h, u2 = u * u, u3 = u2 * u;
+    const h00 = 2 * u3 - 3 * u2 + 1, h10 = u3 - 2 * u2 + u, h01 = -2 * u3 + 3 * u2, h11 = u3 - u2;
+    const p = [0, 1, 2].map((k) => h00 * A.p[k] + h10 * h * A.v[k] + h01 * B.p[k] + h11 * h * B.v[k]);
+    let [bx, by, bz, bw] = B.q; if (A.q[0] * bx + A.q[1] * by + A.q[2] * bz + A.q[3] * bw < 0) { bx = -bx; by = -by; bz = -bz; bw = -bw; }
+    const q = [A.q[0] + (bx - A.q[0]) * u, A.q[1] + (by - A.q[1]) * u, A.q[2] + (bz - A.q[2]) * u, A.q[3] + (bw - A.q[3]) * u], ql = Math.hypot(...q) || 1;
+    const lerp = (a, b) => a + (b - a) * u;
+    return { p, q: q.map((x) => x / ql), v: [lerp(A.v[0], B.v[0]), lerp(A.v[1], B.v[1]), lerp(A.v[2], B.v[2])], s: lerp(A.s, B.s), rpm: lerp(A.rpm, B.rpm), th: lerp(A.th, B.th), br: lerp(A.br, B.br) };
+  }
+}
 
 export class Multiplayer {
   constructor(app) {
@@ -149,7 +200,7 @@ export class Multiplayer {
         this._setStatus(`Hosting · ${this._count()}`);
         this.sendLobby();
       } else if (m.t === 'bye') this._drop(m.f);
-      else if (m.t === 'st') this.remote.set(m.f, { ...d, at: this.time });
+      else if (m.t === 'st') this._track(m.f).add(d.ts ?? clock(), d, clock());
       else if (m.t === 'lobby' && m.f !== this.id) this._setStatus('Another host is using this password — pick a different one');
     } else if (this.role === 'guest') {
       if (m.t === 'lobby') {
@@ -165,11 +216,13 @@ export class Multiplayer {
       else if (m.t === 'start') this._begin(d);
       else if (m.t === 'end') { if (this.app.race?.online) { this.app.endRace(); this.app.hud.showToast('The host ended the race', 2000); } }
       else if (m.t === 'st' || m.t === 'bots') {
-        if (m.t === 'st') this.remote.set(m.f, { ...d, at: this.time });
-        else for (const b of d.list) this.remote.set(b.key, { ...b, at: this.time });
+        if (m.t === 'st') this._track(m.f).add(d.ts ?? clock(), d, clock());
+        else for (const b of d.list) this._track(b.key).add(d.ts ?? clock(), b, clock());
       } else if (m.t === 'bye' && m.f === this.hostId) { this._setStatus('The host left'); if (this.app.race?.online) this.app.endRace(); }
     }
   }
+
+  _track(key) { let t = this.remote.get(key); if (!t) this.remote.set(key, (t = new RemoteTrack())); return t; }
 
   _drop(id) {
     if (!this.isHost) return;
@@ -198,10 +251,10 @@ export class Multiplayer {
     this._acc += dt;
     if (this._acc >= 1 / STATE_HZ) {
       this._acc = 0;
-      this._send('st', this._pack(this.app.vehicle));
-      if (this.isHost && race.bots.length) this._send('bots', { list: race.bots.map((b) => ({ key: b.key, ...this._pack(b.vehicle) })) });
+      this._send('st', { ts: r3(clock()), ...this._pack(this.app.vehicle) });
+      if (this.isHost && race.bots.length) this._send('bots', { ts: r3(clock()), list: race.bots.map((b) => ({ key: b.key, ...this._pack(b.vehicle) })) });
     }
-    race.applyRemote(this.remote, this.time, dt);
+    race.applyRemote(this.remote, clock(), dt);
   }
 
   _pack(v) {
