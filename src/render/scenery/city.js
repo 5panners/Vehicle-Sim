@@ -233,7 +233,7 @@ export function buildCityScenery(view) {
       g.fillStyle = '#26394a'; g.fillRect(x, y, w, h);
       g.fillStyle = 'rgba(170,205,235,0.35)'; g.fillRect(x, y, w, h * 0.35);
       g.fillStyle = '#bdbdb6'; g.fillRect(x - 3, y + h, w + 6, 4);                 // sill
-      if (rand() < 0.45) { e.fillStyle = rand() < 0.7 ? '#ffd890' : '#bfe0ff'; e.fillRect(x, y, w, h); }
+      if (rand() < 0.12) { e.fillStyle = rand() < 0.7 ? '#ffd890' : '#bfe0ff'; e.fillRect(x, y, w, h); }
     }
   }
   const wallTex = new THREE.CanvasTexture(wallC), litTex = new THREE.CanvasTexture(litC);
@@ -273,7 +273,7 @@ export function buildCityScenery(view) {
     addBuilding(x, z, w, d, h);
   }
   if (parts.length) { const mesh = new THREE.Mesh(mergeGeometries(parts, false), cityMat); mesh.castShadow = false; mesh.receiveShadow = true; group.add(mesh); }
-  view.updaters?.push(() => { cityMat.emissiveIntensity = 0.05 + 1.25 * lighting.dark; });
+  view.updaters?.push(() => { cityMat.emissiveIntensity = 0.02 + 0.55 * lighting.dark; });
 
   // ================================================================= street lamps round the lap (they glow at night; the nearest ones really light the road)
   {
