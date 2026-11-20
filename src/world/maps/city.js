@@ -44,6 +44,7 @@ export default {
   pit: { from: 0, to: 0 },
   defaultCar: 'KZ Shifter Kart',
   signedBank: true,
+  waterLevel: WATER, canalX: CANAL.x,
   flatReach: 10,
   trackPoints: TRACK,
   bumps: [                                                             // [lap fraction, count, wavelength m, height m]
@@ -145,6 +146,9 @@ export default {
       flush();
     }
   },
+
+  /** where a car that fell in the canal is put back: on the road, a little before the jump, facing the lip */
+  splashSpawn(world) { const t = world.track[(this._gap.i - 40 + world.trackLength) % world.trackLength]; return { x: t.x, z: t.z, yaw: Math.atan2(t.tx, t.tz) }; },
 
   spawns(world) {
     const on = (s, lat = 0) => { const t = this.sampleAt(world, s); return { x: t.x + t.rx * lat, z: t.z + t.rz * lat, yaw: Math.atan2(t.tx, t.tz) }; };

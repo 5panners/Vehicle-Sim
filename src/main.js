@@ -296,6 +296,13 @@ class App {
         if (held) { v.body.velocity.x = 0; v.body.velocity.z = 0; v.body.angularVelocity.y = 0; }
         this.acc -= DT; n++;
       }
+      // water: a car in the canal is slowed right down, then lifted back onto the road before the jump
+      const map = this.world.map;
+      if (map.waterLevel !== undefined && v.body.position.y < map.waterLevel - 0.1 && Math.abs(v.body.position.x - map.canalX) < 7) {
+        const k = Math.max(0, 1 - 2.5 * dt); v.body.velocity.x *= k; v.body.velocity.z *= k;
+        this._swim = (this._swim || 0) + dt;
+        if (this._swim > 1.6) { this._swim = 0; const sp = map.splashSpawn(this.world); this.placeCar(sp.x, sp.z, sp.yaw); this.hud.showToast('Splash! Back on the road', 1600); }
+      } else this._swim = 0;
       const lev = this.lights.update(dt * (this.slowmo ? 0.25 : 1));
       if (lev === 'out') this.hud.showToast('Lights out — go!', 1200);
       this.worldView.setStartLights(this.lights.lit);
