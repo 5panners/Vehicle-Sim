@@ -221,19 +221,21 @@ export function buildCityScenery(view) {
     const sg = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.1), new THREE.MeshLambertMaterial({ map: tex })); sg.position.set(f.x, f.y + 2.4, f.z); sg.rotation.y = Math.atan2(-f.t.rx, -f.t.rz); group.add(sg); box(0.1, 2.2, 0.1, mat.steel, f.x, f.y, f.z); }
 
   // ================================================================= the city: facade blocks with lit windows
-  const bw = 6.4, bh = 6.8, TILE = 256;
+  const bw = 25.6, bh = 27.2, TILE = 512;
+  const LIT = ['#ffd890', '#ffd890', '#ffc878', '#ffb868', '#fff0cc', '#f4f8ff', '#bfe0ff', '#cfe8d0', '#ffd0b0'];   // warm bulbs, daylight tubes, a few cool and soft green screens
   const wallC = document.createElement('canvas'); wallC.width = wallC.height = TILE;
   const litC = document.createElement('canvas'); litC.width = litC.height = TILE;
   {
     const g = wallC.getContext('2d'), e = litC.getContext('2d');
     g.fillStyle = '#ffffff'; g.fillRect(0, 0, TILE, TILE); e.fillStyle = '#000'; e.fillRect(0, 0, TILE, TILE);
-    const cols = 4, rows = 4, cw = TILE / cols, rh = TILE / rows;
+    const cols = 8, rows = 8, cw = TILE / cols, rh = TILE / rows;
+    const rowP = Array.from({ length: rows }, () => (rand() < 0.3 ? 0.55 : rand() < 0.5 ? 0.12 : 0.02)), colP = Array.from({ length: cols }, () => 0.4 + rand() * 0.9);   // lit floors and lit bays come in uneven runs
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      const x = c * cw + 9, y = r * rh + 12, w = cw - 18, h = rh - 26;
+      const x = c * cw + 5, y = r * rh + 6, w = cw - 10, h = rh - 13;
       g.fillStyle = '#26394a'; g.fillRect(x, y, w, h);
       g.fillStyle = 'rgba(170,205,235,0.35)'; g.fillRect(x, y, w, h * 0.35);
       g.fillStyle = '#bdbdb6'; g.fillRect(x - 3, y + h, w + 6, 4);                 // sill
-      if (rand() < 0.12) { e.fillStyle = rand() < 0.7 ? '#ffd890' : '#bfe0ff'; e.fillRect(x, y, w, h); }
+      if (rand() < rowP[r] * colP[c]) { e.fillStyle = LIT[(rand() * LIT.length) | 0]; e.fillRect(x, y, w, h); }
     }
   }
   const wallTex = new THREE.CanvasTexture(wallC), litTex = new THREE.CanvasTexture(litC);
@@ -244,13 +246,14 @@ export function buildCityScenery(view) {
   const cc = new THREE.Color();
   const addBuilding = (x, z, w, d, h) => {
     let y0 = Infinity; for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, 0]]) y0 = Math.min(y0, world.heightAtGrid(x + dx * w / 2, z + dz * d / 2));
+    const ou = Math.floor(rand() * 8) / 8, ov = Math.floor(rand() * 8) / 8;   // every building starts at a different window of the tile
     const g = new THREE.BoxGeometry(w, h + 2.5, d); g.translate(x, y0 - 2.5 + (h + 2.5) / 2, z);
     const uv = g.attributes.uv, nrm = g.attributes.normal, cnt = uv.count;
     const col = new Float32Array(cnt * 3); cc.set(PALETTE[(rand() * PALETTE.length) | 0]);
     for (let i = 0; i < cnt; i++) {
       const face = Math.floor(i / 4);
       if (face === 2 || face === 3) { uv.setXY(i, 0.01, 0.01); }                                        // roof / underside: a plain patch of wall
-      else { const wd = face < 2 ? d : w; uv.setXY(i, uv.getX(i) * wd / bw, uv.getY(i) * (h + 2.5) / bh - (2.5 / bh) * 0 + 0); }
+      else { const wd = face < 2 ? d : w; uv.setXY(i, uv.getX(i) * wd / bw + ou, uv.getY(i) * (h + 2.5) / bh + ov); }
       const v = face === 2 ? 0.72 : 1; col[i * 3] = cc.r * v; col[i * 3 + 1] = cc.g * v; col[i * 3 + 2] = cc.b * v;
     }
     void nrm;
@@ -273,7 +276,7 @@ export function buildCityScenery(view) {
     addBuilding(x, z, w, d, h);
   }
   if (parts.length) { const mesh = new THREE.Mesh(mergeGeometries(parts, false), cityMat); mesh.castShadow = false; mesh.receiveShadow = true; group.add(mesh); }
-  view.updaters?.push(() => { cityMat.emissiveIntensity = 0.02 + 0.55 * lighting.dark; });
+  view.updaters?.push(() => { cityMat.emissiveIntensity = 0.02 + 0.6 * lighting.dark; });
 
   // ================================================================= street lamps round the lap (they glow at night; the nearest ones really light the road)
   {
