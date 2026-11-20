@@ -82,6 +82,7 @@ Switch with **L**, or the **Map** dropdown in the Tab panel (the page reloads wi
 | `brands` | **Brands Hatch GP** (3.908 km, clockwise). See below. |
 | `spa` | **Spa-Francorchamps** (7.004 km, clockwise): Eau Rouge and Raidillon, the Kemmel straight, Pouhon and Blanchimont in the Ardennes forest. See below. |
 | `kart` | **Apex Ring** (723 m, clockwise): a compact karting circuit with a 150 m start straight, a hairpin, an S-bend and a technical infield. See below. |
+| `city` | **Harbour Street** (1.64 km, clockwise): an urban karting circuit with a start grid and pits, about 3 m of elevation change, soft rollers and a speed hump, a stone arch bridge over a canal and a jump across the canal. Open it with `?map=city`. |
 
 ### Spa-Francorchamps
 

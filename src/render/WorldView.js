@@ -6,6 +6,7 @@ import { fbm } from '../world/noise.js';
 import { smoothstep } from '../physics/math.js';
 import { buildBrandsScenery } from './scenery/brandsHatch.js';
 import { buildKartScenery } from './scenery/kart.js';
+import { buildCityScenery } from './scenery/city.js';
 import { buildSpaScenery } from './scenery/spa.js';
 
 export function noiseTexture(size = 256, contrast = 0.25, base = 0.85) {
@@ -52,6 +53,7 @@ export class WorldView {
     else if (scenery === 'brands') buildBrandsScenery(this);
     else if (scenery === 'spa') buildSpaScenery(this);
     else if (scenery === 'kart') buildKartScenery(this);
+    else if (scenery === 'city') buildCityScenery(this);
   }
 
   // Barriers: street concrete (red/white blocks), concrete pit wall, Armco (two steel rails on
@@ -113,7 +115,7 @@ export class WorldView {
   }
 
   _terrain() {
-    const w = this.world, size = w.size, step = size > 2000 ? 3 : 2.5,   // big circuits use a coarser mesh
+    const w = this.world, size = w.size, step = w.map.meshStep ?? (size > 2000 ? 3 : 2.5),   // big circuits use a coarser mesh
        n = Math.round(size / step) + 1, half = size / 2;
     const pos = new Float32Array(n * n * 3), col = new Float32Array(n * n * 3), uv = new Float32Array(n * n * 2);
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
@@ -211,7 +213,7 @@ export class WorldView {
     };
     for (let s = from; s <= to; s += step) {
       const t = T[((s % M) + M) % M];
-      if (filter && !filter(t)) { flush(); continue; }
+      if ((filter && !filter(t)) || this.world.map.noRibbon?.(t)) { flush(); continue; }
       const a = OA(t), b = OB(t);
       for (let c = 0; c <= cols; c++) {
         const off = a + (b - a) * (c / cols);

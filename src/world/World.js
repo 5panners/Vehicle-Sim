@@ -268,6 +268,12 @@ export class World {
           const o = map.paintTrackside?.(x, z, s, trackLat[k], d, hw, this);
           if (o !== undefined && d > hw + (s.kerb ? 1.2 : 0.3)) surf = o;
         }
+        if (map.adjust) {                                          // maps can still reshape the finished ground: canals, jumps, bumps ...
+          const A = this._adj || (this._adj = { h: 0, surf: 0 });
+          A.h = h; A.surf = surf;
+          map.adjust(x, z, A, this, d < 1e8 ? { d, idx: trackIdx[k], lat: trackLat[k] } : { d: 1e9, idx: -1, lat: 0 });
+          h = A.h; surf = A.surf;
+        }
         this.height[k] = h;
         this.surface[k] = surf;
       }
