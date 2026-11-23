@@ -42,7 +42,7 @@ function run(name, { kmh, angle, sideways = false, secs = 3 }) {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${name.padEnd(16)} ${String(kmh).padStart(3)} km/h ${String(angle).padStart(2)}°${sideways ? ' sideways' : '         '} -> impact ${peakImpact.toFixed(1)} m/s, deepest point z=${maxZ.toFixed(2)} (face at -0.30), end v=${(car.speed * 3.6).toFixed(0)} km/h, end z=${car.body.position.z.toFixed(2)}, upright ${up.toFixed(2)}${nan ? ' NaN!' : ''}`);
 }
 
-for (const name of ['Nissan Skyline GT-R', 'Formula 1', 'KZ Shifter Kart']) {
+for (const name of ['GT3', 'Formula 1', 'KZ Shifter Kart']) {
   run(name, { kmh: 100, angle: 90 });            // head-on
   run(name, { kmh: 150, angle: 15 });            // glancing scrape
   run(name, { kmh: 220, angle: 8 });             // fast glance (tunnelling check)

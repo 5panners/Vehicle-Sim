@@ -562,10 +562,11 @@ export class CarView {
       rod(V(seatX + sx * 0.1, b0 + 0.13, -0.02), V(seatX * 0.5 + sx * 0.09, b0 + 0.13, zF - 0.12), 0.055, suit);
       box(0.08, 0.12, 0.05, dark, seatX * 0.5 + sx * 0.09, b0 + 0.13, zF - 0.1);
     }
-    // steering column + wheel (pivot tilted toward the driver, wheel spins about its own axis)
+    // steering column + wheel (the wheel is square to the column and spins about it)
     const swY = b0 + 0.4, swZ = 0.24;
-    rod(V(0, swY - 0.05, swZ + 0.05), V(0, fy + 0.02, zF - 0.02), 0.012);
-    const pivot = new THREE.Group(); pivot.position.set(0, swY, swZ); pivot.rotation.x = -0.5;
+    rod(V(0, swY, swZ), V(0, fy + 0.02, zF - 0.02), 0.012);
+    const pivot = new THREE.Group(); pivot.position.set(0, swY, swZ);
+    pivot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, fy + 0.02 - swY, zF - 0.02 - swZ).normalize());   // the wheel sits square (90 degrees) to the steering column
     const wheel = new THREE.Group();
     const rim = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.016, 8, 24), dark);
     const spokeMat = new THREE.MeshStandardMaterial({ color: 0x9e9e9e, metalness: 0.7 });
@@ -575,7 +576,7 @@ export class CarView {
     this.steerWheel = wheel;
     // arms from shoulders to the rim at ~9 and 3 o'clock (static)
     for (const sx of [-1, 1]) {
-      const grip = V(sx * 0.14, swY + 0.01, swZ - 0.04);
+      const grip = V(sx * 0.15, swY, swZ);
       rod(V(seatX + sx * 0.19, b0 + 0.55, -0.13), grip, 0.04, suit);
     }
   }

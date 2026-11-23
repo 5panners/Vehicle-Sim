@@ -68,49 +68,6 @@ export const makeVehicle = (over) => deepMerge(BASE, over);
 
 export const PRESETS = [
   makeVehicle({
-    name: 'Nissan Skyline GT-R', description: 'R34 Skyline GT-R V-spec: 2.6 L twin-turbo straight-six (280 PS claimed, ~300 hp real), 6-speed, ATTESA E-TS rear-biased AWD with an active rear LSD, 1,560 kg. Huge traction out of corners; understeers if you rush the entry.',
-    color: 0x1a5fd0, accent: 0xd01020,
-    // real figures: 4,600 x 1,785 x 1,360 mm, wheelbase 2,665 mm, track 1,480 / 1,490 mm, 245/40 R18, Cd ~0.34
-    // glTF body built in Blender (tools/blender/build_skyline.py)
-    model: { url: 'assets/models/skyline.glb', prefix: 'SKY_', brakeMaterial: 'SKY_Taillight' },
-    view: { hood: [1.1, -0.15] },
-    body: {
-      mass: 1560, cgHeight: 0.5, weightDistFront: 0.54, groundClearance: 0.13,
-      dimensions: { width: 1.785, height: 1.36, length: 4.6 },
-      inertiaScale: { x: 0.9, y: 0.88, z: 0.9 }, bodyFriction: 0.45,
-    },
-    geometry: { wheelbase: 2.665, trackFront: 1.48, trackRear: 1.49 },
-    suspension: {
-      front: { springRate: 62000, bumpDamping: 3400, reboundDamping: 5400, restLength: 0.30, travel: 0.15, antiRollBar: 30000, camber: -1.5, camberGain: 10, toe: 0.05, caster: 6.5, rollCenterHeight: 0.06 },
-      rear: { springRate: 54000, bumpDamping: 3200, reboundDamping: 5200, restLength: 0.30, travel: 0.15, antiRollBar: 24000, camber: -1.3, camberGain: 8, toe: 0.15, rollCenterHeight: 0.09 },
-      antiDive: 0.22, antiSquat: 0.3,
-    },
-    wheels: { front: { radius: 0.3266, width: 0.245, inertia: 1.2 }, rear: { radius: 0.3266, width: 0.245, inertia: 1.2 } },
-    tires: {
-      front: { ...TIRE_STREET, peakFrictionX: 1.14, peakFrictionY: 1.12, peakSlipAngle: 7 },
-      rear: { ...TIRE_STREET, peakFrictionX: 1.14, peakFrictionY: 1.1, peakSlipAngle: 7.5 },
-    },
-    // RB26DETT: 2,568 cc, 392 Nm at 4,400 rpm, ~280 PS claimed; curve below includes the turbos (the boost multiplier adds lag only)
-    engine: {
-      torqueCurve: [[1000, 165], [2000, 270], [3000, 358], [4000, 402], [4400, 407], [5500, 387], [6500, 343], [7200, 297], [8000, 226], [8500, 176]],
-      idleRPM: 800, redlineRPM: 8000, limiterRPM: 8400, limiterCutTime: 0.06,
-      inertia: 0.2, engineBrakingTorque: 65, throttleResponse: 13, cylinders: 6,
-      turbo: { maxBoost: 0.08, spoolRate: 2.6 },
-    },
-    // Getrag 6-speed
-    transmission: { gearRatios: [3.827, 2.36, 1.685, 1.312, 1.0, 0.793], reverseRatio: -3.438, finalDrive: 3.545, shiftTime: 0.18, clutchMaxTorque: 850, efficiency: 0.9, autoShiftUpRPM: 7400, autoShiftDownRPM: 3800 },
-    // ATTESA E-TS Pro: rear-biased with up to ~50 % to the front, plus an active rear limited-slip
-    drivetrain: {
-      layout: 'AWD', centerSplitFront: 0.32,
-      frontDiff: { type: 'open', preload: 0, powerLock: 0, coastLock: 0 },
-      rearDiff: { type: 'lsd', preload: 100, powerLock: 0.5, coastLock: 0.3 },
-      centerDiff: { type: 'lsd', preload: 150, powerLock: 0.55, coastLock: 0.25 },
-    },
-    brakes: { maxTorque: 6400, bias: 0.63, handbrakeTorque: 3000 },
-    steering: { maxAngle: 33, ackermann: 0.6, steerSpeed: 4.0, speedSensitivity: 0.9, countersteerAssist: 0.25 },
-    aero: { dragCoefficient: 0.34, frontalArea: 1.95, liftCoefFront: -0.06, liftCoefRear: -0.2, angularDrag: 0.3 },
-  }),
-  makeVehicle({
     name: 'Track Prototype', description: 'Light, stiff, high-downforce racer with slick tyres. Grip rises with speed.',
     color: 0xe8e8e6, accent: 0xe85d04, style: 'proto',
     // glTF body built in Blender (tools/blender/build_sp300r.py): a Caterham SP/300.R-style Le Mans roadster
@@ -203,41 +160,6 @@ export const PRESETS = [
     steering: { maxAngle: 32, ackermann: 0.7, steerSpeed: 5.0, speedSensitivity: 0.7, countersteerAssist: 0.3 },
     aero: { dragCoefficient: 0.7, frontalArea: 1.3, liftCoefFront: 0.0, liftCoefRear: 0.05, angularDrag: 0.3 },
     assists: { abs: false, tcs: false, stability: false },
-  }),
-  makeVehicle({
-    name: 'Drift Car', description: 'Pro-drift build: ~550 hp turbo, 2-way LSD at near-full lock, 60° angle kit, hydraulic handbrake, grippier fronts than rears. TC off by default; throttle steers the angle.',
-    color: 0x7c4dff, accent: 0x00e5ff, style: 'drift',
-    body: {
-      mass: 1250, cgHeight: 0.46, weightDistFront: 0.53, groundClearance: 0.09,
-      dimensions: { width: 1.95, height: 1.28, length: 4.5 },
-      inertiaScale: { x: 0.9, y: 0.8, z: 0.9 }, bodyFriction: 0.45,
-    },
-    geometry: { wheelbase: 2.53, trackFront: 1.62, trackRear: 1.6 },
-    suspension: {
-      front: { springRate: 75000, bumpDamping: 3600, reboundDamping: 5600, restLength: 0.24, travel: 0.11, antiRollBar: 26000, camber: -5, camberGain: 8, toe: -0.15, caster: 9, rollCenterHeight: 0.05 },
-      rear: { springRate: 65000, bumpDamping: 3400, reboundDamping: 5200, restLength: 0.24, travel: 0.11, antiRollBar: 32000, camber: -0.8, camberGain: 6, toe: 0, rollCenterHeight: 0.08 },
-      antiDive: 0.25, antiSquat: 0.3,
-    },
-    wheels: { front: { radius: 0.33, width: 0.255, inertia: 1.1 }, rear: { radius: 0.33, width: 0.265, inertia: 1.15 } },
-    tires: {
-      // grippy front semi-slicks; harder rears with a flat post-peak curve so a slide is
-      // progressive and holdable instead of snapping
-      front: { peakFrictionX: 1.2, peakFrictionY: 1.22, peakSlipRatio: 0.1, peakSlipAngle: 7, shapeY: { C: 1.35, E: 0.0 }, loadSensitivity: 0.1 },
-      rear: { peakFrictionX: 1.1, peakFrictionY: 1.02, peakSlipRatio: 0.11, peakSlipAngle: 9, shapeX: { C: 1.4, E: 0.3 }, shapeY: { C: 1.15, E: 0.3 }, loadSensitivity: 0.1, heatRate: 4 },
-    },
-    engine: {
-      torqueCurve: [[1000, 260], [2500, 380], [3500, 560], [4500, 660], [6000, 640], [7200, 560], [7800, 500]],
-      idleRPM: 950, redlineRPM: 7600, limiterRPM: 7900, limiterCutTime: 0.05,
-      inertia: 0.13, engineBrakingTorque: 55, throttleResponse: 16, cylinders: 6,
-      turbo: { maxBoost: 0.12, spoolRate: 2.2 },
-    },
-    transmission: { gearRatios: [3.2, 2.15, 1.6, 1.25, 1.0, 0.85], reverseRatio: -3.2, finalDrive: 4.1, shiftTime: 0.09, clutchMaxTorque: 1200, efficiency: 0.9, autoShiftUpRPM: 7400, autoShiftDownRPM: 4500 },
-    drivetrain: { layout: 'RWD', rearDiff: { type: 'lsd', preload: 250, powerLock: 0.9, coastLock: 0.75 } },
-    brakes: { maxTorque: 6000, bias: 0.64, handbrakeTorque: 5500 },
-    // angle kit; keep most of the lock available at speed so you can countersteer
-    steering: { maxAngle: 60, ackermann: 0.0, steerSpeed: 6.0, speedSensitivity: 0.25, countersteerAssist: 0.55 },
-    aero: { dragCoefficient: 0.36, frontalArea: 2.05, liftCoefFront: -0.1, liftCoefRear: -0.15, angularDrag: 0.3 },
-    assists: { tcs: false, stability: false },
   }),
   makeVehicle({
     name: 'GT3', description: 'GT3-class endurance racer: 1300 kg, ~550 hp front-mid V8, sequential 6-speed, slicks and a big rear wing. ABS and TC are race-legal in GT3, so they stay on.',
@@ -343,3 +265,20 @@ export const PRESETS = [
     assists: { abs: false, tcs: false, stability: false },
   }),
 ];
+
+// Senior Rotax Max / IAME X30 class kart: the same chassis as the shifter, with a 125 cc two-stroke, one gear and a centrifugal clutch
+PRESETS.push(deepMerge(PRESETS.find((p) => p.name === 'KZ Shifter Kart'), {
+  name: 'Rotax Max Senior Kart',
+  description: 'Senior Rotax Max / IAME X30 class kart (ages 15+): 125 cc water-cooled two-stroke, ~28-30 hp at 11,500 rpm, one gear with a centrifugal clutch and an electric starter, rear brake only, 165 kg with driver. Easier and more forgiving than the shifter: roughly 0-60 mph in 9 s from a standstill (the clutch slips while the revs build) and about 75 mph flat out.',
+  color: 0xe53935, accent: 0x111111,
+  body: { mass: 165 },
+  // 28-30 hp class: peak ~17.5 Nm at 10,500 rpm and a broad band up to 12,500 (tuned a touch hot, like the shifter)
+  engine: {
+    torqueCurve: [[2000, 2], [4000, 5], [5500, 9], [7000, 13], [8500, 17], [10000, 18.5], [11500, 18.2], [12500, 16.2], [13500, 12.5], [14200, 7]],
+    idleRPM: 2000, redlineRPM: 13800, limiterRPM: 14200, limiterCutTime: 0.04, inertia: 0.012, engineBrakingTorque: 3.5, throttleResponse: 20, cylinders: 1,
+  },
+  // one gear on a ~6.2:1 overall ratio (about 120 km/h at the limiter); the centrifugal clutch bites at ~8,500 rpm and slips through the first ~75 km/h, so the engine stays in its power band off the line
+  transmission: { gearRatios: [1.0], reverseRatio: -1.0, finalDrive: 6.2, shiftTime: 0.04, clutchMaxTorque: 70, clutchEngageRPM: 8500, clutchFullRPM: 9500, efficiency: 0.94, autoShiftUpRPM: 14000, autoShiftDownRPM: 3000 },
+  brakes: { maxTorque: 330, bias: 0, handbrakeTorque: 330 },   // the Max class runs a single rear disc: no front brakes
+  tires: { rear: { peakFrictionY: 1.72, peakSlipAngle: 5.0 } },
+}));

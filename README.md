@@ -341,20 +341,12 @@ Reference numbers from `npm run test:physics` (flat asphalt):
 
 | Car | 0–100 km/h | Braking | Lateral |
 |---|---|---|---|
-| Nissan Skyline GT-R (R34) | 5.2 s (AWD) | 1.03 g | 0.92 g |
 | Track Prototype | 3.3 s | 1.8 g (downforce) | 1.7 g |
 | '67 Lotus GP | 4.2 s (297 km/h top speed) | ~1.0–1.2 g (no ABS) | 1.0 g; four-wheel drifts when provoked |
-| Drift Car | 6.4 s (wheelspin-limited, TC off) | 1.0 g | holds 30° drifts; see below |
 | GT3 | 3.4 s (295 km/h top speed) | 2.2 g peak | 1.5 g at 120, 1.7 g at 200 km/h |
 | Formula 1 | 3.4 s (0–200: 8.0 s) | 4.75 g peak from 324 km/h top speed | 3.3 g at 220 km/h |
 | KZ Shifter Kart | 3.9 s to 60 mph (6-speed, ~165 km/h top speed) | front and rear brakes, no ABS | 1.35 g; the sim's only kart |
-
-**Drift car tuning:**
-- **Steering:** 60° angle kit, with only light speed-sensitive lock so you can countersteer at speed. Stronger countersteer assist for pads.
-- **Diff and handbrake:** 2-way LSD at 90% power lock / 75% coast lock. 5,500 Nm hydraulic handbrake that also pulls the clutch.
-- **Tyres:** grippier fronts than rears, and a flat rear curve past peak so a slide stays progressive rather than snapping.
-
-An automated driver (countersteer plus throttle-on-angle) holds 30° drifts in this car. The same driver spins the GT coupe, muscle car and GT3 within about a second.
+| Rotax Max Senior Kart | ~9 s to 60 mph from rest (single gear, centrifugal clutch), ~122 km/h top speed | rear brake only | 1.14 g |
 
 ### Extending
 
