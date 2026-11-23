@@ -334,8 +334,10 @@ export function buildCityScenery(view) {
       for (const s of [-1, 1]) base(x + s * w * 0.22, z + s * d * 0.1, tw, tw, y0 + hp, hMax - hp + s * 6, 2, pick(TINTS[2]));
       top = y0 + hMax; roofKit(x - w * 0.22, z - d * 0.1, tw, tw, y0 + hMax - 6, true);
     }
-    rects.push({ x, z, r: rr });
+    rects.push({ x, z, r: rr, kind, style, h: hMax });
   };
+  view._buildings = rects;
+  const insideLoop = (x, z) => { let c = false; for (let i = 0, j = T.length - 1; i < T.length; j = i++) { const a = T[i], b = T[j]; if ((a.z > z) !== (b.z > z) && x < ((b.x - a.x) * (z - a.z)) / (b.z - a.z) + a.x) c = !c; } return c; };
   const KINDS = ['block', 'block', 'block', 'L', 'setback', 'podium', 'tower', 'round', 'twin'];
   const STEP = 36;
   for (let gx = -world.half + 24; gx < world.half - 24; gx += STEP) for (let gz = -world.half + 24; gz < world.half - 24; gz += STEP) {
@@ -355,7 +357,15 @@ export function buildCityScenery(view) {
     let h;
     if (kind === 'tower') h = 38 + rand() * 40 + far * 45; else if (kind === 'twin') h = 36 + rand() * 30 + far * 35; else if (kind === 'round') h = 26 + rand() * 30 + far * 35;
     else if (kind === 'setback') h = 30 + rand() * 25 + far * 30; else if (kind === 'podium') h = 28 + rand() * 30 + far * 30; else h = 10 + rand() * 14 + far * 22 * rand();
+    // no tall modern towers hard up against the circuit (just inside it, and no big round glass tower beside it) (they are still built so the rest of the city keeps its layout, then dropped)
+    const mark = [...BG.map((S) => S.pos.length), P.pos.length], nRects = rects.length;
     addBuilding(x, z, w, d, h, kind);
+    const nearTrack = () => { let m = 1e9; for (let i = 0; i < M; i += 3) m = Math.min(m, Math.hypot(T[i].x - x, T[i].z - z)); return m; };
+    if (h >= 45 && ((insideLoop(x, z) && info.index >= 0 && info.dist < 45) || (kind === 'round' && nearTrack() < 50))) {
+      BG.forEach((S, i) => { for (const k of ['pos', 'nor', 'uv', 'col']) S[k].length = mark[i] / 3 * (k === 'uv' ? 2 : 3); });
+      for (const k of ['pos', 'nor', 'uv', 'col']) P[k].length = mark[BG.length] / 3 * (k === 'uv' ? 2 : 3);
+      rects.length = nRects;
+    }
   }
   const mk = (S, m) => { if (!S.pos.length) return; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(S.pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(S.nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(S.uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(S.col, 3)); g.computeBoundingSphere(); const me = new THREE.Mesh(g, m); me.receiveShadow = true; group.add(me); };
   BG.forEach((S, i) => mk(S, styleMat[i])); mk(P, plainMat);
