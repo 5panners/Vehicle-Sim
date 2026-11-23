@@ -11,12 +11,12 @@ import { smoothstep, clamp } from '../../physics/math.js';
 import { SURF } from '../Surfaces.js';
 import { fbm } from '../noise.js';
 
-const SC = 0.85;
+const SC = 0.68;
 // [x, z, height]  planned on a sheet with x east and z south; the lap runs clockwise from the start line on the north straight, heading east
 const RAW = [
   [-100, -300, 1], [30, -300, 1.2], [150, -292, 1.6], [235, -262, 2.2], [290, -205, 2.8], [312, -135, 3], [308, -70, 3], [300, -10, 2.8],
   [296, 35, 2.6], [294, 78, 1.9], [288, 130, 1.8], [268, 195, 1.4], [225, 252, 1], [160, 292, 0.6],
-  [95, 320, 0.3], [45, 331, 0.3], [0, 311, 0.2], [-45, 331, 0.3], [-95, 320, 0.4], [-160, 290, 0.7],
+  [95, 320, 0.3], [45, 331, 0.3], [0, 316, 0.2], [-45, 331, 0.3], [-95, 320, 0.4], [-160, 290, 0.7],
   [-235, 250, 1], [-285, 190, 1.5], [-305, 120, 2.4], [-308, 80, 3.4], [-308, 60, 3.4], [-306, 40, 3.4], [-302, 0, 3],
   [-295, -50, 2.6], [-272, -118, 2.2], [-222, -168, 1.8], [-250, -225, 1.4], [-236, -278, 1],
 ];
@@ -25,9 +25,13 @@ const TRACK = RAW.map((p, i) => P(p, i, RAW.length));
 
 export const WASH = { z: 60 * SC, bed: -8, half: 8, wall: 3.2 };               // the dry canyon
 export const MESAS = [                                                          // [x, z, rx, rz, height, seed]
-  [-18, -130, 90, 70, 74, 1], [18, 150, 80, 62, 58, 2], [-480, -110, 120, 90, 98, 3], [450, 110, 100, 120, 110, 4], [40, -500, 160, 80, 118, 5],
-  [-430, 400, 110, 90, 82, 6], [470, -380, 100, 90, 92, 7], [-90, 480, 120, 70, 70, 8], [-60, 420, 24, 24, 90, 9], [180, -470, 28, 28, 112, 10],
-  [410, 310, 22, 22, 84, 11], [-390, -390, 30, 30, 104, 12], [-250, -8, 20, 20, 62, 13], [250, 60, 24, 24, 70, 14], [-530, 150, 26, 26, 96, 15], [520, 480, 70, 60, 84, 16],
+  // close formations hugging the circuit, inside the loop and just outside it
+  [0, -95, 55, 38, 58, 1], [0, 120, 50, 36, 46, 2], [-300, -60, 40, 50, 70, 3], [290, -40, 36, 55, 78, 4], [265, 235, 46, 34, 62, 5],
+  [-255, 240, 40, 40, 60, 6], [45, -285, 60, 34, 74, 7], [-115, -280, 36, 30, 64, 8], [155, -290, 32, 30, 56, 9],
+  [100, -80, 13, 13, 44, 10], [-100, 100, 15, 15, 52, 11], [115, 125, 14, 14, 40, 12], [-110, -60, 13, 13, 46, 13], [-322, 170, 22, 22, 54, 14], [330, 120, 20, 20, 60, 15],
+  // big rock walls far behind
+  [-500, -110, 160, 110, 150, 16], [470, 110, 140, 150, 160, 17], [40, -520, 230, 100, 175, 18], [-430, 400, 150, 120, 135, 19],
+  [480, -380, 130, 120, 145, 20], [-90, 490, 170, 90, 125, 21], [520, 480, 90, 80, 120, 22], [-540, -430, 100, 100, 155, 23], [380, 360, 80, 70, 110, 24],
 ];
 
 const inRange = (s, a, b) => (a <= b ? s >= a && s <= b : s >= a || s <= b);
@@ -53,7 +57,7 @@ export default {
   flatReach: 10,
   trackPoints: TRACK,
   // [lap fraction, count, wavelength m, height m]: whoops on the east straight, rollers on the bottom straight
-  bumps: [[0.24, 6, 18, 0.1], [0.447, 5, 14, 0.08]],
+  bumps: [[0.24, 6, 18, 0.1], [0.425, 4, 14, 0.07]],
   // tabletop on the bottom straight: [lap fraction, ramp up m, flat m, ramp down m, height m]
   table: [0.59, 8, 7, 9, 0.38],
   dist(world, sample) { return sample.i * world.map.length / world.trackLength; },
@@ -100,7 +104,7 @@ export default {
   /** the desert floor with soft dunes, and the mesas and buttes, kept away from the road */
   terrain(x, z) {
     const dunes = fbm(x * 0.008 + 5, z * 0.008 - 3, 3) * 3.2 + fbm(x * 0.05, z * 0.05, 2) * 0.35;
-    const mask = smoothstep(30, 75, this._road(x, z));
+    const mask = smoothstep(14, 42, this._road(x, z));
     let h = 0;
     for (const [cx, cz, rx, rz, H, seed] of MESAS) {
       const dx = (x - cx) / rx, dz = (z - cz) / rz;
