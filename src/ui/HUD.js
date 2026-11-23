@@ -50,6 +50,7 @@ export class HUD {
         <tr><td>Shift up / down</td><td>E / Q · B / X</td></tr>
         <tr><td>Clutch (manual)</td><td>Z · LB</td></tr>
         <tr><td>Camera / Look back</td><td>C / B · Y / RB</td></tr>
+        <tr><td>Follow each car (race)</td><td>V</td></tr>
         <tr><td>Reset car</td><td>R · Back/View</td></tr>
         <tr><td>Spawn points</td><td>F (cycle) · 1-8</td></tr>
         <tr><td>Practice opponent / skill</td><td>O / K</td></tr>

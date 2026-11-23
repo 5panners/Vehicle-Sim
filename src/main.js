@@ -258,11 +258,29 @@ class App {
         this.race?.setSkill(i);
         this.hud.showToast(`Opponent skill: ${BOT_SKILLS[i].name}`);
       }
+      else if (e.code === 'KeyV') this.cycleFollow();
       else if (e.code === 'KeyN') this.hud.showToast(this.hud.toggleMap() ? 'Track map on' : 'Track map off', 900);
       else if (e.code === 'KeyG') { this.vehicle.assists.autoGearbox = !this.vehicle.assists.autoGearbox; this.hud.showToast(this.vehicle.assists.autoGearbox ? 'Automatic gearbox' : 'Manual gearbox'); }
       else if (e.code === 'BracketRight') this.loadPreset((this.presetIndex + 1) % PRESETS.length);
       else if (e.code === 'BracketLeft') this.loadPreset((this.presetIndex + PRESETS.length - 1) % PRESETS.length);
     });
+  }
+
+  // ------------------------------------------------------------------ follow camera
+  /** the cars the Follow camera can watch: you first, then every opponent in the race */
+  followList() { return this.race ? this.race.cars : [{ isPlayer: true, name: 'You' }]; }
+  followVehicle() {
+    const list = this.followList(), c = list[(this.followIdx || 0) % list.length];
+    return !c || c.isPlayer || !c.vehicle ? this.vehicle : c.vehicle;
+  }
+  /** V: switch to the Follow camera and move on to the next car */
+  cycleFollow() {
+    const list = this.followList();
+    if (list.length < 2) { this.hud.showToast('Follow camera: start a race with opponents (O) to follow other cars', 2200); return; }
+    this.followIdx = this.rig.modeName === 'Follow' ? ((this.followIdx || 0) + 1) % list.length : (this.followIdx || 0) % list.length;
+    this.rig.setMode('Follow');
+    const c = list[this.followIdx];
+    this.hud.showToast(`Following ${c.isPlayer ? 'your car' : c.name}`, 1400);
   }
 
   // ------------------------------------------------------------------ frame
@@ -281,7 +299,7 @@ class App {
     const paused = (this.menu.isOpen && !online) || !this.started;   // an online race can't pause: the others keep driving
     this.audio.setPaused(paused);
     if (!paused) {
-      if (inp.pressed.camera) { this.rig.next(); this.hud.showToast(`Camera: ${this.rig.modeName}`, 900); }
+      if (inp.pressed.camera) { this.rig.next(); const fl = this.followList()[(this.followIdx || 0) % this.followList().length]; this.hud.showToast(this.rig.modeName === 'Follow' ? `Camera: Follow · ${fl.isPlayer ? 'your car' : fl.name} (V: next car)` : `Camera: ${this.rig.modeName}`, 1200); }
       if (inp.pressed.telemetry) this.hud.toggleTelemetry();
       if (inp.pressed.reset) { const yaw = this.currentYaw(), back = 3;   // upright again, a few metres back so you aren't left in the wall
         this.placeCar(v.body.position.x - Math.sin(yaw) * back, v.body.position.z - Math.cos(yaw) * back, yaw); this.hud.drift.combo = 0; this.hud.drift.active = false; }
@@ -344,7 +362,7 @@ class App {
     const wc = v.wallContact; // read before effects consume it
     if (!paused) this.effects.update(dt * (this.slowmo ? 0.25 : 1), v);
     if (wc) this.audio.scrape = Math.max(this.audio.scrape || 0, wc.scrape);
-    this.rig.update(dt, v, inp.buttons.lookBack);
+    this.rig.update(dt, this.rig.modeName === 'Follow' ? this.followVehicle() : v, inp.buttons.lookBack);
     const p = v.body.position;
     // tunnels: the daylight drops away as the car goes in (eased, so the eyes 'adapt')
     this.worldView.update(this.camera);       // tree level of detail

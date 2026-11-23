@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-const MODES = ['Chase', 'Chase far', 'Hood', 'Bumper', 'Orbit', 'Trackside'];
+const MODES = ['Chase', 'Chase far', 'Hood', 'Bumper', 'Orbit', 'Trackside', 'Follow'];   // Follow: a far chase camera on whichever car you pick (V)
 
 export class CameraRig {
   constructor(camera, dom) {
@@ -20,6 +20,7 @@ export class CameraRig {
     dom.addEventListener('wheel', (e) => { if (MODES[this.mode] === 'Orbit') this.orbit.dist = Math.max(3, Math.min(40, this.orbit.dist * (1 + Math.sign(e.deltaY) * 0.1))); }, { passive: true });
   }
   get modeName() { return MODES[this.mode]; }
+  setMode(name) { const i = MODES.indexOf(name); if (i >= 0) { this.mode = i; this.snap = true; this.trackside = null; } }
   next() { this.mode = (this.mode + 1) % MODES.length; this.snap = true; this.trackside = null; }
 
   /** Keep the chase camera on the car's side of any wall between them (unless it's above the wall). */
@@ -54,7 +55,7 @@ export class CameraRig {
     const mode = MODES[this.mode];
     let fov = 60;
 
-    if (mode === 'Chase' || mode === 'Chase far') {
+    if (mode === 'Chase' || mode === 'Chase far' || mode === 'Follow') {
       // heading follows the car's nose, blended toward travel direction when sliding fast
       const flatF = fwd.clone().setY(0).normalize();
       const vFlat = vel.clone().setY(0);
