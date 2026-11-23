@@ -5,7 +5,7 @@ import { SURF } from '../../world/Surfaces.js';
 import { lighting } from '../lighting.js';
 import { Workshops } from './workshop.js';
 import { garageFacade, seatTexture, bannerTexture } from './lowpoly.js';
-import { SEA } from '../../world/maps/amalfi.js';
+import { SEA, TUNNEL } from '../../world/maps/amalfi.js';
 
 /**
  * Costiera Amalfitana surroundings: the Tyrrhenian Sea with a surf line, boats and a pier; pastel hillside villages stacked up
@@ -161,6 +161,60 @@ export function buildAmalfiScenery(view) {
       const tex = bannerTexture(String(m), { bg: '#f1f1ec', fg: '#111', w: 128, h: 96 }); tex.colorSpace = THREE.SRGBColorSpace;
       const pm = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.9), new THREE.MeshLambertMaterial({ map: tex })); pm.position.set(f.x, f.y + 2.1, f.z); pm.rotation.y = Math.atan2(out * f.t.rx, out * f.t.rz); group.add(pm);
       box(0.08, 2.1, 0.08, mat.steel, f.x, f.y, f.z, f.yaw);
+    }
+  }
+
+  // ================================================================= the viaduct (the lap crosses over its own climb) and the headland tunnel
+  {
+    const X = map._X, deck = map._deck;
+    keepOut.push({ x: X.x, z: X.z, r: 64 });
+    const stone = lam(0xd6c9a8, { map: view.detail }), stoneD = lam(0xa99b7d, { map: view.detail });
+    for (let k = 0; k + 1 < deck.length; k += 2) {
+      const a = deck[k], b = deck[k + 1], len = Math.hypot(b.x - a.x, b.z - a.z) + 0.2, yaw = Math.atan2(a.tx, a.tz), cx = (a.x + b.x) / 2, cz = (a.z + b.z) / 2, y = (a.y + b.y) / 2;
+      box(a.w + 2.6, 1.15, len, stone, cx, y - 1.2, cz, yaw);
+      for (const sd of [-1, 1]) {
+        const px = cx + a.rx * sd * (a.w / 2 + 0.45), pz = cz + a.rz * sd * (a.w / 2 + 0.45);
+        box(0.6, 1.1, len, stone, px, y, pz, yaw); box(0.9, 0.18, len, stoneD, px, y + 1.1, pz, yaw);
+      }
+    }
+    // arched piers under the deck either side of the cutting, and abutments where the viaduct meets the hillside
+    for (const k of [-15, 15]) {
+      const s = deck[X.span + k];
+      for (const sd of [-1, 1]) {
+        const px = s.x + s.rx * sd * (s.w / 2 + 0.6), pz = s.z + s.rz * sd * (s.w / 2 + 0.6), g = world.heightAtGrid(px, pz);
+        box(2.2, Math.max(1, s.y - 1.2 - g + 0.8), 2.6, stone, px, g - 0.8, pz, Math.atan2(s.tx, s.tz));
+      }
+    }
+    for (const k of [-X.span, X.span]) {
+      const s = deck[X.span + k], g = world.heightAtGrid(s.x, s.z);
+      box(s.w + 3.2, Math.max(1.2, s.y - 1.2 - g + 1.2), 2.4, stoneD, s.x, g - 1.2, s.z, Math.atan2(s.tx, s.tz) + Math.PI / 2 * 0);
+    }
+    const ft = bannerTexture('VIADOTTO', { bg: '#e8e2cf', fg: '#5a4a32', w: 256, h: 64 }); ft.colorSpace = THREE.SRGBColorSpace;
+    for (const k of [-30, 30]) { const s = deck[X.span + (k < 0 ? -X.span : X.span)], d2 = (k < 0 ? -1 : 1);
+      const sg = new THREE.Mesh(new THREE.PlaneGeometry(3, 0.75), new THREE.MeshLambertMaterial({ map: ft })); sg.position.set(s.x + s.rx * (s.w / 2 + 2.2), s.y + 2.2, s.z + s.rz * (s.w / 2 + 2.2)); sg.rotation.y = Math.atan2(-d2 * s.tx, -d2 * s.tz); group.add(sg); box(0.1, 2.2, 0.1, mat.steel, sg.position.x, s.y, sg.position.z); }
+  }
+  {
+    const idxs = []; for (let i = 0; i < M; i += 1) { const s = T[i]; if (s.x >= TUNNEL.x0 && s.x <= TUNNEL.x1 && Math.abs(s.z - TUNNEL.z) < 25) idxs.push(i); }
+    idxs.sort((a, b) => T[a].x - T[b].x);
+    if (idxs.length > 3) {
+      const Rt = 7.2, SEG = 14, pos = [], ind = [];
+      idxs.forEach((i, k) => {
+        const s = T[i];
+        for (let a = 0; a <= SEG; a++) { const th = Math.PI * a / SEG; pos.push(s.x + s.rx * Math.cos(th) * Rt, s.y + Math.sin(th) * Rt * 0.85, s.z + s.rz * Math.cos(th) * Rt); }
+        if (k > 0) for (let a = 0; a < SEG; a++) { const p = (k - 1) * (SEG + 1) + a, c = k * (SEG + 1) + a; ind.push(p, p + 1, c, p + 1, c + 1, c); }
+      });
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(ind); g.computeVertexNormals();
+      group.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0xb9ae96, side: THREE.DoubleSide })));
+      const a = T[idxs[0]], b = T[idxs[idxs.length - 1]], rockMat = new THREE.MeshLambertMaterial({ color: 0x8c7f68, side: THREE.DoubleSide });
+      for (const [s, dir] of [[a, -1], [b, 1]]) {
+        const ring = new THREE.Mesh(new THREE.RingGeometry(Rt - 0.1, Rt + 3.2, 20, 1, 0, Math.PI), rockMat);
+        ring.position.set(s.x + s.tx * dir * 0.4, s.y, s.z + s.tz * dir * 0.4); ring.rotation.y = Math.atan2(s.tx, s.tz); group.add(ring);
+        box(1.6, 1.0, Rt * 2 + 6.6, lam(0xd6c9a8), s.x + s.tx * dir * 0.4, s.y + Rt * 0.85 + 3.0, s.z + s.tz * dir * 0.4, Math.atan2(s.tx, s.tz) + Math.PI / 2);
+      }
+      const lampM = new THREE.MeshStandardMaterial({ color: 0xfff1d0, emissive: 0xffe2a8, emissiveIntensity: 0.6 });
+      for (let k = 1; k < idxs.length - 1; k += 4) { const s = T[idxs[k]]; box(0.5, 0.12, 2.2, lampM, s.x, s.y + Rt * 0.85 - 0.3, s.z, Math.atan2(s.tx, s.tz)); }
+      view.updaters?.push(() => { lampM.emissiveIntensity = 0.7 + 3.0 * lighting.dark; });
+      keepOut.push({ x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, r: 70 });
     }
   }
 

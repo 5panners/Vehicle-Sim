@@ -207,6 +207,7 @@ export class World {
     const seen = new Int32Array(n * n).fill(-1);          // which sample last visited a cell (each cell is tested once per sample)
     const r = Math.ceil(reach / res), lateralMax = Math.SQRT2 * r * res + 1;
     for (const s of this.track) {
+      if (s.overpass) continue;                                  // a bridge deck over another road: the ground below is the lower road, the deck is a separate layer (map.deckAt)
       const ci = Math.round((s.x + half) / res), cj = Math.round((s.z + half) / res);
       // only cells within 1.2 m of the cross-section line through the sample matter (|along| <= 1.2), so walk that thin strip
       // instead of the whole square around the sample: same cells, a fraction of the work
@@ -349,8 +350,18 @@ export class World {
   }
 
   /** Physics ground query: fills out.height, out.normal (Vec3) and out.surface */
-  sample(x, z, out) {
+  sample(x, z, out, y) {
     const e = 0.25;
+    if (y !== undefined && this.map.deckAt) {                      // bridge decks: only for a car that is up on the deck (its wheel is above the deck level), not on the road below
+      const dh = this.map.deckAt(x, z, this);
+      if (dh > -1e8 && y > dh - 1.0) {
+        const hx = (this.map.deckAt(x + e, z, this) - this.map.deckAt(x - e, z, this)) / (2 * e), hz = (this.map.deckAt(x, z + e, this) - this.map.deckAt(x, z - e, this)) / (2 * e);
+        out.height = dh;
+        if (hx === hx && hz === hz && Math.abs(hx) < 5 && Math.abs(hz) < 5) out.normal.set(-hx, 1, -hz).normalize(); else out.normal.set(0, 1, 0);
+        out.surface = SURFACES[SURF.Asphalt];
+        return out;
+      }
+    }
     const tmp = this._tmp || (this._tmp = { s: 0 });
     const h = this._fullHeight(x, z, tmp);
     const surf = tmp.s;

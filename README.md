@@ -83,7 +83,7 @@ Switch with **L**, or the **Map** dropdown in the Tab panel (the page reloads wi
 | `spa` | **Spa-Francorchamps** (7.004 km, clockwise): Eau Rouge and Raidillon, the Kemmel straight, Pouhon and Blanchimont in the Ardennes forest. See below. |
 | `kart` | **Apex Ring** (723 m, clockwise): a compact karting circuit with a 150 m start straight, a hairpin, an S-bend and a technical infield. See below. |
 | `city` | **Harbour Street** (1.64 km, clockwise): an urban karting circuit with a start grid and pits, about 3 m of elevation change, soft rollers and a speed hump, a stone arch bridge over a canal and a jump across the canal. Open it with `?map=city`. |
-| `amalfi` | **Costiera Amalfitana** (2.8 km, clockwise): a hillside and sea-cliff kart circuit on the Amalfi Coast, 26 m of elevation change, hairpins, a blind crest and a dip, pastel villages, a domed church, sea with boats and a pier. Open it with `?map=amalfi`. |
+| `amalfi` | **Costiera Amalfitana** (2.8 km, clockwise): a figure-of-eight kart circuit on the Amalfi Coast: a stone viaduct crossing over the lap, a headland tunnel, 28 m of elevation change, hairpins, pastel villages, a domed church, sea with boats and a pier. Open it with `?map=amalfi`. |
 | `rocky` | **Rocky Mountain Endurance Circuit** (5.4 km, clockwise): a mountain road course from the lake-side pit straight up the Serpentine, through the Cliffhanger Tunnel and across a steel truss bridge above Eagle's Nest Falls, round the Alpine Peak loop and down the eastern descent. About 185 m of climb. Open it with `?map=rocky`. |
 
 ### Spa-Francorchamps

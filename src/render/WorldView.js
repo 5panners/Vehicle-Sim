@@ -223,7 +223,7 @@ export class WorldView {
       for (let c = 0; c <= cols; c++) {
         const off = a + (b - a) * (c / cols);
         const x = t.x + t.rx * off, z = t.z + t.rz * off;
-        pos.push(x, this.world.heightAtGrid(x, z) + yOff, z);
+        pos.push(x, (t.overpass ? t.y : this.world.heightAtGrid(x, z)) + yOff, z);
         const cc = color(s, off); col.push(cc[0], cc[1], cc[2]);
         uv.push(c / cols, v);
       }

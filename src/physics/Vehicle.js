@@ -282,11 +282,11 @@ export class Vehicle {
     w.prevCompression = w.compression;
     let t = rayLen;
     if (_down.y < -0.25) { // wheel ray can't hit the ground when the car is on its side/roof
-      this.world.sample(_p.x, _p.z, g);
+      this.world.sample(_p.x, _p.z, g, _p.y);
       t = (_p.y - g.height) / -_down.y;
       for (let i = 0; i < 3; i++) { // Newton refine along the ray against sloped ground
         const px = _p.x + _down.x * t, py = _p.y + _down.y * t, pz = _p.z + _down.z * t;
-        this.world.sample(px, pz, g);
+        this.world.sample(px, pz, g, py);
         const n = g.normal;
         const hx = -n.x / n.y, hz = -n.z / n.y;
         const f = py - g.height, df = _down.y - hx * _down.x - hz * _down.z;
@@ -484,7 +484,7 @@ export class Vehicle {
     let hits = 0;
     for (const lp of this.hullPoints) {
       body.localToWorld(lp, _p);
-      this.world.sample(_p.x, _p.z, g);
+      this.world.sample(_p.x, _p.z, g, _p.y);
       const pen = (g.height - _p.y) * g.normal.y;
       if (pen <= 0) continue;
       hits++;
