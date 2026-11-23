@@ -170,7 +170,7 @@ export class Multiplayer {
     app.applyConfig(structuredClone(msg.cfg));
     const lineup = msg.grid.map((g) => (g.kind === 'human' && g.id === this.id ? { kind: 'me', name: 'You' }
       : g.kind === 'bot' ? (this.isHost ? { kind: 'bot', key: g.key, name: g.name, color: g.color } : { kind: 'remote', key: g.key, name: g.name, color: g.color })
-        : { kind: 'remote', key: g.id, name: g.name, color: g.color }));
+        : { kind: 'remote', key: g.id, name: g.name, color: g.color, human: true }));
     if (!lineup.some((l) => l.kind === 'me')) { this._setStatus('The host started without you (no free slot)'); return; }
     this.remote.clear();
     const mine = msg.grid.find((g) => g.kind === 'human' && g.id === this.id);

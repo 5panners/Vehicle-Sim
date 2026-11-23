@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { Vehicle } from '../physics/Vehicle.js';
 import { CarView } from '../render/CarView.js';
 import { BotDriver, BOT_SKILLS, collideCars } from './BotDriver.js';
@@ -8,6 +9,17 @@ export const BOT_COLORS = [0x1e88e5, 0x43a047, 0xfb8c00, 0x8e24aa, 0xfdd835, 0x0
 export const BOT_NAMES = ['Blue', 'Green', 'Orange', 'Purple', 'Yellow', 'Teal', 'Pink'];
 export const MAX_OPPONENTS = BOT_COLORS.length;
 
+/** a small, soft name label that always faces the camera */
+function nameTag(name, color) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 56;
+  const g = c.getContext('2d'); g.font = '600 26px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineWidth = 5; g.strokeStyle = 'rgba(0,0,0,0.55)'; g.strokeText(name, 128, 24); g.fillStyle = '#fff'; g.fillText(name, 128, 24);
+  g.fillStyle = color; g.fillRect(88, 44, 80, 3);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false }));
+  s.scale.set(3.2, 0.7, 1); s.visible = false; s.renderOrder = 10;
+  return s;
+}
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 
 /**
@@ -41,7 +53,7 @@ export class Race {
         this.bots.push(entry);
       } else {
         // a remote car is moved by its owner only: here it is immovable, so contacts push the local car (or bot) the whole way
-        entry.remote = true; entry.seen = false; view.group.visible = view.blob.visible = false; view.pool.visible = false;
+        entry.remote = true; entry.seen = false; if (l.human) entry.tag = nameTag(entry.name, color); if (entry.tag) app.scene.add(entry.tag); view.group.visible = view.blob.visible = false; view.pool.visible = false;
         vehicle.body.invMass = 0; vehicle.body.invInertia.set(0, 0, 0);
         this.remotes.push(entry);
       }
@@ -99,6 +111,11 @@ export class Race {
       b.position.x = s.p[0]; b.position.y = s.p[1]; b.position.z = s.p[2];
       Object.assign(b.orientation, { x: s.q[0], y: s.q[1], z: s.q[2], w: s.q[3] });
       if (!r.seen) { r.seen = true; r.view.group.visible = r.view.blob.visible = true; }
+      if (r.tag) {                                                          // a quiet name above another player's car, fading out with distance
+        const cam = this.app.camera.position, d = Math.hypot(cam.x - s.p[0], cam.y - s.p[1], cam.z - s.p[2]);
+        r.tag.position.set(s.p[0], s.p[1] + r.vehicle.config.body.dimensions.height + 0.75, s.p[2]);
+        r.tag.material.opacity = Math.max(0, Math.min(1, (110 - d) / 70)) * 0.7; r.tag.visible = r.tag.material.opacity > 0.02 && d > 4;
+      }
       b.velocity.x = s.v[0]; b.velocity.y = s.v[1]; b.velocity.z = s.v[2];
       const v = r.vehicle, sp = Math.hypot(s.v[0], s.v[2]);
       v.drivetrain.engine.omega = s.rpm * Math.PI / 30; v.input.throttle = s.th; v.input.brake = s.br;
@@ -109,7 +126,7 @@ export class Race {
   /** a player left the online race: their car goes */
   dropRemote(key) {
     const i = this.remotes.findIndex((r) => r.key === key); if (i < 0) return;
-    const r = this.remotes[i]; r.view.group.removeFromParent(); r.view.blob.removeFromParent(); r.view.pool.removeFromParent(); this.app.audio?.dropVoice(r);
+    const r = this.remotes[i]; r.tag?.removeFromParent(); r.view.group.removeFromParent(); r.view.blob.removeFromParent(); r.view.pool.removeFromParent(); this.app.audio?.dropVoice(r);
     this.remotes.splice(i, 1); this.finished = this.finished.filter((c) => c !== r);
   }
 
@@ -206,5 +223,5 @@ export class Race {
 
   mapDots() { return this.others.filter((b) => !b.remote || b.seen).map((b) => ({ x: b.vehicle.body.position.x, y: b.vehicle.body.position.y, z: b.vehicle.body.position.z, color: b.color })); }
 
-  dispose() { for (const b of this.others) { b.view.group.removeFromParent(); b.view.blob.removeFromParent(); b.view.pool.removeFromParent(); this.app.audio?.dropVoice(b); } this.bots = []; this.remotes = []; }
+  dispose() { for (const b of this.others) { b.tag?.removeFromParent(); b.view.group.removeFromParent(); b.view.blob.removeFromParent(); b.view.pool.removeFromParent(); this.app.audio?.dropVoice(b); } this.bots = []; this.remotes = []; }
 }
