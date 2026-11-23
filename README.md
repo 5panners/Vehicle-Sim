@@ -346,7 +346,7 @@ Reference numbers from `npm run test:physics` (flat asphalt):
 | GT3 | 3.4 s (295 km/h top speed) | 2.2 g peak | 1.5 g at 120, 1.7 g at 200 km/h |
 | Formula 1 | 3.4 s (0–200: 8.0 s) | 4.75 g peak from 324 km/h top speed | 3.3 g at 220 km/h |
 | KZ Shifter Kart | 3.9 s to 60 mph (6-speed, ~165 km/h top speed) | front and rear brakes, no ABS | 1.35 g; the sim's only kart |
-| Rotax Max Senior Kart | ~9 s to 60 mph from rest (single gear, centrifugal clutch), ~122 km/h top speed | rear brake only | 1.14 g |
+| Rotax Max Senior Kart | ~8.5 s to 60 mph from rest (single gear, centrifugal clutch), ~112 km/h top speed | rear brake only | 1.14 g |
 
 ### Extending
 

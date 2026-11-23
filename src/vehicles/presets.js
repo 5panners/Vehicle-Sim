@@ -269,7 +269,7 @@ export const PRESETS = [
 // Senior Rotax Max / IAME X30 class kart: the same chassis as the shifter, with a 125 cc two-stroke, one gear and a centrifugal clutch
 PRESETS.push(deepMerge(PRESETS.find((p) => p.name === 'KZ Shifter Kart'), {
   name: 'Rotax Max Senior Kart',
-  description: 'Senior Rotax Max / IAME X30 class kart (ages 15+): 125 cc water-cooled two-stroke, ~28-30 hp at 11,500 rpm, one gear with a centrifugal clutch and an electric starter, rear brake only, 165 kg with driver. Easier and more forgiving than the shifter: roughly 0-60 mph in 9 s from a standstill (the clutch slips while the revs build) and about 75 mph flat out.',
+  description: 'Senior Rotax Max / IAME X30 class kart (ages 15+): 125 cc water-cooled two-stroke, ~28-30 hp at 11,500 rpm, one gear with a centrifugal clutch and an electric starter, rear brake only, 165 kg with driver. Easier and more forgiving than the shifter: roughly 0-60 mph in 8.5 s from a standstill (the clutch slips while the revs build) and about 70 mph flat out with the short gearing.',
   color: 0xe53935, accent: 0x111111,
   body: { mass: 165 },
   // 28-30 hp class: peak ~17.5 Nm at 10,500 rpm and a broad band up to 12,500 (tuned a touch hot, like the shifter)
@@ -277,8 +277,8 @@ PRESETS.push(deepMerge(PRESETS.find((p) => p.name === 'KZ Shifter Kart'), {
     torqueCurve: [[2000, 2], [4000, 5], [5500, 9], [7000, 13], [8500, 17], [10000, 18.5], [11500, 18.2], [12500, 16.2], [13500, 12.5], [14200, 7]],
     idleRPM: 2000, redlineRPM: 13800, limiterRPM: 14200, limiterCutTime: 0.04, inertia: 0.012, engineBrakingTorque: 3.5, throttleResponse: 20, cylinders: 1,
   },
-  // one gear on a ~6.2:1 overall ratio (about 120 km/h at the limiter); the centrifugal clutch bites at ~8,500 rpm and slips through the first ~75 km/h, so the engine stays in its power band off the line
-  transmission: { gearRatios: [1.0], reverseRatio: -1.0, finalDrive: 6.2, shiftTime: 0.04, clutchMaxTorque: 70, clutchEngageRPM: 8500, clutchFullRPM: 9500, efficiency: 0.94, autoShiftUpRPM: 14000, autoShiftDownRPM: 3000 },
+  // one gear on a shorter ~6.8:1 overall ratio (about 112 km/h at the limiter); the centrifugal clutch bites at ~8,500 rpm and slips through the first ~75 km/h, so the engine stays in its power band off the line
+  transmission: { gearRatios: [1.0], reverseRatio: -1.0, finalDrive: 6.8, shiftTime: 0.04, clutchMaxTorque: 70, clutchEngageRPM: 8500, clutchFullRPM: 9500, efficiency: 0.94, autoShiftUpRPM: 14000, autoShiftDownRPM: 3000 },
   brakes: { maxTorque: 330, bias: 0, handbrakeTorque: 330 },   // the Max class runs a single rear disc: no front brakes
   tires: { rear: { peakFrictionY: 1.72, peakSlipAngle: 5.0 } },
 }));
