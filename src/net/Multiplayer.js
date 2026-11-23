@@ -1,5 +1,6 @@
 import { Relay } from './Relay.js';
 import { PRESETS } from '../vehicles/presets.js';
+import { BOT_COLORS } from '../game/Race.js';
 
 /**
  * Online races through the relay. One player hosts: they own the lobby (track, laps, bot skill,
@@ -152,7 +153,7 @@ export class Multiplayer {
     let bot = 0;
     this.lobby.slots.forEach((s, i) => {
       if (s.k === 'human') grid.push({ kind: 'human', id: s.id, name: s.name, color: HUMAN_COLORS[i % HUMAN_COLORS.length] });
-      else if (s.k === 'bot') grid.push({ kind: 'bot', key: `bot${i}`, name: `Bot ${++bot}`, color: null });
+      else if (s.k === 'bot') { grid.push({ kind: 'bot', key: `bot${i}`, name: `Bot ${++bot}`, color: '#' + BOT_COLORS[(bot - 1) % BOT_COLORS.length].toString(16).padStart(6, '0') }); }
     });
     const cfg = this.app.vehicle.config;
     const msg = { map: this.app.mapId, laps: this.lobby.laps, skill: this.lobby.skill, preset: this.app.presetIndex, cfg, hold: 0.2 + Math.random() * 2.8, grid, seq: Date.now() };
@@ -168,11 +169,14 @@ export class Multiplayer {
     if (app.presetIndex !== msg.preset) app.loadPreset(msg.preset, { quiet: true });
     app.applyConfig(structuredClone(msg.cfg));
     const lineup = msg.grid.map((g) => (g.kind === 'human' && g.id === this.id ? { kind: 'me', name: 'You' }
-      : g.kind === 'bot' ? (this.isHost ? { kind: 'bot', key: g.key, name: g.name } : { kind: 'remote', key: g.key, name: g.name })
+      : g.kind === 'bot' ? (this.isHost ? { kind: 'bot', key: g.key, name: g.name, color: g.color } : { kind: 'remote', key: g.key, name: g.name, color: g.color })
         : { kind: 'remote', key: g.id, name: g.name, color: g.color }));
     if (!lineup.some((l) => l.kind === 'me')) { this._setStatus('The host started without you (no free slot)'); return; }
     this.remote.clear();
+    const mine = msg.grid.find((g) => g.kind === 'human' && g.id === this.id);
+    app.setCarTint(mine?.color);                                  // your own car wears the colour everyone else sees you in
     app.createRace({ laps: msg.laps, skill: msg.skill, lineup, online: true, hold: msg.hold });
+    if (app.race && mine?.color) app.race.player.color = mine.color;
     app.menu.close();
     this._setStatus(this.isHost ? `Racing · ${this._count()}` : 'Racing');
   }

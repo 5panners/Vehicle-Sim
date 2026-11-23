@@ -179,8 +179,16 @@ class App {
     this.hud.showToast(`${rest.laps ? `${rest.laps}-lap race` : 'Practice'} · ${n} opponent${n > 1 ? 's' : ''} (${BOT_SKILLS[rest.skill].name}) · you start P${Math.min(rest.slot, n + 1)}`, 2600);
   }
 
+  /** repaint your own car in a colour (online: the colour the other players see you in), or back to its own paint with no argument */
+  setCarTint(color) {
+    const tint = color ? parseInt(String(color).replace('#', ''), 16) : undefined;
+    if (this.carView.tint === tint) return;
+    this.carView.tint = tint; this.carView._tintMat = null; this.carView.build(this.vehicle);
+  }
+
   endRace(silent = false) {
     if (!this.race) return;
+    if (this.race.online) this.setCarTint(null);
     if (this.race.online && !silent && this.net.isHost) this.net.endRaceAll();   // the host ending it ends it for everyone
     this.race.dispose(); this.race = null; this.hud.mapOthers = [];
     this.lights.phase = 'idle'; this.lights.lit = 0; this.worldView.setStartLights(0); this.hud.setStartLights(0, false);
