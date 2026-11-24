@@ -147,6 +147,19 @@ export class Multiplayer {
     if (this.link?.open) return 'direct';
     return this.link?.state === 'connecting' ? `via ${relay} (going direct…)` : `via ${relay}`;
   }
+  /** the short top-right HUD line while online: [text, 'direct' | 'relay' | 'mixed'] */
+  connText() {
+    if (!this.active) return ['', ''];
+    const relay = this.relay?.broker?.name ?? 'relay', ms = this.rtt ? ` · ${Math.round(this.rtt * 1000)} ms` : '';
+    if (this.isHost) {
+      const guests = this.lobby?.slots.filter((s) => s.k === 'human' && s.id !== this.id) ?? [], n = guests.filter((s) => this.links.get(s.id)?.open).length;
+      if (!guests.length) return [`Online host · waiting for players · ${relay}`, 'relay'];
+      if (n === guests.length) return [`Online host · direct to ${n === 1 ? '1 player' : `all ${n} players`}`, 'direct'];
+      return [`Online host · ${n ? `${n} direct, ${guests.length - n}` : `${guests.length === 1 ? '1 player' : `${guests.length} players`}`} via relay (${relay})`, n ? 'mixed' : 'relay'];
+    }
+    if (this.link?.open) return [`Online · direct to host${ms}`, 'direct'];
+    return [`Online · via relay (${relay})${this.link?.state === 'connecting' ? ' · going direct…' : ''}${ms}`, 'relay'];
+  }
   /** one line for the HUD and the menu */
   statsText() {
     if (!this.active) return 'Offline';

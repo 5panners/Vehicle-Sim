@@ -22,7 +22,7 @@ export class HUD {
         <div class="lap" id="hLap"></div>
         <div class="small bot" id="hBot"></div>
       </div>`));
-    root.append($(`<div class="hud-top-right"><div id="hClock" class="clock"></div><div class="small build">Build ${BUILD.number} · ${BUILD.date}</div><div id="hFps" class="small"></div><div class="small net-stats" id="hNet"></div><div class="small" id="hCam"></div>
+    root.append($(`<div class="hud-top-right"><div id="hClock" class="clock"></div><div class="small build">Build ${BUILD.number} · ${BUILD.date}</div><div class="conn" id="hConn"></div><div id="hFps" class="small"></div><div class="small net-stats" id="hNet"></div><div class="small" id="hCam"></div>
         <div class="small hintline">Esc/Start: menu · Tab: tuning · T: telemetry · F: spawn · O: opponent · H: help</div></div>`));
     root.append($(`<div class="hud-dash">
         <div class="rpm"><div class="rpm-fill" id="hRpm"></div><div class="rpm-red" id="hRed"></div></div>
@@ -72,7 +72,7 @@ export class HUD {
     this.driftEl = $('<div class="drift"><div class="d-angle"></div><div class="d-combo"></div><div class="d-total"></div></div>'); root.append(this.driftEl);
     this.drift = { combo: 0, total: 0, idle: 0, active: false, flash: 0, best: 0 };
     this.el = {};
-    for (const id of ['hLap', 'hBot', 'hCar', 'hSurf', 'hDev', 'hClock', 'hFps', 'hNet', 'hCam', 'hRpm', 'hRed', 'hGear', 'hSpd', 'hUnit', 'hRpmTxt', 'iSteer', 'iThr', 'iBrk', 'iHb', 'iClu', 'aABS', 'aTCS', 'aESC', 'aAUTO', 'tmid', 'tw0', 'tw1', 'tw2', 'tw3', 'ggc'])
+    for (const id of ['hLap', 'hBot', 'hCar', 'hSurf', 'hDev', 'hClock', 'hFps', 'hNet', 'hConn', 'hCam', 'hRpm', 'hRed', 'hGear', 'hSpd', 'hUnit', 'hRpmTxt', 'iSteer', 'iThr', 'iBrk', 'iHb', 'iClu', 'aABS', 'aTCS', 'aESC', 'aAUTO', 'tmid', 'tw0', 'tw1', 'tw2', 'tw3', 'ggc'])
       this.el[id] = root.querySelector('#' + id);
     this.ggTrail = [];
     this.fps = 60;
@@ -214,6 +214,7 @@ export class HUD {
     this._slowT = (this._slowT || 0) + dt; const slow = this._slowT > 0.066; if (slow) this._slowT = 0;   // text that changes constantly is refreshed ~15 times a second
     if (slow) setText(e.hFps, `${this.fps.toFixed(0)} fps · physics ${extra.physicsHz} Hz${extra.slowmo ? ' · SLOW-MO' : ''}`);
     if (slow) setText(e.hNet, this.netText || '');
+    if (slow) { const [t, k] = this.connText || ['', '']; setText(e.hConn, t); if (e.hConn.className !== 'conn ' + k) e.hConn.className = 'conn ' + k; }
     setText(e.hCam, `Camera: ${extra.camera}`);
     if (extra.clock) setText(e.hClock, `${extra.night ? '☾' : '☀'} ${extra.clock}`);
     setText(e.hCar, v.config.name + (this.mapName ? `  ·  ${this.mapName}` : ''));

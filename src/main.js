@@ -398,6 +398,7 @@ class App {
     this.sun.position.set(p.x + sd.x * reach, p.y + sd.y * reach, p.z + sd.z * reach); this.sun.target.position.set(p.x, p.y, p.z);
     this.shadows.update();
     this.hud.netText = this.showNet && this.net.active ? this.net.statsText() : '';
+    this.hud.connText = this.net.connText();
     this.hud.update(dt, v, inp, { physicsHz: PHYSICS_HZ, camera: this.rig.modeName, slowmo: this.slowmo, lap: this.lapTimer, clock: this.gfx.hourText, night: this.gfx.s.hour < 6 || this.gfx.s.hour >= 18 });
     if (!paused) {
       this.audio.update(v);

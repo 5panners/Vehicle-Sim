@@ -30,6 +30,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0e12; col
 .assists span.on { color: var(--good); }
 .assists span.act { background: var(--warn); color: #000; }
 .hud-top-right { position: absolute; top: 14px; right: 16px; text-align: right; }
+.hud-top-right .conn { font-size: 12px; font-weight: 600; margin: 2px 0; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+.hud-top-right .conn:empty { display: none; }
+.hud-top-right .conn::before { content: '●  '; font-size: 10px; }
+.hud-top-right .conn.direct { color: #7dffa0; }
+.hud-top-right .conn.mixed { color: #c8f07a; }
+.hud-top-right .conn.relay { color: #ffd27a; }
 .hud-top-right .clock { font-size: 26px; font-weight: 700; letter-spacing: 1px; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,0.7); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
 .hintline { margin-top: 4px; }
 .hud-dash { position: absolute; right: 24px; bottom: 22px; width: 280px; background: var(--bg); border-radius: 12px; padding: 12px 14px; }
