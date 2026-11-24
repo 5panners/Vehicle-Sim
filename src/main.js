@@ -13,6 +13,7 @@ import { PRESETS } from './vehicles/presets.js';
 import { WorldView } from './render/WorldView.js';
 import { CarView } from './render/CarView.js';
 import { Effects } from './render/Effects.js';
+import { Exhaust } from './render/Exhaust.js';
 import { CameraRig } from './render/CameraRig.js';
 import { InputManager } from './input/InputManager.js';
 import { ControllerSetup } from './ui/ControllerSetup.js';
@@ -76,6 +77,7 @@ class App {
     this.carView = new CarView(scene);
     this.carView.build(this.vehicle);
     this.effects = new Effects(scene);
+    this.exhaust = new Exhaust(scene);
     this.rig = new CameraRig(this.camera, renderer.domElement);
     this.rig.groundAt = (x, z) => this.world.heightAt(x, z);
     this.rig.world = this.world;
@@ -361,7 +363,13 @@ class App {
       this.hud.mapOthers = this.race.mapDots();
     } else if (this.hud.el.hBot._h !== '') { this.hud.el.hBot._h = ''; this.hud.el.hBot.textContent = ''; }
     const wc = v.wallContact; // read before effects consume it
-    if (!paused) this.effects.update(dt * (this.slowmo ? 0.25 : 1), v);
+    if (!paused) {
+      this.effects.update(dt * (this.slowmo ? 0.25 : 1), v);
+      const cars = this._exCars || (this._exCars = []); cars.length = 0;
+      cars.push({ view: this.carView, vehicle: v });
+      if (this.race) for (const b of this.race.others) cars.push({ view: b.view, vehicle: b.vehicle });
+      this.exhaust.update(dt * (this.slowmo ? 0.25 : 1), this.camera, cars);
+    }
     if (wc) this.audio.scrape = Math.max(this.audio.scrape || 0, wc.scrape);
     this.rig.update(dt, this.rig.modeName === 'Follow' ? this.followVehicle() : v, inp.buttons.lookBack);
     const p = v.body.position;

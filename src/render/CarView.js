@@ -52,7 +52,7 @@ export class CarView {
     };
     const style = cfg.style;
     this.brakeMat = new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0xff0000, emissiveIntensity: 0.2 });
-    this.steerWheel = null; this.rearAxle = null;
+    this.steerWheel = null; this.rearAxle = null; this.exhaust = null;
     if (style === 'f1') this._buildOpenWheel(vehicle, body, { paint, dark, box, extrude });
     else if (style === 'kart') this._buildKart(vehicle, body, { paint, dark, box, extrude });
     else if (style === 'cigar') this._buildCigar(vehicle, body, { paint, dark, box });
@@ -540,6 +540,7 @@ export class CarView {
     box(0.012, 0.03, Math.abs(ez - zR) + 0.12, dark, ex - 0.09, (b0 + 0.12 + yR) / 2, (ez + zR) / 2);
     rod(V(ex - 0.06, b0 + 0.2, ez - 0.05), V(ex - 0.15, b0 + 0.22, zR - 0.15), 0.035, engineMat);
     rod(V(ex - 0.15, b0 + 0.22, zR - 0.15), V(ex - 0.05, b0 + 0.24, -hz + 0.2), 0.055, chrome); // silencer
+    this.exhaust = V(ex - 0.05, b0 + 0.24, -hz + 0.17);   // tailpipe: the Exhaust effect puffs a faint haze from here
 
     // solid rear axle + sprocket + brake disc (spins with the rear wheels)
     const axle = new THREE.Group();
