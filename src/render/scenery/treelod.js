@@ -50,7 +50,7 @@ export class TreeTiles {
   }
 
   add(cx, cz, size, nearGroup, farGroup) {
-    const root = new THREE.Group(); root.position.set(cx, 0, cz); root.add(nearGroup, farGroup);
+    const root = new THREE.Group(); root.userData.noBatch = true; root.position.set(cx, 0, cz); root.add(nearGroup, farGroup);   // already tiled with its own level of detail
     this.scene.add(root);
     this.tiles.push({ cx, cz, r: size * 0.7072, nearGroup, farGroup });
   }

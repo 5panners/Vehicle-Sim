@@ -10,6 +10,7 @@ import { buildCityScenery } from './scenery/city.js';
 import { buildAmalfiScenery } from './scenery/amalfi.js';
 import { buildSpaScenery } from './scenery/spa.js';
 import { skyMaterial, enhanceTerrain } from './Nature.js';
+import { batchStatic, tileInstanced } from './batch.js';
 
 export function noiseTexture(size = 256, contrast = 0.25, base = 0.85) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -57,6 +58,10 @@ export class WorldView {
     else if (scenery === 'kart') buildKartScenery(this);
     else if (scenery === 'city') buildCityScenery(this);
     else if (scenery === 'amalfi') buildAmalfiScenery(this);
+    // static batching: the scenery's many small static meshes merged by look within 150 m cells (far fewer draw calls)
+    this.batchStats = batchStatic(this.scene, { keep: new Set(this.startLamps || []), cell: 150 });
+    // and big instanced sets (trees, shrubs...) cut into map tiles, so off-screen ones and those outside the shadow area are skipped
+    this.tileStats = tileInstanced(this.scene, { cell: 200 });
   }
 
   // Barriers: street concrete (red/white blocks), concrete pit wall, Armco (two steel rails on
@@ -179,7 +184,7 @@ export class WorldView {
       const cx = ((ci + i1) / 2) * step - half, cz = ((cj + j1) / 2) * step - half, hw = ((i1 - ci) * step) / 2, hh = (ymax - ymin) / 2;
       g.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, (ymin + ymax) / 2, cz), Math.hypot(hw, hw, hh) + 0.5);
       const mesh = new THREE.Mesh(g, m);
-      mesh.receiveShadow = true;
+      mesh.receiveShadow = true; mesh.userData.noBatch = true;   // chunked on purpose, for culling
       this.scene.add(mesh); this.terrainChunks.push(mesh);
     }
   }

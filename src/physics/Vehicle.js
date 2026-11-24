@@ -23,6 +23,7 @@ export class Vehicle {
   }
 
   setConfig(config) {
+    this._wallR = undefined;
     this.config = config;
     const b = config.body, gm = config.geometry;
     const { width: w, height: h, length: l } = b.dimensions;
@@ -527,7 +528,18 @@ export class Vehicle {
     const world = this.world;
     if (!world.wallsNear) return;
     const body = this.body;
-    const walls = world.wallsNear(body.position.x, body.position.z, this.boundRadius, this._wallList);
+    const near = world.wallsNear(body.position.x, body.position.z, this.boundRadius, this._wallList);
+    if (!near.length) return;
+    // broad phase: keep only wall segments the car's bounding circle can reach (each wall once, not once per point)
+    const walls = this._wallHit || (this._wallHit = []); walls.length = 0;
+    if (this._wallR === undefined) this._wallR = Math.max(...this.wallPoints.map((q) => Math.hypot(q.x, q.y, q.z)));   // every point lies within this of the centre, however the car is turned
+    const bx = body.position.x, by = body.position.y, bz = body.position.z, R = this._wallR + 0.3;
+    for (const w of near) {
+      if (by - R > w.top || by + R < w.base - 0.5) continue;
+      let t = ((bx - w.ax) * w.dx + (bz - w.az) * w.dz) / (w.len * w.len); t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const ex = bx - (w.ax + w.dx * t), ez = bz - (w.az + w.dz * t), lim = R + w.t / 2;
+      if (ex * ex + ez * ez < lim * lim) walls.push(w);
+    }
     if (!walls.length) return;
     const n = this._wallN, WP = world.constructor.wallPenetration, mu = 0.35;
     let best = null;

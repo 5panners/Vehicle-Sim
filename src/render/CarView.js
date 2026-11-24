@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { batchStatic } from './batch.js';
 import { lighting } from './lighting.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
@@ -17,7 +18,7 @@ function loadModel(url) {
 export class CarView {
   constructor(scene) {
     this.scene = scene;
-    this.group = new THREE.Group();
+    this.group = new THREE.Group(); this.group.userData.noBatch = true;   // the scenery batcher leaves cars alone
     scene.add(this.group);
     // soft contact shadow under every car: the real sun shadow is faint against the bright hemisphere light and dark tarmac
     this.blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
@@ -143,6 +144,10 @@ export class CarView {
       this.group.add(g);
       return g;
     });
+
+    // a procedural car is ~80 little meshes: merge each group's static parts by look, so a whole car draws in ~12 calls
+    // (moving parts — wheels, steering wheel, rear axle — stay in their own groups and are merged within them)
+    batchStatic(this.group, { keep: new Set([this.brakeMat, ...this.headMats]) });
 
     // glTF model: apply now if cached, else when it arrives (if this build is still current)
     const token = (this._buildToken = {});
@@ -630,6 +635,7 @@ export class CarView {
 }
 
 const _fwd = new THREE.Vector3(), _v = new THREE.Vector3();
+
 const SKIP_SHADOW = /interior|glass|details|livery|trim|caliper/i;
 /**
  * light on the road from two lamps: two cones that start at the lamps and spread out with distance, each fading

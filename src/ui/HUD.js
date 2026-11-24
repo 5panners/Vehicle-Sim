@@ -254,7 +254,8 @@ export class HUD {
 
     if (this.tele.classList.contains('open')) this._telemetry(v);
     this._driftMeter(dt, v);
-    this._updateMap(v);
+    this._mapT = (this._mapT || 0) + dt;
+    if (this._mapT >= 1 / 30) { this._mapT = 0; this._updateMap(v); }   // the map canvas is redrawn 30 times a second, not every frame
   }
 
   /**
