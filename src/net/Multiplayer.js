@@ -1,4 +1,5 @@
 import { Relay, BROKERS } from './Relay.js';
+import { PeerLink, rtcSupported } from './Peer.js';
 import { PRESETS } from '../vehicles/presets.js';
 import { BOT_COLORS } from '../game/Race.js';
 import { BUILD } from '../build.js';
@@ -25,8 +26,9 @@ export const HUMAN_COLORS = ['#ffd54f', '#ef5350', '#26c6da', '#ab47bc', '#66bb6
 const LOBBY_EVERY = 1.0, TIMEOUT = 8, PING_EVERY = 2;
 
 /** live-tweakable online settings (Create Race > Play online, or keys while driving) */
-export const NET_DEFAULTS = { relay: 'auto', rate: 20, buffer: 0, predict: 0.6 };   // buffer 0 = auto (s otherwise)
-export const NET_RATES = [8, 10, 15, 20];
+export const NET_DEFAULTS = { relay: 'auto', rate: 30, buffer: 0, predict: 0.6, direct: true };   // buffer 0 = auto (s otherwise)
+export const NET_RATES = [8, 10, 15, 20, 30, 45];
+const LINK_RETRY = 30;               // s before a guest tries a failed direct link again
 export function loadNetTune() { try { return { ...NET_DEFAULTS, ...JSON.parse(localStorage.getItem('vehicleSim.net') || '{}') }; } catch { return { ...NET_DEFAULTS }; } }
 
 const r3 = (n) => Math.round(n * 1000) / 1000;
@@ -43,11 +45,11 @@ export class RemoteTrack {
 
   /** ts: the sender's clock when the state was taken; recv: our clock now */
   add(ts, st, recv) {
+    const last = this.snaps[this.snaps.length - 1];
+    if (last && ts <= last.ts) return;                                               // late, out of order, or a repeat (forwarded twice)
     const o = recv - ts;
     if (this.off === null) this.off = o;
     else { this.jit += (Math.abs(o - this.off) - this.jit) * 0.04; this.off += (o - this.off) * (o < this.off ? 0.25 : 0.02); }   // a quicker update shows the true transit time: follow it fast
-    const last = this.snaps[this.snaps.length - 1];
-    if (last && ts <= last.ts) return;                                               // late, out of order
     if (last) this.gap += (Math.min(0.5, ts - last.ts) - this.gap) * 0.1;              // how often this sender updates
     if (st.rt !== undefined) this.peerRtt = st.rt;
     if (last && Math.hypot(st.p[0] - last.p[0], st.p[2] - last.p[2]) > 25) this.snaps.length = 0;   // a respawn: do not glide across the map
@@ -116,17 +118,72 @@ export class Multiplayer {
     this.tune = loadNetTune();   // relay, update rate, buffer, prediction
     this.rtt = 0;                // round trip to the host through the relay (s); 0 for the host
     this._echo = new Map();      // host: pings to answer in its next state message
+    // direct links (WebRTC): a guest has one to the host (this.link); the host has one per guest (this.links). Lobby, start
+    // and heartbeats stay on the relay; car states go direct where a link is open and through the relay otherwise.
+    this.link = null; this.links = new Map();
+    this._fw = new Map();        // host: the latest state of each directly linked guest, forwarded to everyone else
+    this._relayAcc = 0;
   }
 
-  setTune(k, v) { this.tune[k] = v; try { localStorage.setItem('vehicleSim.net', JSON.stringify(this.tune)); } catch { /* ignore */ } this.onChange?.(); }
-  /** updates a second actually sent: the player's choice, capped below what the relay passes */
-  get rate() { return Math.min(this.tune.rate, Math.floor((this.relay?.limit ?? 9.5) - 1.5)); }
+  setTune(k, v) {
+    this.tune[k] = v; try { localStorage.setItem('vehicleSim.net', JSON.stringify(this.tune)); } catch { /* ignore */ }
+    if (k === 'direct' && !v) this._closeLinks();
+    this.onChange?.();
+  }
+  /** updates a second the relay can take: the player's choice, capped below what it passes */
+  get relayRate() { return Math.min(this.tune.rate, Math.floor((this.relay?.limit ?? 9.5) - 1.5)); }
+  /** updates a second actually sent: the full choice over direct links, the relay's cap otherwise */
+  get rate() { return this._anyDirect() ? this.tune.rate : this.relayRate; }
+  _anyDirect() { return this.isHost ? [...this.links.values()].some((l) => l.open) : !!this.link?.open; }
+  /** host: every other player in the lobby has a direct link (so nothing needs to go through the relay) */
+  _allDirect() { return this.lobby.slots.every((s) => s.k !== 'human' || s.id === this.id || this.links.get(s.id)?.open); }
+  /** how car states travel, for the stats line */
+  pathText() {
+    const relay = this.relay?.broker?.name ?? 'relay';
+    if (this.isHost) {
+      const guests = this.lobby?.slots.filter((s) => s.k === 'human' && s.id !== this.id) ?? [], n = guests.filter((s) => this.links.get(s.id)?.open).length;
+      return guests.length ? (n === guests.length ? `direct (${n})` : n ? `direct ${n}/${guests.length}, rest via ${relay}` : `via ${relay}`) : relay;
+    }
+    if (this.link?.open) return 'direct';
+    return this.link?.state === 'connecting' ? `via ${relay} (going direct…)` : `via ${relay}`;
+  }
   /** one line for the HUD and the menu */
   statsText() {
     if (!this.active) return 'Offline';
     const tr = [...this.remote.values()], d = tr.length ? tr.reduce((a, t) => a + t.delay, 0) / tr.length : 0, lat = tr.length ? tr.reduce((a, t) => a + t.latency, 0) / tr.length : this.rtt / 2;
     const ms = (x) => `${Math.round(x * 1000)} ms`;
-    return `${this.relay.broker?.name ?? 'relay'} · ${this.isHost ? 'host' : `ping ${ms(this.rtt)}`} · ${this.rate} Hz · buffer ${this.tune.buffer ? ms(this.tune.buffer) : `auto ${ms(d)}`} · prediction ${Math.round(this.tune.predict * 100)}% · others ~${ms(lat + d)} behind`;
+    return `${this.pathText()} · ${this.isHost ? 'host' : `ping ${ms(this.rtt)}`} · ${this.rate} Hz · buffer ${this.tune.buffer ? ms(this.tune.buffer) : `auto ${ms(d)}`} · prediction ${Math.round(this.tune.predict * 100)}% · others ~${ms(lat + d)} behind`;
+  }
+
+  // ---------------------------------------------------------------- direct links
+  _newLink(peer, initiator) {
+    const link = new PeerLink({
+      initiator,
+      signal: (d) => this._send('rtc', { to: peer, ...d }),
+      onMessage: (m) => { if (m?.f === peer) this._onMessage(m, true); },
+      onChange: () => {
+        if (link.state === 'failed' && !this.isHost && link === this.link) this._linkRetry = this.time + LINK_RETRY;
+        if (this.isHost && link.state !== 'open' && this.links.get(peer) === link) { this.links.delete(peer); this._fw.delete(peer); }
+        this.app.hud?.showToast?.(link.open ? 'Direct link up' : 'Direct link lost: back on the relay', 1600);
+        this.onChange?.();
+      },
+    });
+    return link;
+  }
+
+  /** guest: once the host knows us, try a direct link (again a while after a failure) */
+  _maybeLink() {
+    if (!this.tune.direct || !rtcSupported() || !this.hostId || this.link?.state === 'open' || this.link?.state === 'connecting') return;
+    if (this.time < (this._linkRetry ?? 0)) return;
+    this.link = this._newLink(this.hostId, true);
+    this.link.start();
+    this.onChange?.();
+  }
+
+  _closeLinks() {
+    this.link?.close(); this.link = null;
+    for (const l of this.links.values()) l.close();
+    this.links.clear(); this._fw.clear();
   }
 
   get active() { return !!this.relay?.open; }
@@ -206,6 +263,7 @@ export class Multiplayer {
 
   leave(quiet = false) {
     if (this.relay) { this._send('bye', {}); this.relay.close(); }
+    this._closeLinks(); this._linkRetry = 0;
     for (const c of this._cands || []) c.close();
     this._cands = [];
     if (this.app.race?.online) this.app.endRace();
@@ -274,15 +332,25 @@ export class Multiplayer {
   _pendingMap(map) {
     try { sessionStorage.setItem('vehicleSim.autoJoin', JSON.stringify({ password: this.password, role: this.role, slots: this.lobby?.slots?.map((s) => (s.id === this.id ? 'you' : s.k === 'human' ? s.was || 'bot' : s.k)) })); } catch { /* ignore */ }
     this._setStatus('Switching to the host\'s track…');
-    this.relay?.close();
+    this.relay?.close(); this._closeLinks();
     this.app.switchMap(map);
   }
 
   // ---------------------------------------------------------------- messages
-  _onMessage(m) {
+  /** direct: it came over a direct link rather than the relay */
+  _onMessage(m, direct = false) {
     if (!m || m.f === this.id || !m.t) return;
     this.seen.set(m.f, this.time);
     const d = m.d || {};
+    if (m.t === 'rtc') {                                                     // direct-link handshake, through the relay
+      if (d.to !== this.id) return;
+      if (this.isHost) {
+        if (!this.tune.direct || !rtcSupported() || !this.lobby.slots.some((s) => s.id === m.f)) return;
+        if (d.sdp?.type === 'offer') { this.links.get(m.f)?.close(); this.links.set(m.f, this._newLink(m.f, false)); }
+        this.links.get(m.f)?.handle(d);
+      } else if (m.f === this.hostId) this.link?.handle(d);
+      return;
+    }
     if (this.isHost) {
       if (m.t === 'join') {
         if (d.build !== BUILD.number) { this._send('ver', { to: m.f, build: BUILD.number }); return; }   // a different game version: it would not see the bots right
@@ -296,7 +364,11 @@ export class Multiplayer {
         this._setStatus(`Hosting · ${this._count()}`);
         this.sendLobby();
       } else if (m.t === 'bye') this._drop(m.f);
-      else if (m.t === 'st') { this._track(m.f).add(d.ts ?? clock(), d, clock()); if (d.pg !== undefined) this._echo.set(m.f, [d.pg, clock()]); }   // a ping to answer
+      else if (m.t === 'st') {
+        this._track(m.f).add(d.ts ?? clock(), d, clock());
+        if (d.pg !== undefined) this._echo.set(m.f, [d.pg, clock()]);    // a ping to answer
+        if (direct) { const { pg, ...st } = d; this._fw.set(m.f, { f: m.f, at: this.time, ...st }); }   // the others only hear it from us
+      }
       else if (m.t === 'lobby' && m.f !== this.id) this._setStatus('Another host is using this password — pick a different one');
     } else if (this.role === 'guest') {
       if (m.t === 'lobby') {
@@ -309,17 +381,20 @@ export class Multiplayer {
         if (!this.app.race && d.preset !== this.app.presetIndex) this.app.loadPreset(d.preset, { quiet: true });
         if (first || (changed && this.status !== 'Racing')) this._setStatus(`Joined · waiting for the host to start · ${this._count()}`);
         else if (changed) this.onChange?.();
+        this._maybeLink();
       } else if (m.t === 'ver' && d.to === this.id) { if (this.status !== this._verMsg(d.build)) this._setStatus(this._verMsg(d.build)); }
       else if (m.t === 'full' && d.to === this.id) this._setStatus('That match is full: every slot has a player');
       else if (m.t === 'start') this._begin(d);
       else if (m.t === 'end') { if (this.app.race?.online) { this.app.endRace(); this.app.hud.showToast('The host ended the race', 2000); } }
       else if (m.t === 'st') {
+        if (!direct && m.f === this.hostId && this.link?.open) return;    // the host's states reach us directly now; the relay copy is late
         const now = clock();
         this._track(m.f).add(d.ts ?? now, d, now);
+        if (d.g) for (const o of d.g) if (o.f !== this.id) this._track(o.f).add(o.ts ?? now, o, now);   // other players, forwarded by the host
         const pong = d.pong?.[this.id];                                   // our ping came back: round trip minus the time the host held it
         if (pong && m.f === this.hostId) { const rtt = Math.max(0, now - pong[0] - pong[1]); this.rtt = this.rtt ? this.rtt + (rtt - this.rtt) * 0.3 : rtt; }
         if (d.bots) for (const b of d.bots) this._track(b.key).add(d.ts ?? now, b, now);   // the host's bots travel with the host's car
-      } else if (m.t === 'bye' && m.f === this.hostId) { this._setStatus('The host left'); if (this.app.race?.online) this.app.endRace(); }
+      } else if (m.t === 'bye' && m.f === this.hostId) { this._closeLinks(); this._setStatus('The host left'); if (this.app.race?.online) this.app.endRace(); }
     }
   }
 
@@ -329,7 +404,8 @@ export class Multiplayer {
     if (!this.isHost) return;
     const i = this.lobby.slots.findIndex((s) => s.id === id);
     if (i >= 0) { this.lobby.slots[i] = { k: this.lobby.slots[i].was || 'bot' }; this.sendLobby(); }   // the bot comes back
-    this.remote.delete(id); this.seen.delete(id);
+    this.remote.delete(id); this.seen.delete(id); this._fw.delete(id);
+    const l = this.links.get(id); if (l) { this.links.delete(id); l.close(); }
     this.app.race?.dropRemote(id);
     this._setStatus(`Hosting · ${this._count()}`);
   }
@@ -346,10 +422,10 @@ export class Multiplayer {
     } else if (this.role === 'guest') {
       this._joinAcc += dt;
       if (this._joinAcc > 1.2) { this._joinAcc = 0; this._send(this.lobby ? 'hb' : 'join', this.lobby ? {} : { name: this.name, build: BUILD.number }); }   // presence, or knock until the host answers
-      if (this.hostId && this.time - (this.seen.get(this.hostId) ?? this.time) > TIMEOUT) { this._setStatus('Lost the host'); this.hostId = null; if (race) this.app.endRace(); }
+      if (this.hostId && this.time - (this.seen.get(this.hostId) ?? this.time) > TIMEOUT) { this._closeLinks(); this._setStatus('Lost the host'); this.hostId = null; if (race) this.app.endRace(); }
     }
     if (!race) return;
-    this._acc += dt;
+    this._acc += dt; this._relayAcc = Math.min(this._relayAcc + dt, 0.5);
     const hz = this.rate;
     if (this._acc >= 1 / hz) {
       this._acc = Math.min(this._acc - 1 / hz, 0.5 / hz);               // keep the beat even (bursts are what the relay drops)
@@ -359,7 +435,20 @@ export class Multiplayer {
       // trip so others can tell how far behind its car is; the host echoes each stamp with how long it held it
       if (!this.isHost) { st.rt = r3(this.rtt); if (now - (this._pingAt || 0) > PING_EVERY) { this._pingAt = now; st.pg = r3(now); } }
       else if (this._echo.size) { st.pong = {}; for (const [id, [ts, at]] of this._echo) st.pong[id] = [ts, r3(now - at)]; this._echo.clear(); }
-      this.relay?.send({ f: this.id, t: 'st', d: st }, true);              // droppable: skipped rather than over the relay's limit
+      if (this.isHost && this._fw.size) {                                // directly linked players' cars, for everyone else (repeats are ignored)
+        st.g = [];
+        for (const [id, o] of this._fw) { if (this.time - o.at > 0.5) this._fw.delete(id); else st.g.push(o); }
+        if (!st.g.length) delete st.g;
+      }
+      const msg = { f: this.id, t: 'st', d: st };
+      // direct links get every update; the relay only what it can pass, and only when someone still needs it
+      let needRelay = true;
+      if (this.isHost) { for (const l of this.links.values()) l.send(msg, true); needRelay = !this._allDirect(); }
+      else if (this.link?.open) needRelay = !this.link.send(msg, true);
+      if (needRelay && this._relayAcc >= 1 / this.relayRate - 0.004) {
+        this._relayAcc = Math.max(0, this._relayAcc - 1 / this.relayRate);
+        this.relay?.send(msg, true);                                     // droppable: skipped rather than over the relay's limit
+      }
     }
     race.applyRemote(this.remote, clock(), dt);
   }
