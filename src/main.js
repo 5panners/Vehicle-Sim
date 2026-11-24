@@ -309,10 +309,11 @@ class App {
         if (v.assists.autoGearbox) { v.assists.autoGearbox = false; this.hud.showToast('Manual gearbox (G toggles)'); }
         inp.pressed.shiftUp ? v.shiftUp() : v.shiftDown();
       }
-      const s = this.menu.isOpen ? { steer: 0, throttle: 0, brake: 1, handbrake: 0, clutch: 0 } : inp.state;   // menu open online: brakes on
+      const hold = this.menu.isOpen;                                   // menu open online: brakes on, and the car stays in its gear (brake at a standstill would select reverse)
+      const s = hold ? { steer: 0, throttle: 0, brake: 1, handbrake: 0, clutch: 0 } : inp.state;
       const held = this.lights.held;   // on the grid: handbrake on (opens the clutch, so you can rev), car pinned
-      v.setInput(held ? { steer: s.steer, throttle: s.throttle, brake: 0, handbrake: 1, clutch: 0 }
-        : { steer: s.steer, throttle: s.throttle, brake: s.brake, handbrake: s.handbrake, clutch: s.clutch });
+      v.setInput(held ? { steer: s.steer, throttle: s.throttle, brake: 0, handbrake: 1, clutch: 0, hold: false }
+        : { steer: s.steer, throttle: s.throttle, brake: s.brake, handbrake: s.handbrake, clutch: s.clutch, hold }); 
 
       this.acc += dt * (this.slowmo ? 0.25 : 1);
       let n = 0;

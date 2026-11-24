@@ -133,7 +133,7 @@ export class Vehicle {
     this._prevVel.set(0, 0, 0);
   }
 
-  /** input: steer -1..1 (+right), throttle/brake/handbrake/clutch 0..1 */
+  /** input: steer -1..1 (+right), throttle/brake/handbrake/clutch 0..1; hold: brakes on and the auto gearbox left alone (so it never backs away) */
   setInput(input) { Object.assign(this.input, input); }
 
   shiftUp() { const gb = this.drivetrain.gearbox; gb.shiftTo(gb.gear + 1); }
@@ -154,8 +154,11 @@ export class Vehicle {
     // ---- pedal mapping (auto-reverse swaps pedals while in reverse)
     let throttle = this.input.throttle, brake = this.input.brake;
     const gb = this.drivetrain.gearbox;
-    if (a.autoGearbox) this._autoGearbox(dt, vFwd);
-    if (a.autoGearbox && gb.gear === -1) { throttle = this.input.brake; brake = this.input.throttle; }
+    if (this.input.hold) { throttle = 0; brake = 1; }
+    else {
+      if (a.autoGearbox) this._autoGearbox(dt, vFwd);
+      if (a.autoGearbox && gb.gear === -1) { throttle = this.input.brake; brake = this.input.throttle; }
+    }
 
     this._updateSteering(dt, vFwd);
 

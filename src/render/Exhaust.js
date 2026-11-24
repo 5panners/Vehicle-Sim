@@ -5,13 +5,13 @@ import * as THREE from 'three';
  * Level of detail: full rate close to the camera, thinning out with distance, nothing beyond FAR
  * or behind the camera, and a hard cap on puffs per frame, so a full grid costs next to nothing.
  */
-const N = 480, NEAR = 18, FAR = 70, MAX_PER_FRAME = 6;
+const N = 640, NEAR = 18, FAR = 70, MAX_PER_FRAME = 6;
 const _p = new THREE.Vector3(), _back = new THREE.Vector3(), _fwd = new THREE.Vector3();
 
 export class Exhaust {
   constructor(scene) {
     this.pos = new Float32Array(N * 3); this.vel = new Float32Array(N * 3);
-    this.col = new Float32Array(N * 4); this.life = new Float32Array(N); this.max = new Float32Array(N); this.size = new Float32Array(N);
+    this.col = new Float32Array(N * 4); this.life = new Float32Array(N); this.max = new Float32Array(N); this.size = new Float32Array(N); this.peak = new Float32Array(N);
     this.i = 0; this.live = 0;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
@@ -38,25 +38,30 @@ export class Exhaust {
       view.group.updateMatrixWorld();
       _p.copy(view.exhaust).applyMatrix4(view.group.matrixWorld);
       const dx = _p.x - cam.x, dy = _p.y - cam.y, dz = _p.z - cam.z, d = Math.hypot(dx, dy, dz);
-      if (d > FAR || (d > 6 && dx * _fwd.x + dy * _fwd.y + dz * _fwd.z < 0)) { view._exAcc = 0; continue; }   // too far, or behind the camera
+      if (d > FAR || (d > 6 && dx * _fwd.x + dy * _fwd.y + dz * _fwd.z < 0)) { view._exAcc = 0; view._exRpm = undefined; continue; }   // too far, or behind the camera
       const lod = d < NEAR ? 1 : 1 - (d - NEAR) / (FAR - NEAR) * 0.8;
       const rpm = Math.min(1, vehicle.drivetrain.engine.rpm / (vehicle.drivetrain.engine.cfg?.redlineRPM || 14000));
       const th = vehicle.input?.throttle || 0;
-      const rate = (5 + th * 14 + rpm * 6) * lod;                     // puffs a second
+      // load: throttle at revs, plus a kick while the revs are climbing (a blip on the grid spits a thicker, faster puff)
+      const rising = Math.max(0, (rpm - (view._exRpm ?? rpm)) / dt); view._exRpm = rpm;
+      view._exKick = Math.max((view._exKick || 0) * Math.exp(-4 * dt), Math.min(1, rising * 0.5));
+      const load = Math.min(1, th * (0.35 + 0.65 * rpm) + view._exKick * 0.6);
+      const rate = (4 + load * 34 + rpm * 4) * lod;                    // puffs a second: denser with load
       view._exAcc = (view._exAcc || 0) + rate * dt;
       if (view._exAcc < 1) continue;
       _back.set(0, 0, -1).applyQuaternion(view.group.quaternion);
       const v = vehicle.body.velocity;
       while (view._exAcc >= 1 && budget > 0) {
         view._exAcc -= 1; budget--;
-        const out = 0.8 + th * 1.4, k = this.i * 3;
+        const out = 0.6 + load * 4.5 + Math.random() * 0.4, k = this.i * 3;   // faster out of the pipe with load
         this.i = (this.i + 1) % N;
         this.pos[k] = _p.x; this.pos[k + 1] = _p.y; this.pos[k + 2] = _p.z;
         this.vel[k] = v.x * 0.55 + _back.x * out + (Math.random() - 0.5) * 0.4;
         this.vel[k + 1] = v.y * 0.3 + 0.25 + Math.random() * 0.3;
         this.vel[k + 2] = v.z * 0.55 + _back.z * out + (Math.random() - 0.5) * 0.4;
-        const j = k / 3, life = 0.7 + Math.random() * 0.5 + th * 0.3;
-        this.life[j] = this.max[j] = life; this.size[j] = 0.14 + Math.random() * 0.06;
+        const j = k / 3, life = 0.7 + Math.random() * 0.5 + load * 0.5;
+        this.life[j] = this.max[j] = life; this.size[j] = 0.12 + load * 0.12 + Math.random() * 0.05;
+        this.peak[j] = 0.16 + load * 0.3;                              // thicker with load
         const g = 0.84 + Math.random() * 0.08;
         this.col[j * 4] = g; this.col[j * 4 + 1] = g + 0.01; this.col[j * 4 + 2] = g + 0.03;
         this.live = N;
@@ -75,7 +80,7 @@ export class Exhaust {
       P[k] += V[k] * dt; P[k + 1] += V[k + 1] * dt; P[k + 2] += V[k + 2] * dt;
       Z[j] += dt * 0.9;
       const t = Math.max(0, L[j] / this.max[j]);
-      C[j * 4 + 3] = t * (1 - t) * 4 * 0.24;                          // fades in, then out: a soft haze, not a cloud
+      C[j * 4 + 3] = t * (1 - t) * 4 * this.peak[j];                          // fades in, then out: a soft haze, not a cloud
     }
     this.live = alive ? N : 0;
     const g = this.points.geometry;
