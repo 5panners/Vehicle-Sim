@@ -6,6 +6,8 @@
  *
  * The broker sees the (hashed) topic and the game messages; nothing personal is sent.
  */
+/** messages a second the public brokers pass per connection (more is silently dropped there): a token bucket keeps us under it */
+const LIMIT = 9.5, BURST = 3;
 export const BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'];
 
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -22,7 +24,8 @@ export class Relay {
   constructor({ onMessage, onClose } = {}) {
     this.onMessage = onMessage; this.onClose = onClose;
     this.ws = null; this.topic = null; this.buf = new Uint8Array(0); this.open = false; this.broker = null;
-    this._pid = 1; this._ping = null; this.sent = 0; this.received = 0;
+    this._pid = 1; this._ping = null; this.sent = 0; this.received = 0; this.skipped = 0;
+    this._tokens = BURST; this._refill = performance.now();
   }
 
   /** connect to the first broker that answers and join the room; resolves with the broker url */
@@ -82,11 +85,17 @@ export class Relay {
     }
   }
 
-  send(obj) {
-    if (!this.open || this.ws?.readyState !== 1) return;
+  /** droppable: state updates, skipped when the bucket is empty so lobby, start and leave messages always get through */
+  send(obj, droppable = false) {
+    if (!this.open || this.ws?.readyState !== 1) return false;
+    const now = performance.now();
+    this._tokens = Math.min(BURST, this._tokens + (now - this._refill) / 1000 * LIMIT); this._refill = now;
+    if (droppable && this._tokens < 1) { this.skipped++; return false; }
+    this._tokens -= 1;
     const payload = enc.encode(JSON.stringify(obj));
     this.ws.send(packet(0x30, [...str(this.topic), ...payload]));
     this.sent++;
+    return true;
   }
 
   close() {

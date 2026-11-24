@@ -18,7 +18,10 @@ export const SLOT_KINDS = [['bot', 'Bot'], ['empty', 'Empty']];
 export const slotKind = (k) => (k === 'na' ? 'empty' : k === 'open' ? 'bot' : k);
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 export const HUMAN_COLORS = ['#ffd54f', '#ef5350', '#26c6da', '#ab47bc', '#66bb6a', '#ff7043', '#5c6bc0', '#ec407a'];
-const STATE_HZ = 20, LOBBY_EVERY = 1.0, TIMEOUT = 8;
+// The public relay passes only about 10 messages a second from each connection and silently drops the rest (measured on
+// broker.emqx.io: 100% at 10 Hz, 50% at 20 Hz), so each player sends one state message 8 times a second (the host's bots ride
+// in the same message) and the lobby / heartbeat once a second fill the rest. Remote cars glide between updates (RemoteTrack).
+const STATE_HZ = 8, LOBBY_EVERY = 1.0, TIMEOUT = 8;
 
 const r3 = (n) => Math.round(n * 1000) / 1000;
 const clock = () => performance.now() / 1000;
@@ -59,7 +62,7 @@ export class RemoteTrack {
     if (t <= S[0].ts) return { ...S[0], p: S[0].p, q: S[0].q };
     const L = S[n - 1];
     if (t >= L.ts) {                                                                  // out of data: carry on at the last velocity, fading out
-      const a = Math.min(0.25, t - L.ts), f = a * (1 - a * 2);
+      const f = Math.min(0.3, t - L.ts);
       return { ...L, p: [L.p[0] + L.v[0] * f, L.p[1] + L.v[1] * f, L.p[2] + L.v[2] * f] };
     }
     let i = n - 2; while (i > 0 && S[i].ts > t) i--;
@@ -223,9 +226,10 @@ export class Multiplayer {
       } else if (m.t === 'full' && d.to === this.id) this._setStatus('That match is full: every slot has a player');
       else if (m.t === 'start') this._begin(d);
       else if (m.t === 'end') { if (this.app.race?.online) { this.app.endRace(); this.app.hud.showToast('The host ended the race', 2000); } }
-      else if (m.t === 'st' || m.t === 'bots') {
-        if (m.t === 'st') this._track(m.f).add(d.ts ?? clock(), d, clock());
-        else for (const b of d.list) this._track(b.key).add(d.ts ?? clock(), b, clock());
+      else if (m.t === 'st') {
+        const now = clock();
+        this._track(m.f).add(d.ts ?? now, d, now);
+        if (d.bots) for (const b of d.bots) this._track(b.key).add(d.ts ?? now, b, now);   // the host's bots travel with the host's car
       } else if (m.t === 'bye' && m.f === this.hostId) { this._setStatus('The host left'); if (this.app.race?.online) this.app.endRace(); }
     }
   }
@@ -258,9 +262,10 @@ export class Multiplayer {
     if (!race) return;
     this._acc += dt;
     if (this._acc >= 1 / STATE_HZ) {
-      this._acc = 0;
-      this._send('st', { ts: r3(clock()), ...this._pack(this.app.vehicle) });
-      if (this.isHost && race.bots.length) this._send('bots', { ts: r3(clock()), list: race.bots.map((b) => ({ key: b.key, ...this._pack(b.vehicle) })) });
+      this._acc = Math.min(this._acc - 1 / STATE_HZ, 0.5 / STATE_HZ);   // keep the beat even (bursts are what the relay drops)
+      const st = { ts: r3(clock()), ...this._pack(this.app.vehicle) };
+      if (this.isHost && race.bots.length) st.bots = race.bots.map((b) => ({ key: b.key, ...this._pack(b.vehicle) }));
+      this.relay?.send({ f: this.id, t: 'st', d: st }, true);              // droppable: skipped rather than over the relay's limit
     }
     race.applyRemote(this.remote, clock(), dt);
   }
