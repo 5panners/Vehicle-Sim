@@ -25,26 +25,31 @@ export class CameraRig {
 
   /** Keep the chase camera on the car's side of any wall between them (unless it's above the wall). */
   _avoidWalls(car) {
-    const world = this.world; if (!world?.wallsNear) return;
+    const world = this.world; if (!world?.wallsNear) { this.camera.position.copy(this.pos); return; }
     const dx = this.pos.x - car.x, dz = this.pos.z - car.z;
     let tMin = 1;
     for (const w of world.wallsNear(car.x, car.z, Math.hypot(dx, dz) + 2, this._wl || (this._wl = []))) {
       if (this.pos.y > w.top + 0.4) continue;
+      if (Math.max(this.pos.y, car.y) < w.base - 0.3) continue;      // a wall up on a bridge deck overhead: not between us
       // 2D segment intersection: car->camera vs wall centreline, offset by half thickness
       const den = dx * w.dz - dz * w.dx; if (Math.abs(den) < 1e-9) continue;
       const ax = w.ax - car.x, az = w.az - car.z;
       const t = (ax * w.dz - az * w.dx) / den, u = (ax * dz - az * dx) / den;
       if (t > 0 && t < tMin && u >= 0 && u <= 1) tMin = t;
     }
-    if (tMin < 1) {
-      const len = Math.hypot(dx, dz), k = Math.max(0.15, tMin - 0.6 / Math.max(len, 1e-3));
-      this.pos.x = car.x + dx * k; this.pos.z = car.z + dz * k;
-      this.pos.y += (1 - k) * 1.2; // rise a little so the view looks over the car, not into the wall
-      this.camera.position.copy(this.pos);
+    // how far along car->camera we may sit; eased so a wall coming and going pulls the camera in smoothly instead of in one frame
+    const len = Math.hypot(dx, dz), want = tMin < 1 ? Math.max(0.15, tMin - 0.6 / Math.max(len, 1e-3)) : 1;
+    const dt = this._dt || 1 / 60, prev = this._wallK ?? 1;
+    const k = this._wallK = want < prev ? prev + (want - prev) * (1 - Math.exp(-dt * 18)) : prev + (want - prev) * (1 - Math.exp(-dt * 4));
+    const out = this.camera.position.copy(this.pos);                 // the pull goes on the camera only; this.pos stays the free, smoothed position
+    if (k < 0.999) {
+      out.x = car.x + dx * k; out.z = car.z + dz * k;
+      out.y += (1 - k) * 1.2; // rise a little so the view looks over the car, not into the wall
     }
   }
 
   update(dt, vehicle, lookBack) {
+    this._dt = dt;
     const b = vehicle.body, cam = this.camera;
     const q = new THREE.Quaternion(b.orientation.x, b.orientation.y, b.orientation.z, b.orientation.w);
     const carPos = new THREE.Vector3(b.position.x, b.position.y, b.position.z);
@@ -70,8 +75,7 @@ export class CameraRig {
       if (this.snap) this.pos.copy(want);
       this.pos.lerp(want, 1 - Math.exp(-dt * 12));
       this.pos.y = Math.max(this.pos.y, (this.groundAt?.(this.pos.x, this.pos.z) ?? -1e9) + 0.6);
-      this._avoidWalls(carPos);
-      cam.position.copy(this.pos);
+      this._avoidWalls(carPos);                                      // sets cam.position
       this.look.copy(carPos).add(new THREE.Vector3(0, H * 0.55, 0)).addScaledVector(this.heading, 2.5);
       cam.up.set(0, 1, 0);
       cam.lookAt(this.look);
