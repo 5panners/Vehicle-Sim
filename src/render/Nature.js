@@ -2,11 +2,10 @@ import * as THREE from 'three';
 
 /**
  * Cheap, good-looking terrain and sky, done in the shaders from one small tiling noise texture made at load:
- *   R fine ground grain, G large-scale patches, B cloud billows, A rock (ridged, cracked).
+ *   R fine ground grain, G large-scale patches, B mid-scale blotches, A rock (ridged, cracked).
  * - Terrain: slopes turn to rock sampled from three directions (no stretching down cliffs), with strata and darker
- *   crevices; flatter ground gets grain and broad colour patches that hide the 2.5 m vertex colours; soft cloud shadows
- *   drift over everything. One material for every chunk, four texture reads a pixel, no extra geometry.
- * - Sky: soft, sun-lit clouds drifting overhead, drawn into the existing sky dome (no sprites or cloud meshes).
+ *   crevices; flatter ground gets grain and broad colour patches that hide the 2.5 m vertex colours. One material for
+ *   every chunk, a few texture reads a pixel, no extra geometry.
  */
 
 // ---------------------------------------------------------------- tiling noise
@@ -49,46 +48,22 @@ export function natureTexture() {
   return (_tex = t);
 }
 
-/** shared by the sky and the terrain: time and wind for the drifting clouds and their shadows */
-export const natureUniforms = {
-  uNoise: { value: null }, uTime: { value: 0 }, uWind: { value: new THREE.Vector2(3.0, 1.2) },
-  uSunDir: { value: new THREE.Vector3(0.3, 0.8, 0.4) }, uCover: { value: 0.55 },
-  uCloudLit: { value: new THREE.Color(1, 1, 1) }, uCloudDark: { value: new THREE.Color(0.7, 0.74, 0.8) }, uShadow: { value: 0.18 },
-};
+export const natureUniforms = { uNoise: { value: null } };
 
 // ---------------------------------------------------------------- sky
-export function skyMaterial(top, bottom, cover) {
-  natureUniforms.uNoise.value = natureTexture();
-  natureUniforms.uCover.value = cover;
+/** the sky: a gradient from the horizon colour to the zenith colour */
+export function skyMaterial(top, bottom) {
   return new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { top: { value: new THREE.Color(top) }, bottom: { value: new THREE.Color(bottom) }, ...natureUniforms },
+    uniforms: { top: { value: new THREE.Color(top) }, bottom: { value: new THREE.Color(bottom) } },
     vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
-    fragmentShader: `uniform vec3 top; uniform vec3 bottom; uniform sampler2D uNoise; uniform float uTime, uCover; uniform vec2 uWind;
-      uniform vec3 uSunDir, uCloudLit, uCloudDark; varying vec3 vP;
-      void main(){
-        vec3 d = normalize(vP);
-        float t = clamp(d.y*1.6+0.08,0.0,1.0);
-        vec3 col = mix(bottom, top, pow(t,0.7));
-        if (d.y > 0.0) {
-          // a cloud deck overhead: project the view ray onto a plane, so clouds shrink and crowd towards the horizon
-          vec2 uv = d.xz / (d.y + 0.06) * 0.42 + uWind * uTime * 0.0009;
-          float n = texture2D(uNoise, uv).b * 0.62 + texture2D(uNoise, uv * 2.3 + vec2(0.31, 0.17)).b * 0.26 + texture2D(uNoise, uv * 6.1 - vec2(0.2, 0.4)).r * 0.12;
-          float edge = 1.0 - uCover;
-          float c = smoothstep(edge, edge + 0.22, n) * smoothstep(0.0, 0.14, d.y);
-          float dense = smoothstep(edge + 0.08, edge + 0.42, n);              // thick middles are greyer underneath
-          float toward = pow(max(dot(d, normalize(uSunDir)), 0.0), 5.0);   // silver lining towards the sun
-          vec3 cc = mix(uCloudLit, uCloudDark, dense * 0.75) + uCloudLit * toward * 0.35 * (1.0 - dense);
-          col = mix(col, cc, c * 0.95);
-        }
-        gl_FragColor = vec4(col, 1.0);
-      }`,
+    fragmentShader: 'uniform vec3 top; uniform vec3 bottom; varying vec3 vP; void main(){ float t = clamp(vP.y*1.6+0.08,0.0,1.0); gl_FragColor = vec4(mix(bottom, top, pow(t,0.7)),1.0);} ',
   });
 }
 
 // ---------------------------------------------------------------- terrain
 /** turn the terrain's vertex-coloured Lambert material into textured rock and ground (keeps lighting, shadows and fog) */
-export function enhanceTerrain(mat, { rockSlope = [0.13, 0.36] } = {}) {
+export function enhanceTerrain(mat, { rockSlope = [0.1, 0.5] } = {}) {
   natureUniforms.uNoise.value = natureTexture();
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, natureUniforms, { uRockSlope: { value: new THREE.Vector2(...rockSlope) } });
@@ -97,19 +72,20 @@ export function enhanceTerrain(mat, { rockSlope = [0.13, 0.36] } = {}) {
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vWNrm = normalize(mat3(modelMatrix) * objectNormal);');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-        varying vec3 vWPos; varying vec3 vWNrm; uniform sampler2D uNoise; uniform float uTime, uShadow; uniform vec2 uWind, uRockSlope;`)
+        varying vec3 vWPos; varying vec3 vWNrm; uniform sampler2D uNoise; uniform vec2 uRockSlope;`)
       .replace('#include <color_fragment>', `#include <color_fragment>
         {
           vec3 n = normalize(vWNrm);
           float slope = 1.0 - n.y;
           float macro = texture2D(uNoise, vWPos.xz * 0.004).g;
-          float rockM = smoothstep(uRockSlope.x, uRockSlope.y, slope + (macro - 0.5) * 0.24);
+          // a long, soft transition into rock (never quite all rock), broken up by large patches
+          float rockM = 0.85 * smoothstep(uRockSlope.x, uRockSlope.y, slope + (macro - 0.5) * 0.18);
           // rock: sampled along the two horizontal axes (cliff faces) and from above, blended by the facing
           vec3 bw = pow(abs(n), vec3(4.0)); bw /= (bw.x + bw.y + bw.z);
           float r = texture2D(uNoise, vWPos.zy * 0.06).a * bw.x + texture2D(uNoise, vWPos.xz * 0.06).a * bw.y + texture2D(uNoise, vWPos.xy * 0.06).a * bw.z;
           float strata = 0.5 + 0.5 * sin(vWPos.y * 0.85 + macro * 7.0 + r * 1.5);
           vec3 base = diffuseColor.rgb;
-          vec3 rockCol = mix(vec3(dot(base, vec3(0.3, 0.45, 0.25))), base, 0.72) * (0.42 + 0.8 * r) * (0.88 + 0.22 * strata);
+          vec3 rockCol = mix(vec3(dot(base, vec3(0.3, 0.45, 0.25))), base, 0.85) * (0.66 + 0.45 * r) * (0.94 + 0.1 * strata);   // the map's own colour, gently textured
           // ground: fine grain and broad patches
           float fine = texture2D(uNoise, vWPos.xz * 0.11).r;
           vec3 ground = base * (0.78 + 0.28 * fine) * (0.8 + 0.3 * macro);
@@ -119,9 +95,6 @@ export function enhanceTerrain(mat, { rockSlope = [0.13, 0.36] } = {}) {
           float dry = smoothstep(0.05, 0.2, slope) * (0.35 + 0.65 * texture2D(uNoise, vWPos.xz * 0.045).g);
           ground = mix(ground, ground * vec3(1.12, 0.98, 0.78), 0.45 * dry);
           diffuseColor.rgb = mix(ground, rockCol, rockM);
-          // drifting cloud shadows
-          float cs = texture2D(uNoise, (vWPos.xz + uWind * uTime * 6.0) * 0.0011).b;
-          diffuseColor.rgb *= 1.0 - uShadow * smoothstep(0.42, 0.7, cs);
         }`);
   };
   mat.customProgramCacheKey = () => 'terrain-nature';

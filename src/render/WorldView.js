@@ -9,7 +9,7 @@ import { buildKartScenery } from './scenery/kart.js';
 import { buildCityScenery } from './scenery/city.js';
 import { buildAmalfiScenery } from './scenery/amalfi.js';
 import { buildSpaScenery } from './scenery/spa.js';
-import { skyMaterial, enhanceTerrain, natureUniforms } from './Nature.js';
+import { skyMaterial, enhanceTerrain } from './Nature.js';
 
 export function noiseTexture(size = 256, contrast = 0.25, base = 0.85) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -108,7 +108,7 @@ export class WorldView {
   _sky() {
     const geo = new THREE.SphereGeometry(4000, 32, 16);
     const sky = this.world.map.sky || {};
-    const mat = skyMaterial(sky.top ?? 0x3a7bd5, sky.bottom ?? 0xdfe9f3, sky.clouds ?? 0.55);   // soft clouds drift overhead (Nature.js)
+    const mat = skyMaterial(sky.top ?? 0x3a7bd5, sky.bottom ?? 0xdfe9f3);
     this.sky = new THREE.Mesh(geo, mat);
     this.scene.add(this.sky);
   }
@@ -297,7 +297,7 @@ export class WorldView {
   }
 
   /** number of start lights lit (0-5) */
-  update(camera) { natureUniforms.uTime.value = performance.now() / 1000; for (const f of this.updaters) f(camera); }
+  update(camera) { for (const f of this.updaters) f(camera); }
 
   setStartLights(n) {
     this.startLamps?.forEach((m, i) => m.color.setHex(i < n ? 0xff1a1a : 0x2a0606));

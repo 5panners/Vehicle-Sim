@@ -137,16 +137,7 @@ export class Graphics {
     const top = this._c2.copy(NIGHT_TOP).lerp(this.day.top, f);
     const bottom = this._c3.copy(NIGHT_BOTTOM).lerp(this.day.bottom, f).lerp(DUSK, 0.55 * dusk);
     const u = app.worldView?.sky?.material?.uniforms;
-    if (u) {
-      u.top.value.copy(top); u.bottom.value.copy(bottom);
-      // clouds: white by day, warm at dusk, dim blue-grey at night; their shadows fade with the sun
-      if (u.uCloudLit) {
-        u.uSunDir.value.copy(toSun);
-        const lit = u.uCloudLit.value.setRGB(0.97, 0.97, 0.99).multiplyScalar(0.14 + 0.86 * f).lerp(this._c1.setRGB(1.0, 0.62, 0.42), 0.55 * dusk);
-        u.uCloudDark.value.copy(lit).multiplyScalar(0.66).lerp(top, 0.18);
-        u.uShadow.value = 0.2 * f;
-      }
-    }
+    if (u) { u.top.value.copy(top); u.bottom.value.copy(bottom); }
     if (app.scene.fog) app.scene.fog.color.copy(bottom).multiplyScalar(0.92);
     app.renderer.toneMappingExposure = base.exposure;
     // the visible discs: placed far out along the light direction, following the camera
