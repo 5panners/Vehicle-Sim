@@ -110,7 +110,7 @@ class App {
       document.getElementById('loading').remove();
       let auto = null; try { auto = JSON.parse(sessionStorage.getItem('vehicleSim.autoJoin') || 'null'); sessionStorage.removeItem('vehicleSim.autoJoin'); } catch { /* ignore */ }
       if (auto?.password) {                                  // came back from a track switch for an online match: reconnect
-        const go = auto.role === 'host' ? this.net.host(auto.password, auto.slots || ['you', 'open']) : this.net.join(auto.password);
+        const go = auto.role === 'host' ? this.net.host(auto.password, auto.slots || ['you']) : this.net.join(auto.password);
         go.then(() => this.menu.open('race')).catch((e) => this.hud.showToast(`Online: ${e.message}`, 3000));
       } else if (this.pendingRace) { this.createRace(this.pendingRace); this.pendingRace = null; }
       else if (!this.input.padConnected) this.hud.showToast('Tip: Esc / Start opens the menu: create a race, controls and vehicles', 4000);

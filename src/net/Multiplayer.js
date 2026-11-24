@@ -8,11 +8,15 @@ import { BOT_COLORS } from '../game/Race.js';
  * car locally and broadcasts its state 20 times a second; the host also broadcasts the bots.
  * Other cars are drawn as "remote" cars that play those updates back a moment late, interpolated (see RemoteTrack).
  *
- * Grid slots (in grid order, P1 first): 'you'/'human' (a player), 'bot', 'open' (waiting for a
- * player to join), 'na' (empty). Players who join take the first open slot.
+ * Grid slots (in grid order, P1 first): 'you'/'human' (a player), 'bot' or 'empty'. A player who
+ * joins takes a random bot's place (an empty slot when no bots are left), and gives it back when they
+ * leave; the match is only full when every slot holds a player.
  */
 export const MAX_SLOTS = 8;
-export const SLOT_KINDS = [['bot', 'Bot'], ['open', 'Player'], ['na', 'NA']];
+export const SLOT_KINDS = [['bot', 'Bot'], ['empty', 'Empty']];
+/** slot kinds saved by older builds: 'open' (a player slot) is a bot now, 'na' is empty */
+export const slotKind = (k) => (k === 'na' ? 'empty' : k === 'open' ? 'bot' : k);
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
 export const HUMAN_COLORS = ['#ffd54f', '#ef5350', '#26c6da', '#ab47bc', '#66bb6a', '#ff7043', '#5c6bc0', '#ec407a'];
 const STATE_HZ = 20, LOBBY_EVERY = 1.0, TIMEOUT = 8;
 
@@ -93,7 +97,7 @@ export class Multiplayer {
     await this._connect(password);
     this.role = 'host';
     const me = { k: 'human', id: this.id, name: this.name };
-    this.lobby = { host: this.id, map: this.app.mapId, preset: this.app.presetIndex, ...this._raceBits(), slots: slots.map((k) => (k === 'you' ? me : { k })) };
+    this.lobby = { host: this.id, map: this.app.mapId, preset: this.app.presetIndex, ...this._raceBits(), slots: Array.from({ length: MAX_SLOTS }, (_, i) => (slots[i] === 'you' ? me : { k: slotKind(slots[i] ?? 'bot') })) };
     if (!this.lobby.slots.some((s) => s.id === this.id)) this.lobby.slots[0] = me;
     this._setStatus(`Hosting · share the password · ${this._count()}`);
     this.sendLobby();
@@ -129,9 +133,8 @@ export class Multiplayer {
   setSlot(i, kind) {
     if (!this.isHost) return;
     const s = this.lobby.slots[i];
-    if (s.id === this.id) return;
-    if (s.k === 'human' && kind === 'open') return;      // already a player there
-    this.lobby.slots[i] = { k: kind };
+    if (!s || s.k === 'human') return;                   // a player sits there
+    this.lobby.slots[i] = { k: slotKind(kind) };
     this.sendLobby();
   }
 
@@ -182,7 +185,7 @@ export class Multiplayer {
   }
 
   _pendingMap(map) {
-    try { sessionStorage.setItem('vehicleSim.autoJoin', JSON.stringify({ password: this.password, role: this.role, slots: this.lobby?.slots?.map((s) => (s.id === this.id ? 'you' : s.k === 'human' ? 'open' : s.k)) })); } catch { /* ignore */ }
+    try { sessionStorage.setItem('vehicleSim.autoJoin', JSON.stringify({ password: this.password, role: this.role, slots: this.lobby?.slots?.map((s) => (s.id === this.id ? 'you' : s.k === 'human' ? s.was || 'bot' : s.k)) })); } catch { /* ignore */ }
     this._setStatus('Switching to the host\'s track…');
     this.relay?.close();
     this.app.switchMap(map);
@@ -197,9 +200,10 @@ export class Multiplayer {
       if (m.t === 'join') {
         let slot = this.lobby.slots.find((s) => s.id === m.f);
         if (!slot) {
-          const i = this.lobby.slots.findIndex((s) => s.k === 'open');
-          if (i < 0) { this._send('full', { to: m.f }); return; }
-          this.lobby.slots[i] = slot = { k: 'human', id: m.f, name: String(d.name || 'Player').slice(0, 16) };
+          const free = (k) => this.lobby.slots.flatMap((s, j) => (s.k === k ? [j] : []));
+          const bots = free('bot'), i = bots.length ? pick(bots) : free('empty').length ? pick(free('empty')) : -1;
+          if (i < 0) { this._send('full', { to: m.f }); return; }       // every slot is a player
+          this.lobby.slots[i] = slot = { k: 'human', id: m.f, name: String(d.name || 'Player').slice(0, 16), was: this.lobby.slots[i].k };
         }
         this._setStatus(`Hosting · ${this._count()}`);
         this.sendLobby();
@@ -216,7 +220,7 @@ export class Multiplayer {
         if (!this.app.race && d.preset !== this.app.presetIndex) this.app.loadPreset(d.preset, { quiet: true });
         if (first || (changed && this.status !== 'Racing')) this._setStatus(`Joined · waiting for the host to start · ${this._count()}`);
         else if (changed) this.onChange?.();
-      } else if (m.t === 'full' && d.to === this.id) this._setStatus('That match is full');
+      } else if (m.t === 'full' && d.to === this.id) this._setStatus('That match is full: every slot has a player');
       else if (m.t === 'start') this._begin(d);
       else if (m.t === 'end') { if (this.app.race?.online) { this.app.endRace(); this.app.hud.showToast('The host ended the race', 2000); } }
       else if (m.t === 'st' || m.t === 'bots') {
@@ -231,7 +235,7 @@ export class Multiplayer {
   _drop(id) {
     if (!this.isHost) return;
     const i = this.lobby.slots.findIndex((s) => s.id === id);
-    if (i >= 0) { this.lobby.slots[i] = { k: 'open' }; this.sendLobby(); }
+    if (i >= 0) { this.lobby.slots[i] = { k: this.lobby.slots[i].was || 'bot' }; this.sendLobby(); }   // the bot comes back
     this.remote.delete(id); this.seen.delete(id);
     this.app.race?.dropRemote(id);
     this._setStatus(`Hosting · ${this._count()}`);

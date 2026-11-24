@@ -86,11 +86,14 @@ export class Menu {
   }
 
   // ---------------------------------------------------------------- Create Race
-  /** grid slots, P1 first: 'you', 'bot', 'open' (a player can join online), 'na' */
+  /** grid slots, P1 first: 'you', 'bot' or 'empty'. Online, players who join take a bot's place.
+   *  The default (and any grid saved by an older build) is a full grid of bots with you in a random slot. */
   _slots(s) {
-    if (Array.isArray(s.slots) && s.slots.length === MAX_SLOTS) return s.slots;
-    const n = Math.min(MAX_OPPONENTS, s.opponents ?? 3) + 1, mine = Math.max(1, Math.min(n, s.slot ?? 1)) - 1;
-    return Array.from({ length: MAX_SLOTS }, (_, i) => (i === mine ? 'you' : i < n ? 'bot' : 'na'));
+    const ok = Array.isArray(s.slots) && s.slots.length === MAX_SLOTS && s.slots.every((k) => k === 'you' || k === 'bot' || k === 'empty')
+      && s.slots.filter((k) => k === 'you').length === 1;
+    if (ok) return s.slots;
+    const mine = Math.floor(Math.random() * Math.min(MAX_SLOTS, MAX_OPPONENTS + 1));
+    return Array.from({ length: MAX_SLOTS }, (_, i) => (i === mine ? 'you' : i <= MAX_OPPONENTS ? 'bot' : 'empty'));
   }
 
   _race() {
@@ -114,9 +117,9 @@ export class Menu {
         let el;
         const ls = lobby?.slots?.[i];
         if (ls?.k === 'human') el = h('div', { class: 'slot-name' + (ls.id === net.id ? ' me' : '') }, ls.id === net.id ? `${ls.name} (you)` : ls.name);
-        else if (guest) el = h('div', { class: 'slot-name dim' }, ls ? (ls.k === 'bot' ? 'Bot' : ls.k === 'open' ? 'Open (player)' : 'NA') : '…');
+        else if (guest) el = h('div', { class: 'slot-name dim' }, ls ? (ls.k === 'bot' ? 'Bot' : 'Empty') : '…');
         else {
-          const kind = online ? ls?.k ?? 'na' : s.slots[i];
+          const kind = online ? ls?.k ?? 'empty' : s.slots[i];
           const opts = online ? SLOT_KINDS : [['you', `${app.playerName} (you)`], ...SLOT_KINDS];
           el = select(kind, opts, (v) => {
             if (online) { net.setSlot(i, v); drawSlots(); return; }
@@ -129,8 +132,9 @@ export class Menu {
       }
       const bots = online ? (lobby?.slots ?? []).filter((x) => x.k === 'bot').length : s.slots.filter((k) => k === 'bot').length;
       const players = online ? (lobby?.slots ?? []).filter((x) => x.k === 'human').length : 1;
-      const open = online ? (lobby?.slots ?? []).filter((x) => x.k === 'open').length : s.slots.filter((k) => k === 'open').length;
-      grid.append(h('div', { class: 'slot-sum' }, online ? `${players} player${players === 1 ? '' : 's'} · ${bots} bot${bots === 1 ? '' : 's'}${open ? ` · ${open} open` : ''}` : `Solo against ${bots} bot${bots === 1 ? '' : 's'}${open ? ` · ${open} player slot${open === 1 ? '' : 's'} (fill when you host online)` : ''}`));
+      const pl = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+      grid.append(h('div', { class: 'slot-sum' }, online ? `${pl(players, 'player')} · ${pl(bots, 'bot')}${players < MAX_SLOTS ? ` · ${pl(MAX_SLOTS - players, 'place')} left for players` : ' · full'}`
+        : `You against ${pl(bots, 'bot')}. Players who join online take a bot's place.`));
     };
     drawSlots();
     net.onChange = () => { if (!this.isOpen || this.tab !== 'race') return; if (guest !== (net.active && !net.isHost) || online !== net.active) { this.show('race'); return; } if (guest) { this.show('race'); return; } drawSlots(); statusEl.textContent = net.status; buttons(); };
@@ -174,7 +178,7 @@ export class Menu {
       h('h3', {}, 'Play online'),
       h('div', { class: 'row' }, h('label', {}, 'Connect'), pw, btnBox),
       h('div', { class: 'row' }, h('label', {}, ''), statusEl),
-      h('p', { class: 'hint' }, 'Type the same password on both sides, then one presses Host match and the others Join match. Joining players take the open Player slots. Runs through a free public relay: share the password only with the people you are racing.'),
+      h('p', { class: 'hint' }, 'Type the same password on both sides, then one presses Host match and the others Join match. Each player who joins takes a bot\'s place on the grid (or an empty slot), and the bot comes back if they leave. Runs through a free public relay: share the password only with the people you are racing.'),
       h('div', { class: 'row btnrow' },
         h('label', {}, ''), startBtn,
         app.race ? h('button', { class: 'btn', onclick: () => { app.endRace(); this.show('race'); } }, online && !host ? 'Leave race' : 'End current race') : null),
