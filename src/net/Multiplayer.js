@@ -264,8 +264,8 @@ export class Multiplayer {
     if (!lineup.some((l) => l.kind === 'me')) { this._setStatus('The host started without you (no free slot)'); return; }
     this.remote.clear();
     const mine = msg.grid.find((g) => g.kind === 'human' && g.id === this.id);
-    app.setCarTint(mine?.color);                                  // your own car wears the colour everyone else sees you in
     app.createRace({ laps: msg.laps, skill: msg.skill, lineup, online: true, hold: msg.hold });
+    app.setCarTint(mine?.color);                                  // your own car wears the colour everyone else sees you in (after createRace: ending the last race repaints it)
     if (app.race && mine?.color) app.race.player.color = mine.color;
     app.menu.close();
     this._setStatus(this.isHost ? `Racing · ${this._count()}` : 'Racing');
