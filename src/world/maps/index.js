@@ -6,6 +6,7 @@ import kart from './kart.js';
 import city from './city.js';
 import rocky from './rocky.js';
 import amalfi from './amalfi.js';
+import canyon from './canyon.js';
 
-export const MAPS = { [test.id]: test, [brands.id]: brands, [spa.id]: spa, [kart.id]: kart, [city.id]: city, [rocky.id]: rocky, [amalfi.id]: amalfi };
+export const MAPS = { [test.id]: test, [brands.id]: brands, [spa.id]: spa, [kart.id]: kart, [city.id]: city, [rocky.id]: rocky, [amalfi.id]: amalfi, [canyon.id]: canyon };
 export const DEFAULT_MAP = 'brands';

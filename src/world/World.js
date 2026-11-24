@@ -232,7 +232,9 @@ export class World {
             // banking: inside of the corner lower
             // (maps with signedBank give + = right side lower, so the direction can't flicker on straights)
             const bankLat = this.map.signedBank ? lat : Math.sign(s.curv || 1) * lat;
-            trackH[k] = s.y + s.dy * along - Math.sin(s.bank) * clamp(bankLat, -s.w, s.w);
+            // (maps with bankFade fade the banking out where the bend straightens, so it never flips side with a step)
+            const bank = this.map.bankFade ? s.bank * smoothstep(this.map.bankFade[0], this.map.bankFade[1], Math.abs(s.curv)) : s.bank;
+            trackH[k] = s.y + s.dy * along - Math.sin(bank) * clamp(bankLat, -s.w, s.w);
             gravel[k] = map.gravel?.(s, lat, d, s.w / 2, this) ? 1 : 0;
           }
         }
