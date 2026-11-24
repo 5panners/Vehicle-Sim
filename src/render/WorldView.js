@@ -8,8 +8,6 @@ import { buildBrandsScenery } from './scenery/brandsHatch.js';
 import { buildKartScenery } from './scenery/kart.js';
 import { buildCityScenery } from './scenery/city.js';
 import { buildAmalfiScenery } from './scenery/amalfi.js';
-import { buildCanyonScenery } from './scenery/canyon.js';
-import { buildRockyScenery } from './scenery/rocky.js';
 import { buildSpaScenery } from './scenery/spa.js';
 
 export function noiseTexture(size = 256, contrast = 0.25, base = 0.85) {
@@ -57,9 +55,7 @@ export class WorldView {
     else if (scenery === 'spa') buildSpaScenery(this);
     else if (scenery === 'kart') buildKartScenery(this);
     else if (scenery === 'city') buildCityScenery(this);
-    else if (scenery === 'rocky') buildRockyScenery(this);
     else if (scenery === 'amalfi') buildAmalfiScenery(this);
-    else if (scenery === 'canyon') buildCanyonScenery(this);
   }
 
   // Barriers: street concrete (red/white blocks), concrete pit wall, Armco (two steel rails on
