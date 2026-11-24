@@ -46,11 +46,12 @@ export class Exhaust {
       const rising = Math.max(0, (rpm - (view._exRpm ?? rpm)) / dt); view._exRpm = rpm;
       view._exKick = Math.max((view._exKick || 0) * Math.exp(-4 * dt), Math.min(1, rising * 0.5));
       const load = Math.min(1, th * (0.35 + 0.65 * rpm) + view._exKick * 0.6);
-      const rate = (4 + load * 34 + rpm * 4) * lod;                    // puffs a second: denser with load
+      // at speed the airflow thins it out: up to 40% fewer and fainter puffs from about 90 km/h
+      const v = vehicle.body.velocity, sp = Math.hypot(v.x, v.z), thin = 1 - 0.4 * Math.min(1, Math.max(0, (sp - 5) / 20));
+      const rate = (4 + load * 34 + rpm * 4) * lod * thin;             // puffs a second: denser with load
       view._exAcc = (view._exAcc || 0) + rate * dt;
       if (view._exAcc < 1) continue;
       _back.set(0, 0, -1).applyQuaternion(view.group.quaternion);
-      const v = vehicle.body.velocity;
       while (view._exAcc >= 1 && budget > 0) {
         view._exAcc -= 1; budget--;
         const out = 0.6 + load * 4.5 + Math.random() * 0.4, k = this.i * 3;   // faster out of the pipe with load
@@ -61,9 +62,9 @@ export class Exhaust {
         this.vel[k + 2] = v.z * 0.55 + _back.z * out + (Math.random() - 0.5) * 0.4;
         const j = k / 3, life = 0.7 + Math.random() * 0.5 + load * 0.5;
         this.life[j] = this.max[j] = life; this.size[j] = 0.12 + load * 0.12 + Math.random() * 0.05;
-        this.peak[j] = 0.16 + load * 0.3;                              // thicker with load
-        const g = 0.84 + Math.random() * 0.08;
-        this.col[j * 4] = g; this.col[j * 4 + 1] = g + 0.01; this.col[j * 4 + 2] = g + 0.03;
+        this.peak[j] = (0.16 + load * 0.3) * (0.55 + 0.45 * thin);    // thicker with load, fainter at speed
+        const g = 0.8 + Math.random() * 0.08;                          // two-stroke haze: a light blue-grey
+        this.col[j * 4] = g * 0.9; this.col[j * 4 + 1] = g * 0.96; this.col[j * 4 + 2] = Math.min(1, g * 1.1);
         this.live = N;
       }
       if (view._exAcc > 3) view._exAcc = 3;

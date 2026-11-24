@@ -9,6 +9,7 @@ import { buildKartScenery } from './scenery/kart.js';
 import { buildCityScenery } from './scenery/city.js';
 import { buildAmalfiScenery } from './scenery/amalfi.js';
 import { buildSpaScenery } from './scenery/spa.js';
+import { skyMaterial, enhanceTerrain, natureUniforms } from './Nature.js';
 
 export function noiseTexture(size = 256, contrast = 0.25, base = 0.85) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -106,12 +107,8 @@ export class WorldView {
 
   _sky() {
     const geo = new THREE.SphereGeometry(4000, 32, 16);
-    const mat = new THREE.ShaderMaterial({
-      side: THREE.BackSide, depthWrite: false, fog: false,
-      uniforms: { top: { value: new THREE.Color(this.world.map.sky?.top ?? 0x3a7bd5) }, bottom: { value: new THREE.Color(this.world.map.sky?.bottom ?? 0xdfe9f3) } },
-      vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
-      fragmentShader: 'uniform vec3 top; uniform vec3 bottom; varying vec3 vP; void main(){ float t = clamp(vP.y*1.6+0.08,0.0,1.0); gl_FragColor = vec4(mix(bottom, top, pow(t,0.7)),1.0);} ',
-    });
+    const sky = this.world.map.sky || {};
+    const mat = skyMaterial(sky.top ?? 0x3a7bd5, sky.bottom ?? 0xdfe9f3, sky.clouds ?? 0.55);   // soft clouds drift overhead (Nature.js)
     this.sky = new THREE.Mesh(geo, mat);
     this.scene.add(this.sky);
   }
@@ -164,7 +161,7 @@ export class WorldView {
     gAll.computeVertexNormals();
     const posAttr = gAll.getAttribute('position'), nrmAttr = gAll.getAttribute('normal');
     const colAttr = new THREE.BufferAttribute(col, 3), uvAttr = new THREE.BufferAttribute(uv, 2);
-    const m = new THREE.MeshLambertMaterial({ vertexColors: true, map: this.detail });
+    const m = enhanceTerrain(new THREE.MeshLambertMaterial({ vertexColors: true }), this.world.map.rockSlope ? { rockSlope: this.world.map.rockSlope } : {});   // rock on slopes, grain, cloud shadows
     const C = 48;                                                                // cells per chunk side (120 m at the 2.5 m mesh, 144 m at 3 m)
     this.terrainChunks = [];
     for (let cj = 0; cj < n - 1; cj += C) for (let ci = 0; ci < n - 1; ci += C) {
@@ -300,7 +297,7 @@ export class WorldView {
   }
 
   /** number of start lights lit (0-5) */
-  update(camera) { for (const f of this.updaters) f(camera); }
+  update(camera) { natureUniforms.uTime.value = performance.now() / 1000; for (const f of this.updaters) f(camera); }
 
   setStartLights(n) {
     this.startLamps?.forEach((m, i) => m.color.setHex(i < n ? 0xff1a1a : 0x2a0606));
