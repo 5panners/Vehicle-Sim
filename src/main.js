@@ -261,6 +261,15 @@ class App {
         this.hud.showToast(`Opponent skill: ${BOT_SKILLS[i].name}`);
       }
       else if (e.code === 'KeyV') this.cycleFollow();
+      else if (e.code === 'KeyJ') { this.showNet = !this.showNet; this.hud.showToast(this.showNet ? 'Net stats on' : 'Net stats off', 900); }
+      else if (e.code === 'Comma' || e.code === 'Period') {           // online prediction, live
+        const t = this.net.tune, v = Math.round(Math.max(0, Math.min(1, t.predict + (e.code === 'Period' ? 0.1 : -0.1))) * 10) / 10;
+        this.net.setTune('predict', v); this.showNet = true; this.hud.showToast(`Prediction ${Math.round(v * 100)}%`, 900);
+      } else if (e.code === 'Minus' || e.code === 'Equal' || e.code === 'Digit0') {   // online smoothing buffer, live (0 = auto)
+        const t = this.net.tune, cur = t.buffer || Math.round(([...this.net.remote.values()][0]?.delay ?? 0.15) * 40) / 40;
+        const v = e.code === 'Digit0' ? 0 : Math.round(Math.max(0.025, Math.min(0.5, cur + (e.code === 'Equal' ? 0.025 : -0.025))) * 1000) / 1000;
+        this.net.setTune('buffer', v); this.showNet = true; this.hud.showToast(v ? `Buffer ${Math.round(v * 1000)} ms` : 'Buffer auto', 900);
+      }
       else if (e.code === 'KeyN') this.hud.showToast(this.hud.toggleMap() ? 'Track map on' : 'Track map off', 900);
       else if (e.code === 'KeyG') { this.vehicle.assists.autoGearbox = !this.vehicle.assists.autoGearbox; this.hud.showToast(this.vehicle.assists.autoGearbox ? 'Automatic gearbox' : 'Manual gearbox'); }
       else if (e.code === 'BracketRight') this.loadPreset((this.presetIndex + 1) % PRESETS.length);
@@ -388,6 +397,7 @@ class App {
     const sd = this.gfx.sunDir, reach = 130;
     this.sun.position.set(p.x + sd.x * reach, p.y + sd.y * reach, p.z + sd.z * reach); this.sun.target.position.set(p.x, p.y, p.z);
     this.shadows.update();
+    this.hud.netText = this.showNet && this.net.active ? this.net.statsText() : '';
     this.hud.update(dt, v, inp, { physicsHz: PHYSICS_HZ, camera: this.rig.modeName, slowmo: this.slowmo, lap: this.lapTimer, clock: this.gfx.hourText, night: this.gfx.s.hour < 6 || this.gfx.s.hour >= 18 });
     if (!paused) {
       this.audio.update(v);

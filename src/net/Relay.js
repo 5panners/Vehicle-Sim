@@ -6,9 +6,17 @@
  *
  * The broker sees the (hashed) topic and the game messages; nothing personal is sent.
  */
-/** messages a second the public brokers pass per connection (more is silently dropped there): a token bucket keeps us under it */
-const LIMIT = 9.5, BURST = 3;
-export const BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'];
+/**
+ * Free public brokers, fastest first. `limit`: messages a second each passes per connection (more is silently dropped
+ * there), so a token bucket keeps us under it. Measured from the UK: test.mosquitto.org about 18 ms one way and no drops
+ * at 20 Hz; broker.emqx.io about 165 ms and drops above 10 a second. Everyone in a match must end up on the same one:
+ * 'auto' tries them in this order.
+ */
+export const BROKERS = [
+  { id: 'mosquitto', name: 'test.mosquitto.org', url: 'wss://test.mosquitto.org:8081/mqtt', limit: 24 },
+  { id: 'emqx', name: 'broker.emqx.io', url: 'wss://broker.emqx.io:8084/mqtt', limit: 9.5 },
+];
+const BURST = 3;
 
 const enc = new TextEncoder(), dec = new TextDecoder();
 const str = (s) => { const b = enc.encode(s); return [b.length >> 8, b.length & 255, ...b]; };
@@ -25,15 +33,16 @@ export class Relay {
     this.onMessage = onMessage; this.onClose = onClose;
     this.ws = null; this.topic = null; this.buf = new Uint8Array(0); this.open = false; this.broker = null;
     this._pid = 1; this._ping = null; this.sent = 0; this.received = 0; this.skipped = 0;
-    this._tokens = BURST; this._refill = performance.now();
+    this._tokens = BURST; this._refill = performance.now(); this.limit = 9.5;
   }
 
-  /** connect to the first broker that answers and join the room; resolves with the broker url */
-  async connect(password) {
+  /** connect to the chosen broker ('auto': the first that answers) and join the room; resolves with the broker */
+  async connect(password, choice = 'auto') {
     this.topic = await roomTopic(password);
     let lastErr = null;
-    for (const url of BROKERS) {
-      try { await this._connectTo(url); this.broker = url; return url; } catch (e) { lastErr = e; this._teardown(); }
+    const list = choice === 'auto' ? BROKERS : BROKERS.filter((b) => b.id === choice);
+    for (const b of list) {
+      try { await this._connectTo(b.url); this.broker = b; this.limit = b.limit; return b; } catch (e) { lastErr = e; this._teardown(); }
     }
     throw lastErr || new Error('no relay reachable');
   }
@@ -89,7 +98,7 @@ export class Relay {
   send(obj, droppable = false) {
     if (!this.open || this.ws?.readyState !== 1) return false;
     const now = performance.now();
-    this._tokens = Math.min(BURST, this._tokens + (now - this._refill) / 1000 * LIMIT); this._refill = now;
+    this._tokens = Math.min(BURST, this._tokens + (now - this._refill) / 1000 * this.limit); this._refill = now;
     if (droppable && this._tokens < 1) { this.skipped++; return false; }
     this._tokens -= 1;
     const payload = enc.encode(JSON.stringify(obj));

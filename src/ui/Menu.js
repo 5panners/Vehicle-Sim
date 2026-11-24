@@ -1,7 +1,8 @@
 import { PRESETS } from '../vehicles/presets.js';
 import { BOT_SKILLS, BOT_PARAMS, BOT_SKILL_DEFAULTS, MISTAKE_TYPES, saveBotSkills, resetBotSkill, resetAllBotSkills } from '../game/BotDriver.js';
 import { MAX_OPPONENTS } from '../game/Race.js';
-import { MAX_SLOTS, SLOT_KINDS } from '../net/Multiplayer.js';
+import { MAX_SLOTS, SLOT_KINDS, NET_RATES } from '../net/Multiplayer.js';
+import { BROKERS } from '../net/Relay.js';
 import { FLOW_OPTIONS } from '../render/Graphics.js';
 
 const h = (tag, attrs = {}, ...kids) => {
@@ -60,6 +61,7 @@ export class Menu {
 
   update(dt) {
     if (!this.isOpen) return;
+    if (this._netStats && (this._netT = (this._netT || 0) + dt) > 0.5) { this._netT = 0; this._netStats.textContent = this.app.net.statsText(); }
     if (this.tab === 'controls') this.setup.update(dt);      // live input bars + its own pad navigation
     if (this.tab === 'graphics' && this._clock) { this._clock.textContent = this.app.gfx.hourText; if (document.activeElement !== this._hourSlider) this._hourSlider.value = this.app.gfx.s.hour; }
     const pad = this.app.input.activePad();
@@ -83,6 +85,28 @@ export class Menu {
     }
     if (edge(0) && el && focusables.includes(el)) el.click();
     if (edge(1) || edge(9)) this.close();
+  }
+
+  /** online connection settings: all live except the relay (used on the next Host / Join) */
+  _netTune(select) {
+    const net = this.app.net, t = net.tune;
+    const pred = h('input', { type: 'range', min: 0, max: 1, step: 0.1, value: t.predict });
+    const predOut = h('span', { class: 'val' }, `${Math.round(t.predict * 100)}%`);
+    pred.addEventListener('input', () => { net.setTune('predict', +pred.value); predOut.textContent = `${Math.round(+pred.value * 100)}%`; });
+    this._netStats = h('span', { class: 'net-status' }, net.statsText());
+    return [
+      h('h3', {}, 'Connection'),
+      h('div', { class: 'row' }, h('label', {}, 'Relay'), select(t.relay, [['auto', 'Auto (fastest for each game)'], ...BROKERS.map((b) => [b.id, b.name])], (v) => net.setTune('relay', v)),
+        h('span', { class: 'hint' }, 'Auto: the host times each relay and picks the fastest; joining players find the host on whichever it picked. Applies on the next Host / Join.')),
+      h('div', { class: 'row' }, h('label', {}, 'Update rate'), select(t.rate, NET_RATES.map((r) => [r, `${r} a second`]), (v) => net.setTune('rate', +v)),
+        h('span', { class: 'hint' }, 'How often your car is sent. Higher is smoother and fresher; broker.emqx.io caps it at 8.')),
+      h('div', { class: 'row' }, h('label', {}, 'Smoothing'), select(t.buffer, [[0, 'Auto'], ...[0.05, 0.075, 0.1, 0.15, 0.2, 0.3].map((b) => [b, `${b * 1000} ms`])], (v) => net.setTune('buffer', +v)),
+        h('span', { class: 'hint' }, 'How far behind the newest update others are drawn. Less is fresher but can stutter.')),
+      h('div', { class: 'row' }, h('label', {}, 'Prediction'), pred, predOut,
+        h('span', { class: 'hint' }, 'Draws others ahead along their path to make up the delay. Too high overshoots corners.')),
+      h('div', { class: 'row' }, h('label', {}, 'Now'), this._netStats),
+      h('p', { class: 'hint' }, 'While driving: J shows these stats, , and . change prediction, - and = change smoothing (0 = auto).'),
+    ];
   }
 
   // ---------------------------------------------------------------- Create Race
@@ -178,6 +202,7 @@ export class Menu {
       h('h3', {}, 'Play online'),
       h('div', { class: 'row' }, h('label', {}, 'Connect'), pw, btnBox),
       h('div', { class: 'row' }, h('label', {}, ''), statusEl),
+      ...this._netTune(select),
       h('p', { class: 'hint' }, 'Type the same password on both sides, then one presses Host match and the others Join match. Each player who joins takes a bot\'s place on the grid (or an empty slot), and the bot comes back if they leave. Runs through a free public relay: share the password only with the people you are racing.'),
       h('div', { class: 'row btnrow' },
         h('label', {}, ''), startBtn,
