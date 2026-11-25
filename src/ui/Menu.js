@@ -123,7 +123,7 @@ export class Menu {
   }
 
   _race() {
-    const app = this.app, net = app.net, s = { ...app.raceSettings, map: app.mapId };
+    const app = this.app, net = app.net, s = { ...app.raceSettings, map: app.pickedMap && app.maps[app.pickedMap] ? app.pickedMap : app.mapId };   // the track you picked last (kept while you browse vehicles)
     s.slots = this._slots(s);
     const save = () => { const { map, ...rest } = s; app.raceSettings = rest; net.refreshLobby(); };
     const select = (value, options, onchange, attrs = {}) => {
@@ -196,7 +196,7 @@ export class Menu {
     const box = h('div', { class: 'race-form' },
       h('p', { class: 'hint' }, 'Line up on the grid against AI opponents in the same car as you, then wait for the five red lights to go out. Host online to race friends: everyone types the same password.'),
       h('div', { class: 'row' }, h('label', {}, 'Your name'), nameIn),
-      h('div', { class: 'row' }, h('label', {}, 'Track'), select(online ? net.lobby?.map ?? app.mapId : s.map, maps.map(([id, m]) => [id, m.name]), (v) => { s.map = v; }, lockIfGuest)),
+      h('div', { class: 'row' }, h('label', {}, 'Track'), select(online ? net.lobby?.map ?? app.mapId : s.map, maps.map(([id, m]) => [id, m.name]), (v) => { s.map = v; app.pickedMap = v; }, lockIfGuest)),
       h('div', { class: 'row' }, h('label', {}, 'Bot skill'), select(online ? net.lobby?.skill ?? s.skill : s.skill, BOT_SKILLS.map((k, i) => [i, k.name]), (v) => { s.skill = +v; save(); }, lockIfGuest)),
       h('div', { class: 'row' }, h('label', {}, 'Laps'), select(online ? net.lobby?.laps ?? s.laps : s.laps, [[0, 'Practice (no limit)'], [1, '1'], [3, '3'], [5, '5'], [10, '10'], [20, '20']], (v) => { s.laps = +v; save(); }, lockIfGuest)),
       h('div', { class: 'row' }, h('label', {}, 'Vehicle'), h('span', {}, app.vehicle.config.name), guest ? h('span', { class: 'hint' }, '(set by the host)') : h('button', { class: 'btn ghost', onclick: () => this.show('vehicle') }, 'Change…')),
