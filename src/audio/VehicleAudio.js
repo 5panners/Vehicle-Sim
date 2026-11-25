@@ -58,7 +58,13 @@ export class VehicleAudio {
   get scrape() { return this.player?.scrape || 0; }
   set scrape(v) { if (this.player) this.player.scrape = v; }
   thump(strength) { this.player?.hit(strength); }
-  update(vehicle) { this.player?.update(vehicle, null); }
+  /** the close-up voice: your car, or (foreign) the car the Follow camera watches, whose hits come from the physics step */
+  update(vehicle, foreign = false) {
+    if (!this.player) return;
+    if (this.player.foreign !== foreign || this.player.vehicle !== vehicle) { this.player.scrape = 0; this.player.prevImpact = vehicle.telemetry?.impact ?? 0; }
+    this.player.foreign = foreign; this.player.vehicle = vehicle;
+    this.player.update(vehicle, null);
+  }
 
   /** an opponent's voice (created on first use, once the audio context exists) */
   voiceFor(key, vehicle, index = 0) {
@@ -78,8 +84,10 @@ export class VehicleAudio {
     if (!this.ctx) return;
     const lp = listener.body.position, lv = listener.body.velocity;
     const fwd = listener.body.localDir({ x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: 0 }), rx = fwd.z, rz = -fwd.x;   // listener's right-hand direction
+    const live = new Set();
     for (const { key, vehicle, index } of entries) {
       const v = this.voiceFor(key, vehicle, index); if (!v) continue;
+      live.add(key);
       const dx = vehicle.body.position.x - lp.x, dy = vehicle.body.position.y - lp.y, dz = vehicle.body.position.z - lp.z;
       const dist = Math.hypot(dx, dy, dz) || 0.01, nx = dx / dist, ny = dy / dist, nz = dz / dist;
       const vel = vehicle.body.velocity, radial = (vel.x - lv.x) * nx + (vel.y - lv.y) * ny + (vel.z - lv.z) * nz;   // + = moving apart
@@ -92,6 +100,8 @@ export class VehicleAudio {
         doppler: s.doppler && s.spatial ? SPEED_OF_SOUND / (SPEED_OF_SOUND + Math.max(-90, Math.min(90, radial))) : 1,
       });
     }
+    // a car left out this frame (the one now heard up close, or your own car once the camera is back on it) falls silent
+    for (const [key, v] of this.voices) if (!live.has(key) && v.out.gain.value > 0.0005) v.out.gain.setTargetAtTime(0, this.ctx.currentTime, 0.04);
   }
 
   /** one-shot preview of a sound for the Audio tab */
@@ -217,7 +227,7 @@ class CarVoice {
 
     // walls: continuous scrape and the hit itself
     let sc = this.scrape || 0; this.scrape = 0;
-    if (sp) { sc = Math.max(sc, vehicle.audioScrape || 0); vehicle.audioScrape = 0; }
+    if (sp || this.foreign) { sc = Math.max(sc, vehicle.audioScrape || 0); vehicle.audioScrape = 0; }
     this.scrapeGain.gain.setTargetAtTime(Math.min(0.35, sc * 0.02) * S.impacts, t, 0.03);
     this.scrapeFilter.frequency.setTargetAtTime((1600 + sc * 60) * dop, t, 0.05);
     if (this.windGain) this.windGain.gain.setTargetAtTime(Math.min(0.12, sp2 * sp2 * 0.000025) * S.wind, t, 0.1);
@@ -230,7 +240,7 @@ class CarVoice {
 
   /** hits queued by the physics step (wall and car-to-car contacts) */
   _drainHits(vehicle) {
-    if (!this.spatial) return;
+    if (!this.spatial && !this.foreign) return;                 // your own car's hits are played by main.js (thump)
     const h = vehicle.audioHit || 0; vehicle.audioHit = 0;
     if (h > 0.25) this.hit(h);
   }

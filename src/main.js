@@ -284,6 +284,8 @@ class App {
     const list = this.followList(), c = list[(this.followIdx || 0) % list.length];
     return !c || c.isPlayer || !c.vehicle ? this.vehicle : c.vehicle;
   }
+  /** the car on screen: the one the Follow camera watches, otherwise yours (dashboard and sound follow it) */
+  focusVehicle() { return this.rig.modeName === 'Follow' ? this.followVehicle() : this.vehicle; }
   /** V: switch to the Follow camera and move on to the next car */
   cycleFollow() {
     const list = this.followList();
@@ -346,8 +348,14 @@ class App {
       if (lev === 'out') this.hud.showToast('Lights out — go!', 1200);
       this.worldView.setStartLights(this.lights.lit);
       this.hud.setStartLights(this.lights.lit, this.lights.phase === 'lights' || (this.lights.phase === 'go' && this.lights.t < 1));
-      if (bump > 1.5) { this.audio.thump(Math.min(1, bump / 12)); this.hud.drift.combo = 0; }
-      if (race) this.audio.updateOthers(v, race.others.filter((b) => !b.remote || b.seen).map((b, i) => ({ key: b, vehicle: b.vehicle, index: i })));
+      // sound follows the camera: the car you watch is heard up close, every other car (yours too) from where it is
+      const fv = this.focusVehicle(), watching = fv !== v;
+      if (bump > 1.5) { if (watching) v.audioHit = Math.max(v.audioHit || 0, Math.min(1, bump / 12)); else this.audio.thump(Math.min(1, bump / 12)); this.hud.drift.combo = 0; }
+      if (race) {
+        const others = race.others.filter((b) => (!b.remote || b.seen) && b.vehicle !== fv).map((b, i) => ({ key: b, vehicle: b.vehicle, index: i }));
+        if (watching) others.push({ key: 'you', vehicle: v, index: 3 });
+        this.audio.updateOthers(fv, others);
+      }
       if (race) {
         for (const b of race.bots) if (b.vehicle.body.position.y < -60) b.driver.placeAt(b.driver.idx);
         for (const e of race.update(dt * (this.slowmo ? 0.25 : 1), lev)) {
@@ -380,7 +388,7 @@ class App {
       if (this.race) for (const b of this.race.others) cars.push({ view: b.view, vehicle: b.vehicle });
       this.exhaust.update(dt * (this.slowmo ? 0.25 : 1), this.camera, cars);
     }
-    if (wc) this.audio.scrape = Math.max(this.audio.scrape || 0, wc.scrape);
+    if (wc) { if (this.focusVehicle() !== v) v.audioScrape = Math.max(v.audioScrape || 0, wc.scrape); else this.audio.scrape = Math.max(this.audio.scrape || 0, wc.scrape); }
     this.rig.update(dt, this.rig.modeName === 'Follow' ? this.followVehicle() : v, inp.buttons.lookBack);
     const p = v.body.position;
     // tunnels: the daylight drops away as the car goes in (eased, so the eyes 'adapt')
@@ -403,7 +411,8 @@ class App {
     const dash = fc && !fc.isPlayer && fc.vehicle ? { vehicle: fc.vehicle, name: fc.name } : null;   // the speedo and rev counter show the car you watch
     this.hud.update(dt, v, inp, { dash, physicsHz: PHYSICS_HZ, camera: this.rig.modeName, slowmo: this.slowmo, lap: this.lapTimer, clock: this.gfx.hourText, night: this.gfx.s.hour < 6 || this.gfx.s.hour >= 18 });
     if (!paused) {
-      this.audio.update(v);
+      const fv = this.focusVehicle();
+      this.audio.update(fv, fv !== v);
       // feedback
       const t = v.telemetry;
       let rough = 0;
