@@ -99,7 +99,7 @@ export class RemoteTrack {
     const lerp = (a, b) => a + (b - a) * u;
     let w = 0;                                                        // turn rate of the path (rad/s about +Y), for prediction
     if (Math.hypot(A.v[0], A.v[2]) > 2 && Math.hypot(B.v[0], B.v[2]) > 2) { let d = Math.atan2(B.v[0], B.v[2]) - Math.atan2(A.v[0], A.v[2]); d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI; w = d / h; }
-    return { p, q: q.map((x) => x / ql), w, v: [lerp(A.v[0], B.v[0]), lerp(A.v[1], B.v[1]), lerp(A.v[2], B.v[2])], s: lerp(A.s, B.s), rpm: lerp(A.rpm, B.rpm), th: lerp(A.th, B.th), br: lerp(A.br, B.br) };
+    return { p, q: q.map((x) => x / ql), w, v: [lerp(A.v[0], B.v[0]), lerp(A.v[1], B.v[1]), lerp(A.v[2], B.v[2])], s: lerp(A.s, B.s), g: u < 0.5 ? A.g : B.g, rpm: lerp(A.rpm, B.rpm), th: lerp(A.th, B.th), br: lerp(A.br, B.br) };
   }
 }
 
@@ -469,7 +469,7 @@ export class Multiplayer {
   _pack(v) {
     const b = v.body, p = b.position, q = b.orientation, vel = b.velocity;
     return { p: [r3(p.x), r3(p.y), r3(p.z)], q: [r3(q.x), r3(q.y), r3(q.z), r3(q.w)], v: [r3(vel.x), r3(vel.y), r3(vel.z)],
-      s: r3(v.wheels[0].steer), rpm: Math.round(v.drivetrain.engine.rpm), th: r3(v.input.throttle), br: r3(v.input.brake) };
+      s: r3(v.wheels[0].steer), g: v.gear, rpm: Math.round(v.drivetrain.engine.rpm), th: r3(v.input.throttle), br: r3(v.input.brake) };
   }
 }
 

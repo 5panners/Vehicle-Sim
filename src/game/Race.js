@@ -118,7 +118,7 @@ export class Race {
       }
       b.velocity.x = s.v[0]; b.velocity.y = s.v[1]; b.velocity.z = s.v[2];
       const v = r.vehicle, sp = Math.hypot(s.v[0], s.v[2]);
-      v.drivetrain.engine.omega = s.rpm * Math.PI / 30; v.input.throttle = s.th; v.input.brake = s.br;
+      v.drivetrain.engine.omega = s.rpm * Math.PI / 30; if (s.g !== undefined) v.drivetrain.gearbox.gear = s.g; v.input.throttle = s.th; v.input.brake = s.br;
       for (const w of v.wheels) { if (w.axle === 'front') w.steer = s.s; w.rotation += (sp / w.radius) * dt; w.compression = w.staticComp; }
     }
   }

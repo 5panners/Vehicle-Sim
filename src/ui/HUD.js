@@ -235,17 +235,19 @@ export class HUD {
     setClass(e.aAUTO, v.assists.autoGearbox ? 'on' : '');
     setText(e.aAUTO, v.assists.autoGearbox ? 'AUTO' : 'MANUAL');
 
-    const rpm = v.rpm, maxR = eng.limiterRPM * 1.02;
+    // the dashboard (revs, gear, speed) belongs to the car on screen: yours, or the one the Follow camera watches
+    const dv = extra.dash?.vehicle || v, deng = dv.config.engine;
+    const rpm = dv.rpm, maxR = deng.limiterRPM * 1.02;
     setStyle(e.hRpm, 'width', `${Math.min(100, Math.round((rpm / maxR) * 1000) / 10)}%`);
-    const shiftNow = rpm > eng.redlineRPM * 0.96; if (e.hRpm._shift !== shiftNow) { e.hRpm._shift = shiftNow; e.hRpm.classList.toggle('shift', shiftNow); }
-    setStyle(e.hRed, 'left', `${(eng.redlineRPM / maxR) * 100}%`);
-    const g = v.gear;
+    const shiftNow = rpm > deng.redlineRPM * 0.96; if (e.hRpm._shift !== shiftNow) { e.hRpm._shift = shiftNow; e.hRpm.classList.toggle('shift', shiftNow); }
+    setStyle(e.hRed, 'left', `${(deng.redlineRPM / maxR) * 100}%`);
+    const g = dv.gear;
     setText(e.hGear, g === 0 ? 'N' : g < 0 ? 'R' : String(g));
-    const sp = v.forwardSpeed;
+    const sp = dv.forwardSpeed;
     setText(e.hSpd, Math.abs(this.units === 'kmh' ? sp * 3.6 : sp * 2.237).toFixed(0));
     setText(e.hUnit, this.units === 'kmh' ? 'km/h' : 'mph');
-    const boost = v.drivetrain.engine.boost;
-    if (slow) setText(e.hRpmTxt, `${rpm.toFixed(0)} rpm${boost > 0.01 ? ` · boost ${(boost * 100).toFixed(0)}%` : ''}${v.drivetrain.clutchSlipping ? ' · clutch slip' : ''}`);
+    const boost = dv.drivetrain.engine.boost;
+    if (slow) setText(e.hRpmTxt, `${extra.dash ? extra.dash.name + ' · ' : ''}${rpm.toFixed(0)} rpm${boost > 0.01 ? ` · boost ${(boost * 100).toFixed(0)}%` : ''}${dv.drivetrain.clutchSlipping ? ' · clutch slip' : ''}`);
 
     const s = input.state;
     const pc = (x) => `${Math.round(x * 1000) / 10}%`;

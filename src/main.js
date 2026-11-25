@@ -399,7 +399,9 @@ class App {
     this.shadows.update();
     this.hud.netText = this.showNet && this.net.active ? this.net.statsText() : '';
     this.hud.connText = this.net.connText();
-    this.hud.update(dt, v, inp, { physicsHz: PHYSICS_HZ, camera: this.rig.modeName, slowmo: this.slowmo, lap: this.lapTimer, clock: this.gfx.hourText, night: this.gfx.s.hour < 6 || this.gfx.s.hour >= 18 });
+    const fc = this.rig.modeName === 'Follow' ? this.followList()[(this.followIdx || 0) % this.followList().length] : null;
+    const dash = fc && !fc.isPlayer && fc.vehicle ? { vehicle: fc.vehicle, name: fc.name } : null;   // the speedo and rev counter show the car you watch
+    this.hud.update(dt, v, inp, { dash, physicsHz: PHYSICS_HZ, camera: this.rig.modeName, slowmo: this.slowmo, lap: this.lapTimer, clock: this.gfx.hourText, night: this.gfx.s.hour < 6 || this.gfx.s.hour >= 18 });
     if (!paused) {
       this.audio.update(v);
       // feedback
