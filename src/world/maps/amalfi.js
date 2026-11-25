@@ -53,7 +53,6 @@ export default {
   scenery: 'amalfi',
   corners: {},
   pit: { from: 0, to: 0 },
-  defaultCar: 'KZ Shifter Kart',
   signedBank: true,
   flatReach: 10,
   trackPoints: TRACK,

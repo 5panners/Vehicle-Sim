@@ -42,7 +42,6 @@ export default {
   scenery: 'city',
   corners: {},
   pit: { from: 0, to: 0 },
-  defaultCar: 'KZ Shifter Kart',
   signedBank: true,
   waterLevel: WATER, canalX: CANAL.x,
   flatReach: 10,

@@ -35,7 +35,6 @@ export default {
   scenery: 'kart',
   corners: CORNERS,
   pit: PIT,
-  defaultCar: 'KZ Shifter Kart',                     // the circuit opens with a kart (the player can pick any other car afterwards)
   pitBand(world, sample) { return pitBand(this.dist(world, sample), sample.w / 2); },
   signedBank: true,
   flatReach: 10,

@@ -71,8 +71,9 @@ class App {
     this.worldView = new WorldView(this.world, scene);
     this.gfx = new Graphics(this);   // shadow distance, render scale, time of day
     this.lights = new StartLights();
-    const startCar = this.world.map.defaultCar || DEFAULT_CAR;                          // a map can pick its own starting car (the kart circuit: a kart)
-    this.presetIndex = Math.max(0, PRESETS.findIndex((p) => p.name === startCar));   // otherwise opens in the GT3
+    let startCar = DEFAULT_CAR;                                                          // a map never picks the car: switching track keeps the one you drive
+    try { startCar = sessionStorage.getItem('vehicleSim.car') || DEFAULT_CAR; } catch { /* ignore */ }
+    this.presetIndex = Math.max(0, PRESETS.findIndex((p) => p.name === startCar));
     this.vehicle = new Vehicle(structuredClone(PRESETS[this.presetIndex]), this.world);
     this.carView = new CarView(scene);
     this.carView.build(this.vehicle);
@@ -236,7 +237,7 @@ class App {
   /** maps are built once at load; switching reloads the page with ?map= */
   switchMap(id) {
     if (!MAPS[id] || id === this.mapId) return;
-    try { localStorage.setItem('vehicleSim.map', id); } catch { /* ignore */ }
+    try { localStorage.setItem('vehicleSim.map', id); sessionStorage.setItem('vehicleSim.car', PRESETS[this.presetIndex].name); } catch { /* ignore */ }   // the page reloads: carry your car over
     const u = new URL(location.href); u.searchParams.set('map', id); location.href = u.toString();
   }
 
