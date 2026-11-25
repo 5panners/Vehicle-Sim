@@ -101,6 +101,7 @@ export class Race {
     this.clock = 0; this.startTime = null; this.finished = []; this.over = false;
     for (const c of this.cars) { c.idx = undefined; c.progress = null; c.finishTime = null; c.bestLap = null; }
     this.app.lights.begin(this.hold ?? undefined);
+    this.app.watchOwnCar?.();                             // the camera (and dashboard and sound) back on your car for the start
   }
 
   /** network states -> remote cars: each plays back its updates a short, adaptive time late along a smooth curve (RemoteTrack) */
@@ -221,7 +222,13 @@ export class Race {
     return `<h2>${me === 1 ? 'Winner!' : `Finished P${me}`}</h2><table><tr><th></th><th>Driver</th><th>Time</th><th>Best lap</th></tr>${rows}</table>`;
   }
 
-  mapDots() { return this.others.filter((b) => !b.remote || b.seen).map((b) => ({ x: b.vehicle.body.position.x, y: b.vehicle.body.position.y, z: b.vehicle.body.position.z, color: b.color })); }
+  /** minimap pins: every car except the one the map is centred on (focus: the watched car; your car becomes a pin then) */
+  mapDots(focus = this.app.vehicle) {
+    const dot = (vh, color) => ({ x: vh.body.position.x, y: vh.body.position.y, z: vh.body.position.z, color });
+    const out = this.others.filter((b) => (!b.remote || b.seen) && b.vehicle !== focus).map((b) => dot(b.vehicle, b.color));
+    if (focus !== this.app.vehicle) out.push(dot(this.app.vehicle, this.player.color || '#ffd54f'));
+    return out;
+  }
 
   dispose() { for (const b of this.others) { b.tag?.removeFromParent(); b.view.group.removeFromParent(); b.view.blob.removeFromParent(); b.view.pool.removeFromParent(); this.app.audio?.dropVoice(b); } this.bots = []; this.remotes = []; }
 }

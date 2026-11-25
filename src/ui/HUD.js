@@ -93,7 +93,7 @@ export class HUD {
     this.mapZones = zones;
   }
 
-  _updateMap(v) {
+  _updateMap(v, arrowColor = '#ffd54f') {
     if (!this.world || this.mapEl.classList.contains('off')) return;
     const cv = this.mapEl.firstChild, dpr = Math.min(2, window.devicePixelRatio || 1);
     const W = Math.round(this.mapEl.clientWidth), H = Math.round(W * 0.8);
@@ -173,7 +173,7 @@ export class HUD {
     const ar = [proj(p.x + fx * 9, p.y, p.z + fz * 9), proj(p.x - fx * 5 - fz * 5.5, p.y, p.z - fz * 5 + fx * 5.5), proj(p.x - fx * 2, p.y, p.z - fz * 2), proj(p.x - fx * 5 + fz * 5.5, p.y, p.z - fz * 5 - fx * 5.5)];
     if (ar.every(Boolean)) {
       g.beginPath(); ar.forEach((c, i) => (i ? g.lineTo(c[0], c[1]) : g.moveTo(c[0], c[1]))); g.closePath();
-      g.fillStyle = '#ffd54f'; g.fill(); g.lineWidth = 1.6; g.strokeStyle = '#000'; g.stroke();
+      g.fillStyle = arrowColor; g.fill(); g.lineWidth = 1.6; g.strokeStyle = '#000'; g.stroke();
     }
 
     // compass: where world north is, relative to the car
@@ -258,7 +258,7 @@ export class HUD {
     if (this.tele.classList.contains('open')) this._telemetry(v);
     this._driftMeter(dt, v);
     this._mapT = (this._mapT || 0) + dt;
-    if (this._mapT >= 1 / 30) { this._mapT = 0; this._updateMap(v); }   // the map canvas is redrawn 30 times a second, not every frame
+    if (this._mapT >= 1 / 30) { this._mapT = 0; this._updateMap(extra.dash?.vehicle || v, extra.dash?.color); }   // centred on the car on screen   // the map canvas is redrawn 30 times a second, not every frame
   }
 
   /**

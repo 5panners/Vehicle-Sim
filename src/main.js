@@ -286,10 +286,16 @@ class App {
   }
   /** the car on screen: the one the Follow camera watches, otherwise yours (dashboard and sound follow it) */
   focusVehicle() { return this.rig.modeName === 'Follow' ? this.followVehicle() : this.vehicle; }
+  /** a race (re)starts: back to your own car, in the camera you had before following someone */
+  watchOwnCar() {
+    this.followIdx = 0;
+    if (this.rig.modeName === 'Follow') this.rig.setMode(this._preFollow && this._preFollow !== 'Follow' ? this._preFollow : 'Chase');
+  }
   /** V: switch to the Follow camera and move on to the next car */
   cycleFollow() {
     const list = this.followList();
     if (list.length < 2) { this.hud.showToast('Follow camera: start a race with opponents (O) to follow other cars', 2200); return; }
+    if (this.rig.modeName !== 'Follow') this._preFollow = this.rig.modeName;
     this.followIdx = this.rig.modeName === 'Follow' ? ((this.followIdx || 0) + 1) % list.length : (this.followIdx || 0) % list.length;
     this.rig.setMode('Follow');
     const c = list[this.followIdx];
@@ -378,7 +384,7 @@ class App {
     if (this.race) {
       for (const b of this.race.others) b.view.update(b.vehicle, b.vehicle.input.brake);
       this._botHud = (this._botHud || 0) + 1; if (this._botHud % 4 === 1) { const html = this.race.hudHtml(); if (this.hud.el.hBot._h !== html) { this.hud.el.hBot._h = html; this.hud.el.hBot.innerHTML = html; } }   // a few times a second is plenty
-      this.hud.mapOthers = this.race.mapDots();
+      this.hud.mapOthers = this.race.mapDots(this.focusVehicle());
     } else if (this.hud.el.hBot._h !== '') { this.hud.el.hBot._h = ''; this.hud.el.hBot.textContent = ''; }
     const wc = v.wallContact; // read before effects consume it
     if (!paused) {
@@ -408,7 +414,7 @@ class App {
     this.hud.netText = this.showNet && this.net.active ? this.net.statsText() : '';
     this.hud.connText = this.net.connText();
     const fc = this.rig.modeName === 'Follow' ? this.followList()[(this.followIdx || 0) % this.followList().length] : null;
-    const dash = fc && !fc.isPlayer && fc.vehicle ? { vehicle: fc.vehicle, name: fc.name } : null;   // the speedo and rev counter show the car you watch
+    const dash = fc && !fc.isPlayer && fc.vehicle ? { vehicle: fc.vehicle, name: fc.name, color: fc.color } : null;   // the speedo and rev counter show the car you watch
     this.hud.update(dt, v, inp, { dash, physicsHz: PHYSICS_HZ, camera: this.rig.modeName, slowmo: this.slowmo, lap: this.lapTimer, clock: this.gfx.hourText, night: this.gfx.s.hour < 6 || this.gfx.s.hour >= 18 });
     if (!paused) {
       const fv = this.focusVehicle();
