@@ -84,6 +84,7 @@ Switch with **L**, or the **Map** dropdown in the Tab panel (the page reloads wi
 | `kart` | **Apex Ring** (723 m, clockwise): a compact karting circuit with a 150 m start straight, a hairpin, an S-bend and a technical infield. See below. |
 | `city` | **Harbour Street** (1.64 km, clockwise): an urban karting circuit with a start grid and pits, about 3 m of elevation change, soft rollers and a speed hump, a stone arch bridge over a canal and a jump across the canal. Open it with `?map=city`. |
 | `amalfi` | **Costiera Amalfitana** (2.8 km, clockwise): a figure-of-eight kart circuit on the Amalfi Coast: a stone viaduct crossing over the lap, a headland tunnel, 28 m of elevation change, hairpins, pastel villages, a domed church, sea with boats and a pier. Open it with `?map=amalfi`. |
+| `sandown` | **Sandown Park** (900 m, clockwise): the Grand Prix layout of the kart circuit inside Sandown Park racecourse in Surrey, traced from an overhead photo: two straights, eight corners (a long double-apex right, tight hairpins through the infield), racecourse turf and white rails either side, the grandstand across the course, the paddock and clubhouse at the west end, floodlights. Open it with `?map=sandown`. |
 
 ### Spa-Francorchamps
 

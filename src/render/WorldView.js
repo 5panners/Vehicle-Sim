@@ -9,6 +9,7 @@ import { buildKartScenery } from './scenery/kart.js';
 import { buildCityScenery } from './scenery/city.js';
 import { buildAmalfiScenery } from './scenery/amalfi.js';
 import { buildSpaScenery } from './scenery/spa.js';
+import { buildSandownScenery } from './scenery/sandown.js';
 import { skyMaterial, enhanceTerrain } from './Nature.js';
 import { batchStatic, tileInstanced } from './batch.js';
 
@@ -58,6 +59,7 @@ export class WorldView {
     else if (scenery === 'kart') buildKartScenery(this);
     else if (scenery === 'city') buildCityScenery(this);
     else if (scenery === 'amalfi') buildAmalfiScenery(this);
+    else if (scenery === 'sandown') buildSandownScenery(this);
     // static batching: the scenery's many small static meshes merged by look within 150 m cells (far fewer draw calls)
     this.batchStats = batchStatic(this.scene, { keep: new Set(this.startLamps || []), cell: 150 });
     // and big instanced sets (trees, shrubs...) cut into map tiles, so off-screen ones and those outside the shadow area are skipped

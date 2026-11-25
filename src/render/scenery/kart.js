@@ -143,65 +143,8 @@ export function buildKartScenery(view) {
     box(2.4, 0.5, 0.7, mat.dark, f.x, f.y + 11, f.z, f.yaw + Math.PI / 2); pitMasts.push({ f, d });
   }
 
-  // ---- floodlights right round the lap: masts behind the outer barrier whose lamp heads glow after dusk and throw a soft pool of light on the track
-  {
-    const cx = T.reduce((a, s) => a + s.x, 0) / M, cz = T.reduce((a, s) => a + s.z, 0) / M;
-    const lampMat = new THREE.MeshStandardMaterial({ color: 0xfff6dc, emissive: 0xfff0c0, emissiveIntensity: 0.15 });
-    const pc = document.createElement('canvas'); pc.width = pc.height = 128;
-    const pg = pc.getContext('2d'), gr = pg.createRadialGradient(64, 64, 4, 64, 64, 62);
-    gr.addColorStop(0, 'rgba(255,240,200,0.85)'); gr.addColorStop(0.45, 'rgba(255,230,170,0.35)'); gr.addColorStop(1, 'rgba(255,220,150,0)');
-    pg.fillStyle = gr; pg.fillRect(0, 0, 128, 128);
-    const poolTex = new THREE.CanvasTexture(pc); poolTex.colorSpace = THREE.SRGBColorSpace;
-    const poolMat = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
-    const pools = [], masts = [];
-    // a glowing lamp bar, its pool of light on the track and its place in the list of masts the spotlights can use
-    const lamp = (f, side, d, w, yBar) => {
-      const face = Math.atan2(-side * f.t.rx, -side * f.t.rz);                    // lamp heads look across the track
-      const bar = new THREE.Mesh(BOX, lampMat); bar.scale.set(1.8, 0.28, 0.06); bar.position.set(f.x - side * f.t.rx * 0.27, f.y + yBar, f.z - side * f.t.rz * 0.27); bar.rotation.y = face; group.add(bar);
-      const pool = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), poolMat), here = frame(d);
-      const pc2 = frame(d, side * (w * 0.15)); pool.position.set(pc2.x, here.y + 0.06, pc2.z); pool.rotation.x = -Math.PI / 2; pool.renderOrder = 4; group.add(pool);
-      pools.push(pool); masts.push({ x: f.x - side * f.t.rx * 0.3, y: f.y + yBar - 0.14, z: f.z - side * f.t.rz * 0.3, tx: pc2.x, ty: here.y, tz: pc2.z });
-    };
-    for (let d = 8; d < L; d += 44) {
-      const here = frame(d), w = hw(d);
-      // the outer side: whichever side of the track is further from the middle of the site
-      let side = 1, best = -1;
-      for (const sd of [-1, 1]) { const q = frame(d, sd * (w + 4.4)); const r = Math.hypot(q.x - cx, q.z - cz); if (r > best) { best = r; side = sd; } }
-      const f = frame(d, side * (w + 4.4));
-      if (!free(f.x, f.z, 2.2) || keepOut.some((k) => (k.x - f.x) ** 2 + (k.z - f.z) ** 2 < (k.r + 1) ** 2)) continue;
-      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.22, 10.5, 7), mat.steel); mast.position.set(f.x, f.y + 5.25, f.z); mast.castShadow = true; group.add(mast);
-      box(2.0, 0.4, 0.5, mat.dark, f.x, f.y + 10.3, f.z, Math.atan2(-side * f.t.rx, -side * f.t.rz));
-      lamp(f, side, d, w, 10.34);
-    }
-    for (const o of pitMasts) lamp(o.f, -1, o.d, hw(o.d), 11.3);      // the older pit-straight masts get lights too
-
-    // real light: three shadow-casting spotlights follow the player, each hung on one of the nearest masts, so cars are lit
-    // from above and throw shadows on the tarmac. They are always in the scene (intensity 0 by day) so no shader ever recompiles.
-    const K = Math.min(6, masts.length), spots = [];                // six lights: the nearest three also cast shadows
-    for (let k = 0; k < K; k++) {
-      const sp = new THREE.SpotLight(0xfff0d0, 0, 200, 1.3, 0.9, 2);
-      sp.castShadow = k < 3; sp.shadow.mapSize.set(1024, 1024); sp.shadow.camera.near = 3; sp.shadow.camera.far = 200;
-      sp.shadow.bias = -0.0004; sp.shadow.normalBias = 0.04; sp.shadow.radius = 3;
-      scene.add(sp, sp.target); spots.push({ sp, mast: -1 });
-    }
-    const sm = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
-    view.updaters?.push((camera) => {
-      const dk = lighting.dark;
-      lampMat.emissiveIntensity = 0.15 + 3.5 * dk;
-      poolMat.opacity = 0.22 * dk;                                   // the painted pools now only add the soft glow on the ground
-      for (const p of pools) p.visible = dk > 0.02;
-      // hand the nearest masts to the spotlights, nearest first
-      const near = masts.map((m, i) => ({ i, d: Math.hypot(m.x - camera.position.x, m.z - camera.position.z) })).sort((a, b) => a.d - b.d).slice(0, K).map((o) => o.i);
-      spots.forEach((s, i) => { s.mast = i < near.length ? near[i] : -1; });   // the nearest mast gets the first light, and the first three cast shadows
-      for (const s of spots) {
-        const m = masts[s.mast]; s.sp.visible = true;
-        if (!m || dk < 0.02) { s.sp.intensity = 0; s.sp.shadow.autoUpdate = false; continue; }
-        s.sp.position.set(m.x, m.y, m.z); s.sp.target.position.set(m.tx, m.ty, m.tz); s.sp.target.updateMatrixWorld();
-        const dist = Math.hypot(m.x - camera.position.x, m.z - camera.position.z);
-        s.sp.intensity = 1800 * dk * sm(170, 80, dist); s.sp.shadow.autoUpdate = true;
-      }
-    });
-  }
+  // ---- floodlights right round the lap (shared with the other kart circuits)
+  kartFloodlights(view, group, { frame, hw, free, keepOut, BOX, box, mat, extraMasts: pitMasts });
 
   // ---- paddock: tents and a few parked vans behind the garages
   const tentCols = [0xc62828, 0x1d4f91, 0xf2b705, 0x2e7d32, 0xf3f3f0];
@@ -231,4 +174,69 @@ export function buildKartScenery(view) {
     mine.forEach((t, k) => { q.setFromAxisAngle(up, rand() * 6.28); const s = 0.85 + rand() * 0.45; pos.set(t.x, world.heightAtGrid(t.x, t.z) - 0.2, t.z); sc.set(s, s, s); m4.compose(pos, q, sc); im.setMatrixAt(k, m4); });
     im.count = mine.length; im.castShadow = true; group.add(im);
   });
+}
+
+/**
+ * Floodlights right round a kart circuit: masts behind the outer barrier whose lamp heads glow after dusk and throw a soft
+ * pool of light on the track, plus a few real shadow-casting spotlights that follow the camera from mast to mast.
+ * extraMasts: [{ f, d, side?, y? }] masts the scenery already built (lamp bar at height y, facing across from `side`).
+ */
+export function kartFloodlights(view, group, { frame, hw, free, keepOut, BOX, box, mat, extraMasts = [], every = 44, start = 8 }) {
+    const { world, scene } = view, T = world.track, M = T.length, L = world.map.length;
+    const cx = T.reduce((a, s) => a + s.x, 0) / M, cz = T.reduce((a, s) => a + s.z, 0) / M;
+    const lampMat = new THREE.MeshStandardMaterial({ color: 0xfff6dc, emissive: 0xfff0c0, emissiveIntensity: 0.15 });
+    const pc = document.createElement('canvas'); pc.width = pc.height = 128;
+    const pg = pc.getContext('2d'), gr = pg.createRadialGradient(64, 64, 4, 64, 64, 62);
+    gr.addColorStop(0, 'rgba(255,240,200,0.85)'); gr.addColorStop(0.45, 'rgba(255,230,170,0.35)'); gr.addColorStop(1, 'rgba(255,220,150,0)');
+    pg.fillStyle = gr; pg.fillRect(0, 0, 128, 128);
+    const poolTex = new THREE.CanvasTexture(pc); poolTex.colorSpace = THREE.SRGBColorSpace;
+    const poolMat = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    const pools = [], masts = [];
+    // a glowing lamp bar, its pool of light on the track and its place in the list of masts the spotlights can use
+    const lamp = (f, side, d, w, yBar) => {
+      const face = Math.atan2(-side * f.t.rx, -side * f.t.rz);                    // lamp heads look across the track
+      const bar = new THREE.Mesh(BOX, lampMat); bar.scale.set(1.8, 0.28, 0.06); bar.position.set(f.x - side * f.t.rx * 0.27, f.y + yBar, f.z - side * f.t.rz * 0.27); bar.rotation.y = face; group.add(bar);
+      const pool = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), poolMat), here = frame(d);
+      const pc2 = frame(d, side * (w * 0.15)); pool.position.set(pc2.x, here.y + 0.06, pc2.z); pool.rotation.x = -Math.PI / 2; pool.renderOrder = 4; group.add(pool);
+      pools.push(pool); masts.push({ x: f.x - side * f.t.rx * 0.3, y: f.y + yBar - 0.14, z: f.z - side * f.t.rz * 0.3, tx: pc2.x, ty: here.y, tz: pc2.z });
+    };
+    for (let d = start; d < L; d += every) {
+      const here = frame(d), w = hw(d);
+      // the outer side: whichever side of the track is further from the middle of the site
+      let side = 1, best = -1;
+      for (const sd of [-1, 1]) { const q = frame(d, sd * (w + 4.4)); const r = Math.hypot(q.x - cx, q.z - cz); if (r > best) { best = r; side = sd; } }
+      const f = frame(d, side * (w + 4.4));
+      if (!free(f.x, f.z, 2.2) || keepOut.some((k) => (k.x - f.x) ** 2 + (k.z - f.z) ** 2 < (k.r + 1) ** 2)) continue;
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.22, 10.5, 7), mat.steel); mast.position.set(f.x, f.y + 5.25, f.z); mast.castShadow = true; group.add(mast);
+      box(2.0, 0.4, 0.5, mat.dark, f.x, f.y + 10.3, f.z, Math.atan2(-side * f.t.rx, -side * f.t.rz));
+      lamp(f, side, d, w, 10.34);
+    }
+    for (const o of extraMasts) lamp(o.f, o.side ?? -1, o.d, hw(o.d), o.y ?? 11.3);   // masts the scenery put up itself get lights too
+
+    // real light: three shadow-casting spotlights follow the player, each hung on one of the nearest masts, so cars are lit
+    // from above and throw shadows on the tarmac. They are always in the scene (intensity 0 by day) so no shader ever recompiles.
+    const K = Math.min(6, masts.length), spots = [];                // six lights: the nearest three also cast shadows
+    for (let k = 0; k < K; k++) {
+      const sp = new THREE.SpotLight(0xfff0d0, 0, 200, 1.3, 0.9, 2);
+      sp.castShadow = k < 3; sp.shadow.mapSize.set(1024, 1024); sp.shadow.camera.near = 3; sp.shadow.camera.far = 200;
+      sp.shadow.bias = -0.0004; sp.shadow.normalBias = 0.04; sp.shadow.radius = 3;
+      scene.add(sp, sp.target); spots.push({ sp, mast: -1 });
+    }
+    const sm = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
+    view.updaters?.push((camera) => {
+      const dk = lighting.dark;
+      lampMat.emissiveIntensity = 0.15 + 3.5 * dk;
+      poolMat.opacity = 0.22 * dk;                                   // the painted pools now only add the soft glow on the ground
+      for (const p of pools) p.visible = dk > 0.02;
+      // hand the nearest masts to the spotlights, nearest first
+      const near = masts.map((m, i) => ({ i, d: Math.hypot(m.x - camera.position.x, m.z - camera.position.z) })).sort((a, b) => a.d - b.d).slice(0, K).map((o) => o.i);
+      spots.forEach((s, i) => { s.mast = i < near.length ? near[i] : -1; });   // the nearest mast gets the first light, and the first three cast shadows
+      for (const s of spots) {
+        const m = masts[s.mast]; s.sp.visible = true;
+        if (!m || dk < 0.02) { s.sp.intensity = 0; s.sp.shadow.autoUpdate = false; continue; }
+        s.sp.position.set(m.x, m.y, m.z); s.sp.target.position.set(m.tx, m.ty, m.tz); s.sp.target.updateMatrixWorld();
+        const dist = Math.hypot(m.x - camera.position.x, m.z - camera.position.z);
+        s.sp.intensity = 1800 * dk * sm(170, 80, dist); s.sp.shadow.autoUpdate = true;
+      }
+    });
 }
