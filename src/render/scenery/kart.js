@@ -191,6 +191,8 @@ export function kartFloodlights(view, group, { frame, hw, free, keepOut, BOX, bo
     pg.fillStyle = gr; pg.fillRect(0, 0, 128, 128);
     const poolTex = new THREE.CanvasTexture(pc); poolTex.colorSpace = THREE.SRGBColorSpace;
     const poolMat = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    const farPoolMat = poolMat.clone();                              // the pools beyond the spotlights' reach glow brighter
+    const FAR = 200, _fwd = new THREE.Vector3();                     // m: the spotlights fade out around here, and the bright pools take over
     const pools = [], masts = [];
     // a glowing lamp bar, its pool of light on the track and its place in the list of masts the spotlights can use
     const lamp = (f, side, d, w, yBar) => {
@@ -215,9 +217,9 @@ export function kartFloodlights(view, group, { frame, hw, free, keepOut, BOX, bo
 
     // real light: three shadow-casting spotlights follow the player, each hung on one of the nearest masts, so cars are lit
     // from above and throw shadows on the tarmac. They are always in the scene (intensity 0 by day) so no shader ever recompiles.
-    const K = Math.min(6, masts.length), spots = [];                // six lights: the nearest three also cast shadows
+    const K = Math.min(10, masts.length), spots = [];               // ten lights on the masts in view: the nearest three also cast shadows
     for (let k = 0; k < K; k++) {
-      const sp = new THREE.SpotLight(0xfff0d0, 0, 200, 1.3, 0.9, 2);
+      const sp = new THREE.SpotLight(0xfff0d0, 0, 0, 1.3, 0.9, 2);   // no range cut-off: the light reaches as far as it fades
       sp.castShadow = k < 3; sp.shadow.mapSize.set(1024, 1024); sp.shadow.camera.near = 3; sp.shadow.camera.far = 200;
       sp.shadow.bias = -0.0004; sp.shadow.normalBias = 0.04; sp.shadow.radius = 3;
       scene.add(sp, sp.target); spots.push({ sp, mast: -1 });
@@ -226,17 +228,27 @@ export function kartFloodlights(view, group, { frame, hw, free, keepOut, BOX, bo
     view.updaters?.push((camera) => {
       const dk = lighting.dark;
       lampMat.emissiveIntensity = 0.15 + 3.5 * dk;
-      poolMat.opacity = 0.22 * dk;                                   // the painted pools now only add the soft glow on the ground
-      for (const p of pools) p.visible = dk > 0.02;
-      // hand the nearest masts to the spotlights, nearest first
-      const near = masts.map((m, i) => ({ i, d: Math.hypot(m.x - camera.position.x, m.z - camera.position.z) })).sort((a, b) => a.d - b.d).slice(0, K).map((o) => o.i);
+      poolMat.opacity = 0.22 * dk;                                   // the painted pools add the soft glow on the ground near the spotlights...
+      farPoolMat.opacity = 0.5 * dk;                                 // ...and stand in for them further away, so the track stays lit into the distance
+      const cp = camera.position;
+      for (let i = 0; i < pools.length; i++) {
+        const p = pools[i]; p.visible = dk > 0.02;
+        const m = masts[i], far = Math.hypot(m.x - cp.x, m.z - cp.z) > FAR;
+        if (p.material !== (far ? farPoolMat : poolMat)) p.material = far ? farPoolMat : poolMat;
+      }
+      // hand the spotlights to the masts that matter most: near ones first, and those ahead of the camera before those behind it
+      camera.getWorldDirection(_fwd);
+      const near = masts.map((m, i) => {
+        const dx = m.x - cp.x, dz = m.z - cp.z, d = Math.hypot(dx, dz);
+        return { i, d, score: d * ((dx * _fwd.x + dz * _fwd.z) / Math.max(d, 1) < -0.2 ? 3 : 1) };
+      }).sort((a, b) => a.score - b.score).slice(0, K).sort((a, b) => a.d - b.d).map((o) => o.i);
       spots.forEach((s, i) => { s.mast = i < near.length ? near[i] : -1; });   // the nearest mast gets the first light, and the first three cast shadows
       for (const s of spots) {
         const m = masts[s.mast]; s.sp.visible = true;
         if (!m || dk < 0.02) { s.sp.intensity = 0; s.sp.shadow.autoUpdate = false; continue; }
         s.sp.position.set(m.x, m.y, m.z); s.sp.target.position.set(m.tx, m.ty, m.tz); s.sp.target.updateMatrixWorld();
         const dist = Math.hypot(m.x - camera.position.x, m.z - camera.position.z);
-        s.sp.intensity = 1800 * dk * sm(170, 80, dist); s.sp.shadow.autoUpdate = true;
+        s.sp.intensity = 1800 * dk * sm(FAR + 60, FAR - 40, dist); s.sp.shadow.autoUpdate = s.sp.castShadow;
       }
     });
 }
